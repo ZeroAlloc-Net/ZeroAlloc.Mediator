@@ -123,19 +123,56 @@ namespace ZMediator.Generator
                 if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.INotificationHandler<TNotification>"
                     && iface.TypeArguments.Length == 1)
                 {
-                    var notificationType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
+                    var notificationSymbol = iface.TypeArguments[0];
+                    var notificationType = notificationSymbol.ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
 
                     // Check if notification type has [ParallelNotification]
-                    var notificationSymbol = iface.TypeArguments[0];
                     var isParallel = notificationSymbol.GetAttributes().Any(a =>
                         a.AttributeClass?.ToDisplayString() == "ZMediator.ParallelNotificationAttribute");
 
-                    return new NotificationHandlerInfo(notificationType, handlerType, isParallel);
+                    // Detect base handler: TNotification is an interface or abstract class
+                    var isBaseHandler = notificationSymbol.TypeKind == TypeKind.Interface
+                        || notificationSymbol.IsAbstract;
+
+                    // Collect all INotification-derived interfaces the notification type implements
+                    var baseTypeNames = new List<string>();
+                    if (!isBaseHandler)
+                    {
+                        foreach (var baseIface in notificationSymbol.AllInterfaces)
+                        {
+                            if (IsNotificationInterface(baseIface))
+                            {
+                                baseTypeNames.Add(baseIface.ToDisplayString(FullyQualifiedFormat));
+                            }
+                        }
+                    }
+
+                    return new NotificationHandlerInfo(
+                        notificationType,
+                        handlerType,
+                        isParallel,
+                        isBaseHandler,
+                        string.Join(";", baseTypeNames));
                 }
             }
 
             return null;
+        }
+
+        private static bool IsNotificationInterface(INamedTypeSymbol symbol)
+        {
+            if (symbol.TypeKind != TypeKind.Interface) return false;
+
+            // Check if this interface is or derives from INotification
+            if (symbol.ToDisplayString() == "ZMediator.INotification") return true;
+
+            foreach (var iface in symbol.AllInterfaces)
+            {
+                if (iface.ToDisplayString() == "ZMediator.INotification") return true;
+            }
+
+            return false;
         }
 
         private static StreamHandlerInfo? GetStreamHandlerInfo(
@@ -401,6 +438,16 @@ namespace ZMediator.Generator
             // Emit MediatorConfig class
             EmitMediatorConfigClass(sb, validRequests, validNotifications, validStreams);
 
+            sb.AppendLine();
+
+            // Emit IZMediator interface
+            EmitIZMediatorInterface(sb, validRequests, validNotifications, validStreams);
+
+            sb.AppendLine();
+
+            // Emit ZMediatorService class
+            EmitZMediatorService(sb, validRequests, validNotifications, validStreams);
+
             sb.AppendLine("}");
 
             return sb.ToString();
@@ -443,17 +490,28 @@ namespace ZMediator.Generator
                 for (int i = applicablePipelines.Count - 1; i >= 0; i--)
                 {
                     var pipeline = applicablePipelines[i];
-                    var argR = i == 0 ? "request" : string.Format("r{0}", i);
-                    var argC = i == 0 ? "ct" : string.Format("c{0}", i);
 
-                    result = string.Format(
-                        "{0}.Handle<{1}, {2}>(\n                {3}, {4}, {5})",
-                        pipeline.BehaviorTypeName,
-                        handler.RequestTypeName,
-                        handler.ResponseTypeName,
-                        argR,
-                        argC,
-                        result);
+                    if (i == 0)
+                    {
+                        // Outermost: uses request/ct directly
+                        result = string.Format(
+                            "{0}.Handle<{1}, {2}>(\n                request, ct, {3})",
+                            pipeline.BehaviorTypeName,
+                            handler.RequestTypeName,
+                            handler.ResponseTypeName,
+                            result);
+                    }
+                    else
+                    {
+                        // Intermediate: wrap in lambda so previous behavior gets a delegate
+                        result = string.Format(
+                            "static (r{0}, c{0}) =>\n                {1}.Handle<{2}, {3}>(\n                    r{0}, c{0}, {4})",
+                            i,
+                            pipeline.BehaviorTypeName,
+                            handler.RequestTypeName,
+                            handler.ResponseTypeName,
+                            result);
+                    }
                 }
 
                 sb.AppendLine(string.Format("            return {0};", result));
@@ -467,14 +525,32 @@ namespace ZMediator.Generator
             StringBuilder sb,
             List<NotificationHandlerInfo> handlers)
         {
-            // Group by notification type
-            var grouped = handlers.GroupBy(h => h.NotificationTypeName).ToList();
+            // Separate base handlers (for interfaces/abstract) from concrete handlers
+            var baseHandlers = handlers.Where(h => h.IsBaseHandler).ToList();
+            var concreteHandlers = handlers.Where(h => !h.IsBaseHandler).ToList();
+
+            // Group concrete handlers by notification type
+            var grouped = concreteHandlers.GroupBy(h => h.NotificationTypeName).ToList();
 
             foreach (var group in grouped)
             {
                 var notificationType = group.Key;
                 var isParallel = group.Any(h => h.IsParallel);
                 var handlerList = group.ToList();
+
+                // Find matching base handlers by checking the concrete type's base interfaces
+                var baseTypeNames = handlerList[0].BaseNotificationTypeNames;
+                var baseTypeSet = string.IsNullOrEmpty(baseTypeNames)
+                    ? new HashSet<string>()
+                    : new HashSet<string>(baseTypeNames.Split(';'));
+
+                var matchingBaseHandlers = baseHandlers
+                    .Where(bh => baseTypeSet.Contains(bh.NotificationTypeName))
+                    .ToList();
+
+                // Combine concrete + matching base handlers
+                var allHandlers = new List<NotificationHandlerInfo>(handlerList);
+                allHandlers.AddRange(matchingBaseHandlers);
 
                 if (isParallel)
                 {
@@ -485,7 +561,7 @@ namespace ZMediator.Generator
 
                     // Use Task.WhenAll for parallel execution
                     var taskExprs = new List<string>();
-                    foreach (var handler in handlerList)
+                    foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         taskExprs.Add(string.Format(
@@ -509,7 +585,7 @@ namespace ZMediator.Generator
                         notificationType));
                     sb.AppendLine("        {");
 
-                    foreach (var handler in handlerList)
+                    foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         sb.AppendLine(string.Format(
@@ -601,6 +677,89 @@ namespace ZMediator.Generator
             }
 
             sb.AppendLine("        }");
+            sb.AppendLine("    }");
+        }
+
+        private static void EmitIZMediatorInterface(
+            StringBuilder sb,
+            List<RequestHandlerInfo> requestHandlers,
+            List<NotificationHandlerInfo> notificationHandlers,
+            List<StreamHandlerInfo> streamHandlers)
+        {
+            sb.AppendLine("    public partial interface IZMediator");
+            sb.AppendLine("    {");
+
+            foreach (var handler in requestHandlers)
+            {
+                sb.AppendLine(string.Format(
+                    "        ValueTask<{0}> Send({1} request, CancellationToken ct = default);",
+                    handler.ResponseTypeName, handler.RequestTypeName));
+            }
+
+            // Only emit Publish for concrete notification types (not base handlers)
+            var concreteNotifications = notificationHandlers
+                .Where(h => !h.IsBaseHandler)
+                .GroupBy(h => h.NotificationTypeName)
+                .ToList();
+
+            foreach (var group in concreteNotifications)
+            {
+                sb.AppendLine(string.Format(
+                    "        ValueTask Publish({0} notification, CancellationToken ct = default);",
+                    group.Key));
+            }
+
+            foreach (var handler in streamHandlers)
+            {
+                sb.AppendLine(string.Format(
+                    "        System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct = default);",
+                    handler.ResponseTypeName, handler.RequestTypeName));
+            }
+
+            sb.AppendLine("    }");
+        }
+
+        private static void EmitZMediatorService(
+            StringBuilder sb,
+            List<RequestHandlerInfo> requestHandlers,
+            List<NotificationHandlerInfo> notificationHandlers,
+            List<StreamHandlerInfo> streamHandlers)
+        {
+            sb.AppendLine("    public partial class ZMediatorService : IZMediator");
+            sb.AppendLine("    {");
+
+            foreach (var handler in requestHandlers)
+            {
+                sb.AppendLine(string.Format(
+                    "        public ValueTask<{0}> Send({1} request, CancellationToken ct)",
+                    handler.ResponseTypeName, handler.RequestTypeName));
+                sb.AppendLine(string.Format(
+                    "            => Mediator.Send(request, ct);"));
+            }
+
+            var concreteNotifications = notificationHandlers
+                .Where(h => !h.IsBaseHandler)
+                .GroupBy(h => h.NotificationTypeName)
+                .ToList();
+
+            foreach (var group in concreteNotifications)
+            {
+                sb.AppendLine(string.Format(
+                    "        public ValueTask Publish({0} notification, CancellationToken ct)",
+                    group.Key));
+                sb.AppendLine(string.Format(
+                    "            => Mediator.Publish(notification, ct);"));
+            }
+
+            foreach (var handler in streamHandlers)
+            {
+                sb.AppendLine(string.Format(
+                    "        public System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct)",
+                    handler.ResponseTypeName, handler.RequestTypeName));
+                sb.AppendLine(string.Format(
+                    "            => Mediator.CreateStream(request, ct);"));
+            }
+
             sb.AppendLine("    }");
         }
 

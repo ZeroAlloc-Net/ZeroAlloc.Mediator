@@ -15,9 +15,7 @@ ZMediator is a zero-allocation mediator library for .NET 10. It uses a Roslyn in
 ## Non-Goals
 
 - Exception handler pipeline (use pipeline behaviors instead)
-- Polymorphic dispatch
 - Pre/post processors as separate concepts
-- MS DI integration (can be added later as separate package)
 
 ## Project Structure
 
@@ -25,8 +23,7 @@ ZMediator is a zero-allocation mediator library for .NET 10. It uses a Roslyn in
 ZMediator/
 ├── src/
 │   ├── ZMediator/                      # Core abstractions (net10.0)
-│   ├── ZMediator.Generator/            # Source generator (netstandard2.0)
-│   └── ZMediator.DependencyInjection/  # Optional MS DI (future)
+│   └── ZMediator.Generator/            # Source generator (netstandard2.0)
 ├── tests/
 │   ├── ZMediator.Tests/
 │   └── ZMediator.Benchmarks/
@@ -160,6 +157,36 @@ public static ValueTask Publish(OrderPlaced notification, CancellationToken ct =
 }
 ```
 
+### Polymorphic Notification Dispatch
+
+Handlers registered for a base notification type (interface or abstract class) are automatically included in every concrete notification's `Publish()` method. The generator detects the notification type hierarchy at compile time and inlines matching base handlers alongside concrete handlers.
+
+```csharp
+// Handler for all notifications
+public class GlobalLogger : INotificationHandler<INotification>
+{
+    public ValueTask Handle(INotification notification, CancellationToken ct) { ... }
+}
+
+// Handler for a specific notification
+public class UserCreatedHandler : INotificationHandler<UserCreated>
+{
+    public ValueTask Handle(UserCreated notification, CancellationToken ct) { ... }
+}
+```
+
+Generated output — both handlers are called, with the concrete `UserCreated` passed directly (works via contravariance on `INotificationHandler<in TNotification>`):
+
+```csharp
+public static async ValueTask Publish(UserCreated notification, CancellationToken ct = default)
+{
+    await (_userCreatedHandlerFactory?.Invoke() ?? new UserCreatedHandler()).Handle(notification, ct);
+    await (_globalLoggerFactory?.Invoke() ?? new GlobalLogger()).Handle(notification, ct);
+}
+```
+
+Intermediate interfaces also work — a handler for `IOrderNotification : INotification` is included only for notification types that implement `IOrderNotification`. Base handlers never get their own `Publish()` method.
+
 ### Stream Dispatch
 
 ```csharp
@@ -188,6 +215,52 @@ public class MediatorConfig
     }
 }
 ```
+
+## Dependency Injection Support
+
+The generator emits an `IZMediator` interface and `ZMediatorService` class alongside the static `Mediator` class. This enables constructor injection and testability without breaking zero-allocation dispatch.
+
+### Generated Interface
+
+```csharp
+public partial interface IZMediator
+{
+    ValueTask<string> Send(Ping request, CancellationToken ct = default);
+    ValueTask Publish(UserCreated notification, CancellationToken ct = default);
+    IAsyncEnumerable<int> CreateStream(CountTo request, CancellationToken ct = default);
+}
+```
+
+### Generated Service
+
+```csharp
+public partial class ZMediatorService : IZMediator
+{
+    public ValueTask<string> Send(Ping request, CancellationToken ct)
+        => Mediator.Send(request, ct);  // delegates to the zero-alloc static method
+    // ...
+}
+```
+
+### Cost
+
+One `callvirt` per dispatch (the JIT can often devirtualize for sealed/singleton types). The actual handler invocation, pipeline chaining, and notification dispatch remain fully inlined and zero-alloc.
+
+Benchmarks confirm zero overhead: `IZMediator.Send` (~1.3 ns, 0 B) matches `Mediator.Send` (~2.5 ns, 0 B) — both are 35-66x faster than MediatR's `IMediator.Send` (~89 ns, 224 B).
+
+### Registration
+
+```csharp
+services.AddSingleton<IZMediator, ZMediatorService>();
+```
+
+### Design Rationale
+
+- **No hard DI dependency**: the interface and service are emitted in the `ZMediator` namespace with no reference to `Microsoft.Extensions.DependencyInjection`. Users register with their own DI container.
+- **No separate package**: since `IZMediator` and `ZMediatorService` are generated code (strongly-typed per handler), they must come from the generator. A separate `ZMediator.DependencyInjection` package would add version coupling and split complexity without benefit. A separate package would only be justified if runtime logic depending on `Microsoft.Extensions.DependencyInjection` were needed (e.g., auto-registering handler factories from `IServiceProvider`).
+- **Strongly-typed overloads**: unlike MediatR's generic `IMediator.Send<TResponse>(IRequest<TResponse>)`, each request type gets its own overload — no runtime type dispatch, no boxing.
+- **`partial`**: both the interface and service are `partial`, allowing users to extend with custom methods.
+- **Base handler exclusion**: `Publish` overloads are only emitted for concrete notification types, not base handler types (like `INotification`).
 
 ## Pipeline Behavior Composition
 
