@@ -8,12 +8,14 @@ namespace ZMediator.Generator
         public string BehaviorTypeName { get; }
         public int Order { get; }
         public string? AppliesTo { get; }
+        public bool HasValidHandleMethod { get; }
 
-        public PipelineBehaviorInfo(string behaviorTypeName, int order, string? appliesTo)
+        public PipelineBehaviorInfo(string behaviorTypeName, int order, string? appliesTo, bool hasValidHandleMethod)
         {
             BehaviorTypeName = behaviorTypeName;
             Order = order;
             AppliesTo = appliesTo;
+            HasValidHandleMethod = hasValidHandleMethod;
         }
 
         public bool Equals(PipelineBehaviorInfo? other)
@@ -21,7 +23,8 @@ namespace ZMediator.Generator
             if (other is null) return false;
             return BehaviorTypeName == other.BehaviorTypeName
                 && Order == other.Order
-                && AppliesTo == other.AppliesTo;
+                && AppliesTo == other.AppliesTo
+                && HasValidHandleMethod == other.HasValidHandleMethod;
         }
 
         public override bool Equals(object? obj)
@@ -37,6 +40,7 @@ namespace ZMediator.Generator
                 hash = hash * 31 + BehaviorTypeName.GetHashCode();
                 hash = hash * 31 + Order.GetHashCode();
                 hash = hash * 31 + (AppliesTo?.GetHashCode() ?? 0);
+                hash = hash * 31 + HasValidHandleMethod.GetHashCode();
                 return hash;
             }
         }

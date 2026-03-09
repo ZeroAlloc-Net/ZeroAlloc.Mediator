@@ -42,20 +42,28 @@ namespace ZMediator.Generator
                 .Where(static x => x != null)
                 .Collect();
 
+            var requestTypes = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is TypeDeclarationSyntax tds && tds.BaseList != null,
+                transform: static (ctx, ct) => GetRequestTypeInfo(ctx, ct))
+                .Where(static x => x != null)
+                .Collect();
+
             var combined = requestHandlers
                 .Combine(notificationHandlers)
                 .Combine(streamHandlers)
-                .Combine(pipelineBehaviors);
+                .Combine(pipelineBehaviors)
+                .Combine(requestTypes);
 
             context.RegisterSourceOutput(combined, static (spc, data) =>
             {
-                var requestInfos = data.Left.Left.Left;
-                var notificationInfos = data.Left.Left.Right;
-                var streamInfos = data.Left.Right;
-                var pipelineInfos = data.Right;
+                var requestInfos = data.Left.Left.Left.Left;
+                var notificationInfos = data.Left.Left.Left.Right;
+                var streamInfos = data.Left.Left.Right;
+                var pipelineInfos = data.Left.Right;
+                var requestTypeInfos = data.Right;
 
                 // Report diagnostics
-                ReportDiagnostics(spc, requestInfos);
+                ReportDiagnostics(spc, requestInfos, pipelineInfos, requestTypeInfos);
 
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos);
                 spc.AddSource("ZMediator.Mediator.g.cs", source);
@@ -199,14 +207,72 @@ namespace ZMediator.Generator
                 }
             }
 
-            return new PipelineBehaviorInfo(behaviorType, order, appliesTo);
+            // Check for a public static Handle method with 2 type parameters
+            var hasValidHandleMethod = false;
+            foreach (var member in symbol.GetMembers())
+            {
+                if (member is IMethodSymbol method
+                    && method.Name == "Handle"
+                    && method.IsStatic
+                    && method.DeclaredAccessibility == Accessibility.Public
+                    && method.TypeParameters.Length == 2)
+                {
+                    hasValidHandleMethod = true;
+                    break;
+                }
+            }
+
+            return new PipelineBehaviorInfo(behaviorType, order, appliesTo, hasValidHandleMethod);
+        }
+
+        private static RequestTypeInfo? GetRequestTypeInfo(
+            GeneratorSyntaxContext context, System.Threading.CancellationToken ct)
+        {
+            var typeDecl = (TypeDeclarationSyntax)context.Node;
+            var symbol = context.SemanticModel.GetDeclaredSymbol(typeDecl, ct) as INamedTypeSymbol;
+            if (symbol == null) return null;
+
+            // Only report for types defined in the current compilation's syntax trees
+            foreach (var location in symbol.Locations)
+            {
+                if (!location.IsInSource) return null;
+            }
+
+            foreach (var iface in symbol.AllInterfaces)
+            {
+                if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.IRequest<TResponse>"
+                    && iface.TypeArguments.Length == 1)
+                {
+                    var requestType = symbol.ToDisplayString(FullyQualifiedFormat);
+                    var responseType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
+                    return new RequestTypeInfo(requestType, responseType);
+                }
+            }
+
+            return null;
         }
 
         private static void ReportDiagnostics(
             Microsoft.CodeAnalysis.SourceProductionContext spc,
-            ImmutableArray<RequestHandlerInfo?> requestHandlers)
+            ImmutableArray<RequestHandlerInfo?> requestHandlers,
+            ImmutableArray<PipelineBehaviorInfo?> pipelineBehaviors,
+            ImmutableArray<RequestTypeInfo?> requestTypes)
         {
             var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
+
+            // ZM001: No registered handler for a request type
+            var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
+            var validRequestTypes = requestTypes.Where(x => x != null).Select(x => x!).ToList();
+            foreach (var requestType in validRequestTypes)
+            {
+                if (!handledRequestTypes.Contains(requestType.RequestTypeName))
+                {
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.NoHandler,
+                        Location.None,
+                        requestType.RequestTypeName));
+                }
+            }
 
             // ZM002: Duplicate handlers for the same request type
             var grouped = validHandlers.GroupBy(h => h.RequestTypeName).ToList();
@@ -233,6 +299,34 @@ namespace ZMediator.Generator
                         DiagnosticDescriptors.ClassRequest,
                         Location.None,
                         handler.RequestTypeName));
+                }
+            }
+
+            // ZM005: Missing behavior Handle method
+            var validBehaviors = pipelineBehaviors.Where(x => x != null).Select(x => x!).ToList();
+            foreach (var behavior in validBehaviors)
+            {
+                if (!behavior.HasValidHandleMethod)
+                {
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.MissingBehaviorHandleMethod,
+                        Location.None,
+                        behavior.BehaviorTypeName));
+                }
+            }
+
+            // ZM006: Duplicate behavior order
+            var orderGroups = validBehaviors.GroupBy(b => b.Order).ToList();
+            foreach (var group in orderGroups)
+            {
+                if (group.Count() > 1)
+                {
+                    var behaviorNames = string.Join(", ", group.Select(b => b.BehaviorTypeName));
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.DuplicateBehaviorOrder,
+                        Location.None,
+                        behaviorNames,
+                        group.Key));
                 }
             }
         }
