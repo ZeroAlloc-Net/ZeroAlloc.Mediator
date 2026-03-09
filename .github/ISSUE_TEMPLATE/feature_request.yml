@@ -1,0 +1,47 @@
+name: Feature Request
+description: Suggest a feature for ZMediator
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature. Please describe what you'd like.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this feature solve? What's your use case?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How you'd like this to work. Include API examples if possible.
+      placeholder: |
+        ```csharp
+        // Example of how the API would look
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative approaches or workarounds you've considered.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Core abstractions (ZMediator)
+        - Source generator (ZMediator.Generator)
+        - Analyzer diagnostics
+        - Documentation
+        - Other
+    validations:
+      required: true

@@ -6,8 +6,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZMediator\ZMediator.csproj" />
-    <ProjectReference Include="..\..\src\ZMediator.Generator\ZMediator.Generator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\ZMediator.Generator\ZMediator.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 </Project>
