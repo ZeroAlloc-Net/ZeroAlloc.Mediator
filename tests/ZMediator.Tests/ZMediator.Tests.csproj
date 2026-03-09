@@ -13,6 +13,9 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Testing.Verifiers.XUnit" Version="1.*" />
   </ItemGroup>
   <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\ZMediator\ZMediator.csproj" />
     <ProjectReference Include="..\..\src\ZMediator.Generator\ZMediator.Generator.csproj"
                       OutputItemType="Analyzer"
