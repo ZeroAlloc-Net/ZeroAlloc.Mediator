@@ -96,7 +96,7 @@ The `Condition="'$(TargetFramework)' != 'netstandard2.0'"` ensures these analyze
 </Project>
 ```
 
-**Step 4: Configure ZMediator.Generator.csproj**
+**Step 5: Configure ZMediator.Generator.csproj**
 
 The source generator must target `netstandard2.0` and reference Roslyn analyzers. It must NOT reference the core ZMediator project directly (it reads symbols at compile time). It needs `EnforceExtendedAnalyzerRules`.
 
@@ -105,8 +105,6 @@ The source generator must target `netstandard2.0` and reference Roslyn analyzers
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>ZMediator.Generator</RootNamespace>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
   </PropertyGroup>
@@ -117,7 +115,7 @@ The source generator must target `netstandard2.0` and reference Roslyn analyzers
 </Project>
 ```
 
-**Step 5: Configure ZMediator.Tests.csproj**
+**Step 6: Configure ZMediator.Tests.csproj**
 
 Tests reference both the core lib (for interfaces) and the generator (as analyzer). Also reference a test helper project or inline test types.
 
@@ -144,7 +142,7 @@ Tests reference both the core lib (for interfaces) and the generator (as analyze
 </Project>
 ```
 
-**Step 6: Configure ZMediator.Benchmarks.csproj**
+**Step 7: Configure ZMediator.Benchmarks.csproj**
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -165,7 +163,7 @@ Tests reference both the core lib (for interfaces) and the generator (as analyze
 </Project>
 ```
 
-**Step 7: Configure ZMediator.Sample.csproj**
+**Step 8: Configure ZMediator.Sample.csproj**
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -183,19 +181,19 @@ Tests reference both the core lib (for interfaces) and the generator (as analyze
 </Project>
 ```
 
-**Step 8: Verify solution builds**
+**Step 9: Verify solution builds**
 
 Run: `dotnet build ZMediator.sln`
 Expected: Build succeeded with 0 errors. Warnings about unused default files are OK.
 
-**Step 9: Delete auto-generated Class1.cs files**
+**Step 10: Delete auto-generated Class1.cs files**
 
 ```bash
 rm src/ZMediator/Class1.cs
 rm src/ZMediator.Generator/Class1.cs
 ```
 
-**Step 10: Commit**
+**Step 11: Commit**
 
 ```bash
 git add -A
