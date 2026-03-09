@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-tree -r HEAD)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "additionalDirectories": [
+      "c:\\Projects\\Prive\\ZMediator\\docs"
+    ]
+  }
+}
