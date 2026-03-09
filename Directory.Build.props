@@ -3,6 +3,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+
+    <!-- NuGet package metadata -->
+    <Authors>Marcel Roozekrans</Authors>
+    <PackageProjectUrl>https://github.com/MarcelRoozekrans/ZMediator</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/MarcelRoozekrans/ZMediator</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
     <PackageReference Include="Meziantou.Analyzer" Version="3.0.19">
