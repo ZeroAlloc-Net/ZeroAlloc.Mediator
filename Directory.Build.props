@@ -6,10 +6,19 @@
 
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>
+    <Company>Marcel Roozekrans</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/MarcelRoozekrans/ZMediator</PackageProjectUrl>
     <RepositoryUrl>https://github.com/MarcelRoozekrans/ZMediator</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <Description>A zero-allocation mediator library for .NET. Roslyn source generator wires all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch.</Description>
+    <PackageTags>mediator;cqrs;source-generator;zero-allocation;roslyn</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright (c) Marcel Roozekrans</Copyright>
   </PropertyGroup>
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
     <PackageReference Include="Meziantou.Analyzer" Version="3.0.19">
       <PrivateAssets>all</PrivateAssets>
