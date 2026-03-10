@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>ZMediator.Generator</RootNamespace>
+    <PackageId>ZMediator.Generator</PackageId>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
     <NoWarn>$(NoWarn);RS2008</NoWarn>

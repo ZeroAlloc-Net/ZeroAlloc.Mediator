@@ -14,10 +14,12 @@
     <Description>A zero-allocation mediator library for .NET. Roslyn source generator wires all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch.</Description>
     <PackageTags>mediator;cqrs;source-generator;zero-allocation;roslyn</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <Copyright>Copyright (c) Marcel Roozekrans</Copyright>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
     <PackageReference Include="Meziantou.Analyzer" Version="3.0.19">
