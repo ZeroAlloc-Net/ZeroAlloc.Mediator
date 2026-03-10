@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/MarcelRoozekrans/ZMediator/compare/v0.1.2...v0.1.3) (2026-03-10)
+
+
+### Features
+
+* add .NET 8 LTS support and use PAT for release-please ([afdee05](https://github.com/MarcelRoozekrans/ZMediator/commit/afdee05bc560cfdd3e01023ebf15bd5ca77aa7d9))
+* add .NET 8 LTS support via multi-targeting ([9402802](https://github.com/MarcelRoozekrans/ZMediator/commit/940280215bda8668acc00117e4ec4b8ee06c03a2))
+
 ## [0.1.2](https://github.com/MarcelRoozekrans/ZMediator/compare/v0.1.1...v0.1.2) (2026-03-10)
 
 
