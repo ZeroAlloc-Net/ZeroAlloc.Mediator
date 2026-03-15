@@ -8,10 +8,10 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace ZMediator.Generator
+namespace ZeroAlloc.Mediator.Generator
 {
     [Generator]
-    public sealed class ZMediatorGenerator : IIncrementalGenerator
+    public sealed class MediatorGenerator : IIncrementalGenerator
     {
         private static readonly SymbolDisplayFormat FullyQualifiedFormat =
             SymbolDisplayFormat.FullyQualifiedFormat;
@@ -66,7 +66,7 @@ namespace ZMediator.Generator
                 ReportDiagnostics(spc, requestInfos, pipelineInfos, requestTypeInfos);
 
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos);
-                spc.AddSource("ZMediator.Mediator.g.cs", source);
+                spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
             });
         }
 
@@ -96,7 +96,7 @@ namespace ZMediator.Generator
 
             foreach (var iface in symbol.AllInterfaces)
             {
-                if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.IRequestHandler<TRequest, TResponse>"
+                if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.IRequestHandler<TRequest, TResponse>"
                     && iface.TypeArguments.Length == 2)
                 {
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
@@ -120,7 +120,7 @@ namespace ZMediator.Generator
 
             foreach (var iface in symbol.AllInterfaces)
             {
-                if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.INotificationHandler<TNotification>"
+                if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.INotificationHandler<TNotification>"
                     && iface.TypeArguments.Length == 1)
                 {
                     var notificationSymbol = iface.TypeArguments[0];
@@ -129,7 +129,7 @@ namespace ZMediator.Generator
 
                     // Check if notification type has [ParallelNotification]
                     var isParallel = notificationSymbol.GetAttributes().Any(a =>
-                        a.AttributeClass?.ToDisplayString() == "ZMediator.ParallelNotificationAttribute");
+                        a.AttributeClass?.ToDisplayString() == "ZeroAlloc.ParallelNotificationAttribute");
 
                     // Detect base handler: TNotification is an interface or abstract class
                     var isBaseHandler = notificationSymbol.TypeKind == TypeKind.Interface
@@ -165,11 +165,11 @@ namespace ZMediator.Generator
             if (symbol.TypeKind != TypeKind.Interface) return false;
 
             // Check if this interface is or derives from INotification
-            if (symbol.ToDisplayString() == "ZMediator.INotification") return true;
+            if (symbol.ToDisplayString() == "ZeroAlloc.INotification") return true;
 
             foreach (var iface in symbol.AllInterfaces)
             {
-                if (iface.ToDisplayString() == "ZMediator.INotification") return true;
+                if (iface.ToDisplayString() == "ZeroAlloc.INotification") return true;
             }
 
             return false;
@@ -185,7 +185,7 @@ namespace ZMediator.Generator
 
             foreach (var iface in symbol.AllInterfaces)
             {
-                if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.IStreamRequestHandler<TRequest, TResponse>"
+                if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.IStreamRequestHandler<TRequest, TResponse>"
                     && iface.TypeArguments.Length == 2)
                 {
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
@@ -207,13 +207,13 @@ namespace ZMediator.Generator
 
             // Check for [PipelineBehavior] attribute
             var pipelineAttr = symbol.GetAttributes().FirstOrDefault(a =>
-                a.AttributeClass?.ToDisplayString() == "ZMediator.PipelineBehaviorAttribute");
+                a.AttributeClass?.ToDisplayString() == "ZeroAlloc.PipelineBehaviorAttribute");
 
             if (pipelineAttr == null) return null;
 
             // Check implements IPipelineBehavior
             var implementsInterface = symbol.AllInterfaces.Any(i =>
-                i.ToDisplayString() == "ZMediator.IPipelineBehavior");
+                i.ToDisplayString() == "ZeroAlloc.IPipelineBehavior");
 
             if (!implementsInterface) return null;
 
@@ -277,7 +277,7 @@ namespace ZMediator.Generator
 
             foreach (var iface in symbol.AllInterfaces)
             {
-                if (iface.OriginalDefinition.ToDisplayString() == "ZMediator.IRequest<TResponse>"
+                if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.IRequest<TResponse>"
                     && iface.TypeArguments.Length == 1)
                 {
                     var requestType = symbol.ToDisplayString(FullyQualifiedFormat);
@@ -381,7 +381,7 @@ namespace ZMediator.Generator
             sb.AppendLine("using System.Threading;");
             sb.AppendLine("using System.Threading.Tasks;");
             sb.AppendLine();
-            sb.AppendLine("namespace ZMediator");
+            sb.AppendLine("namespace ZeroAlloc");
             sb.AppendLine("{");
             sb.AppendLine("    public static partial class Mediator");
             sb.AppendLine("    {");
@@ -440,13 +440,13 @@ namespace ZMediator.Generator
 
             sb.AppendLine();
 
-            // Emit IZMediator interface
-            EmitIZMediatorInterface(sb, validRequests, validNotifications, validStreams);
+            // Emit IMediator interface
+            EmitIMediatorInterface(sb, validRequests, validNotifications, validStreams);
 
             sb.AppendLine();
 
-            // Emit ZMediatorService class
-            EmitZMediatorService(sb, validRequests, validNotifications, validStreams);
+            // Emit MediatorService class
+            EmitMediatorService(sb, validRequests, validNotifications, validStreams);
 
             sb.AppendLine("}");
 
@@ -680,13 +680,13 @@ namespace ZMediator.Generator
             sb.AppendLine("    }");
         }
 
-        private static void EmitIZMediatorInterface(
+        private static void EmitIMediatorInterface(
             StringBuilder sb,
             List<RequestHandlerInfo> requestHandlers,
             List<NotificationHandlerInfo> notificationHandlers,
             List<StreamHandlerInfo> streamHandlers)
         {
-            sb.AppendLine("    public partial interface IZMediator");
+            sb.AppendLine("    public partial interface IMediator");
             sb.AppendLine("    {");
 
             foreach (var handler in requestHandlers)
@@ -719,13 +719,13 @@ namespace ZMediator.Generator
             sb.AppendLine("    }");
         }
 
-        private static void EmitZMediatorService(
+        private static void EmitMediatorService(
             StringBuilder sb,
             List<RequestHandlerInfo> requestHandlers,
             List<NotificationHandlerInfo> notificationHandlers,
             List<StreamHandlerInfo> streamHandlers)
         {
-            sb.AppendLine("    public partial class ZMediatorService : IZMediator");
+            sb.AppendLine("    public partial class MediatorService : IMediator");
             sb.AppendLine("    {");
 
             foreach (var handler in requestHandlers)
