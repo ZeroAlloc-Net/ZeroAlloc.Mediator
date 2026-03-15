@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in ZMediator
+description: Report a bug in ZeroAlloc.Mediator
 labels: [bug]
 body:
   - type: markdown
@@ -47,7 +47,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: ZMediator Version
+      label: ZeroAlloc.Mediator Version
       placeholder: e.g. 0.1.0
     validations:
       required: true

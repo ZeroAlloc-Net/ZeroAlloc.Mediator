@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a feature for ZMediator
+description: Suggest a feature for ZeroAlloc.Mediator
 labels: [enhancement]
 body:
   - type: markdown
@@ -38,8 +38,8 @@ body:
     attributes:
       label: Scope
       options:
-        - Core abstractions (ZMediator)
-        - Source generator (ZMediator.Generator)
+        - Core abstractions (ZeroAlloc.Mediator)
+        - Source generator (ZeroAlloc.Mediator.Generator)
         - Analyzer diagnostics
         - Documentation
         - Other

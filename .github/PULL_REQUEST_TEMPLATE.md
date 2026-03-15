@@ -28,7 +28,7 @@ None
 - [ ] All existing tests pass (`dotnet test`)
 - [ ] New tests added for new functionality
 - [ ] Benchmarks verified (no allocation regression)
-- [ ] Sample app runs correctly (`dotnet run --project samples/ZMediator.Sample`)
+- [ ] Sample app runs correctly (`dotnet run --project samples/ZeroAlloc.Mediator.Sample`)
 
 ## Checklist
 
