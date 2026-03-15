@@ -1,6 +1,6 @@
 # ZeroAlloc.Mediator
 
-A zero-allocation mediator library for .NET 10. Uses a Roslyn incremental source generator to wire all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch, no delegate allocation per request.
+A zero-allocation, Native AOT-compatible mediator library for .NET 8 and .NET 10. Uses a Roslyn incremental source generator to wire all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch, no delegate allocation per request.
 
 ## Features
 
@@ -11,6 +11,7 @@ A zero-allocation mediator library for .NET 10. Uses a Roslyn incremental source
 - **Polymorphic Notifications** — base interface handlers are automatically included in concrete notification dispatch
 - **Analyzer Diagnostics** — missing handlers, duplicates, and misconfigurations are build errors/warnings
 - **Zero Allocation** — `ValueTask`, `readonly record struct`, static dispatch, no closures
+- **Native AOT Compatible** — no reflection at runtime; all dispatch is resolved at compile time by the source generator
 
 ## Quick Start
 
