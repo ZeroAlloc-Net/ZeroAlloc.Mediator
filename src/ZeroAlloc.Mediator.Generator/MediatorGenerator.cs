@@ -297,7 +297,7 @@ namespace ZeroAlloc.Mediator.Generator
         {
             var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
 
-            // ZM001: No registered handler for a request type
+            // ZAM001: No registered handler for a request type
             var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
             var validRequestTypes = requestTypes.Where(x => x != null).Select(x => x!).ToList();
             foreach (var requestType in validRequestTypes)
@@ -311,7 +311,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            // ZM002: Duplicate handlers for the same request type
+            // ZAM002: Duplicate handlers for the same request type
             var grouped = validHandlers.GroupBy(h => h.RequestTypeName).ToList();
             foreach (var group in grouped)
             {
@@ -326,7 +326,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            // ZM003: Request type is a class (not a value type)
+            // ZAM003: Request type is a class (not a value type)
             var seenRequestTypes = new HashSet<string>();
             foreach (var handler in validHandlers)
             {
@@ -339,7 +339,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            // ZM005: Missing behavior Handle method
+            // ZAM005: Missing behavior Handle method
             var validBehaviors = pipelineBehaviors.Where(x => x != null).Select(x => x!).ToList();
             foreach (var behavior in validBehaviors)
             {
@@ -352,7 +352,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            // ZM006: Duplicate behavior order
+            // ZAM006: Duplicate behavior order
             var orderGroups = validBehaviors.GroupBy(b => b.Order).ToList();
             foreach (var group in orderGroups)
             {
