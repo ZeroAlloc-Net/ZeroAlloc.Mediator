@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>ZMediator.Generator</RootNamespace>
-    <PackageId>ZMediator.Generator</PackageId>
+    <RootNamespace>ZeroAlloc.Mediator.Generator</RootNamespace>
+    <PackageId>ZeroAlloc.Mediator.Generator</PackageId>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
     <NoWarn>$(NoWarn);RS2008</NoWarn>
