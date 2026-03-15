@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class NotificationDispatchGeneratorTests
 {
@@ -9,7 +9,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_EmitsSequentialPublish_ForNotification()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -41,7 +41,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_EmitsParallelPublish_ForParallelNotification()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -73,7 +73,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_IncludesBaseHandler_InConcretePublish()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -108,7 +108,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_IncludesIntermediateInterfaceHandler_InConcretePublish()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -157,7 +157,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_BaseHandlerDoesNotGetOwnPublishMethod()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -183,14 +183,14 @@ public class NotificationDispatchGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         // Should NOT emit a Publish method for INotification itself
-        Assert.DoesNotContain("Publish(global::ZeroAlloc.INotification notification", output);
+        Assert.DoesNotContain("Publish(global::ZMediator.INotification notification", output);
     }
 
     [Fact]
     public void Generator_MultipleBaseHandlers_AllIncludedInConcretePublish()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -234,7 +234,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_BaseHandlerWithParallelNotification_IncludedInWhenAll()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -270,7 +270,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_MultipleConcreteTypes_EachGetCorrectBaseHandlers()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -348,7 +348,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_SingleHandler_EmitsPublish()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -374,7 +374,7 @@ public class NotificationDispatchGeneratorTests
     public void Generator_BaseHandlerFactory_IncludedInMediatorConfig()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 

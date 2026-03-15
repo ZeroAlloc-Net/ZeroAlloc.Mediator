@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class CombinedGeneratorTests
 {
@@ -9,7 +9,7 @@ public class CombinedGeneratorTests
     public void Generator_EmitsAllMethods_WhenAllHandlerTypesPresent()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;

@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class StreamDispatchGeneratorTests
 {
@@ -9,7 +9,7 @@ public class StreamDispatchGeneratorTests
     public void Generator_EmitsCreateStream_ForStreamHandler()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;
             using System.Threading;
@@ -40,7 +40,7 @@ public class StreamDispatchGeneratorTests
     public void Generator_EmitsMultipleCreateStream_ForMultipleStreamTypes()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;
             using System.Threading;
@@ -84,7 +84,7 @@ public class StreamDispatchGeneratorTests
     public void Generator_StreamHandler_HasFactoryField()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;
             using System.Threading;

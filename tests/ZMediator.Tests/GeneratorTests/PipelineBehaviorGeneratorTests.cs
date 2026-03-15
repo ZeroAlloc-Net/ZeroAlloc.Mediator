@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class PipelineBehaviorGeneratorTests
 {
@@ -9,7 +9,7 @@ public class PipelineBehaviorGeneratorTests
     public void Generator_InlinesPipelineBehaviors_InOrder()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -63,7 +63,7 @@ public class PipelineBehaviorGeneratorTests
     public void Generator_ScopedBehavior_OnlyAppliedToTargetRequest()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -115,7 +115,7 @@ public class PipelineBehaviorGeneratorTests
     public void Generator_SingleBehavior_WrapsHandler()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -154,7 +154,7 @@ public class PipelineBehaviorGeneratorTests
     public void Generator_ThreeBehaviors_NestedInOrder()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -219,7 +219,7 @@ public class PipelineBehaviorGeneratorTests
     public void Generator_GlobalAndScopedBehavior_BothApplied()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;

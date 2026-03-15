@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class ConfigurationGeneratorTests
 {
@@ -9,7 +9,7 @@ public class ConfigurationGeneratorTests
     public void Generator_EmitsConfigureMethod()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -36,7 +36,7 @@ public class ConfigurationGeneratorTests
     public void Generator_MediatorConfig_HasIfElseChain_ForMultipleHandlers()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;
             using System.Threading;
@@ -89,7 +89,7 @@ public class ConfigurationGeneratorTests
     public void Generator_MediatorConfig_DeduplicatesNotificationHandlers()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 

@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class RequestDispatchGeneratorTests
 {
@@ -9,7 +9,7 @@ public class RequestDispatchGeneratorTests
     public void Generator_EmitsSendMethod_ForRequestHandler()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -34,7 +34,7 @@ public class RequestDispatchGeneratorTests
     public void Generator_EmitsSendMethod_ForVoidRequest()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -52,14 +52,14 @@ public class RequestDispatchGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public static ValueTask<global::ZeroAlloc.Unit> Send(global::TestApp.DoSomething request", output);
+        Assert.Contains("public static ValueTask<global::ZMediator.Unit> Send(global::TestApp.DoSomething request", output);
     }
 
     [Fact]
     public void Generator_EmitsMultipleSendMethods_ForMultipleRequestTypes()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -92,7 +92,7 @@ public class RequestDispatchGeneratorTests
     public void Generator_SkipsPrivateHandler()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -109,7 +109,7 @@ public class RequestDispatchGeneratorTests
 
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        // Private handler should be skipped — no Send method, ZAM001 should fire
+        // Private handler should be skipped — no Send method, ZM001 should fire
         Assert.DoesNotContain("Send(global::TestApp.Ping", output);
     }
 
@@ -117,7 +117,7 @@ public class RequestDispatchGeneratorTests
     public void Generator_SendWithoutPipeline_DirectHandlerCall()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -145,7 +145,7 @@ public class RequestDispatchGeneratorTests
     public void Generator_EmitsFactoryField_ForHandler()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 

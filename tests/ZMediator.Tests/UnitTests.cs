@@ -1,4 +1,4 @@
-namespace ZeroAlloc.Mediator.Tests;
+namespace ZMediator.Tests;
 
 public class UnitTests
 {

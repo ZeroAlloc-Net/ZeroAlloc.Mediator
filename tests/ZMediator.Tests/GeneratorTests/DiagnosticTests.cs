@@ -1,15 +1,15 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 public class DiagnosticTests
 {
     [Fact]
-    public void ZAM002_DuplicateHandler_EmitsError()
+    public void ZM002_DuplicateHandler_EmitsError()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -32,16 +32,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam002 = diagnostics.FirstOrDefault(d => d.Id == "ZAM002");
-        Assert.NotNull(zam002);
-        Assert.Equal(DiagnosticSeverity.Error, zam002.Severity);
+        var zm002 = diagnostics.FirstOrDefault(d => d.Id == "ZM002");
+        Assert.NotNull(zm002);
+        Assert.Equal(DiagnosticSeverity.Error, zm002.Severity);
     }
 
     [Fact]
-    public void ZAM001_NoHandler_EmitsError()
+    public void ZM001_NoHandler_EmitsError()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
 
             namespace TestApp;
 
@@ -50,16 +50,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam001 = diagnostics.FirstOrDefault(d => d.Id == "ZAM001");
-        Assert.NotNull(zam001);
-        Assert.Equal(DiagnosticSeverity.Error, zam001.Severity);
+        var zm001 = diagnostics.FirstOrDefault(d => d.Id == "ZM001");
+        Assert.NotNull(zm001);
+        Assert.Equal(DiagnosticSeverity.Error, zm001.Severity);
     }
 
     [Fact]
-    public void ZAM001_NotEmitted_WhenHandlerExists()
+    public void ZM001_NotEmitted_WhenHandlerExists()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -76,15 +76,15 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam001 = diagnostics.FirstOrDefault(d => d.Id == "ZAM001");
-        Assert.Null(zam001);
+        var zm001 = diagnostics.FirstOrDefault(d => d.Id == "ZM001");
+        Assert.Null(zm001);
     }
 
     [Fact]
-    public void ZAM003_ClassRequest_EmitsWarning()
+    public void ZM003_ClassRequest_EmitsWarning()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -101,16 +101,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam003 = diagnostics.FirstOrDefault(d => d.Id == "ZAM003");
-        Assert.NotNull(zam003);
-        Assert.Equal(DiagnosticSeverity.Warning, zam003.Severity);
+        var zm003 = diagnostics.FirstOrDefault(d => d.Id == "ZM003");
+        Assert.NotNull(zm003);
+        Assert.Equal(DiagnosticSeverity.Warning, zm003.Severity);
     }
 
     [Fact]
-    public void ZAM005_MissingHandleMethod_EmitsError()
+    public void ZM005_MissingHandleMethod_EmitsError()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -133,16 +133,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam005 = diagnostics.FirstOrDefault(d => d.Id == "ZAM005");
-        Assert.NotNull(zam005);
-        Assert.Equal(DiagnosticSeverity.Error, zam005.Severity);
+        var zm005 = diagnostics.FirstOrDefault(d => d.Id == "ZM005");
+        Assert.NotNull(zm005);
+        Assert.Equal(DiagnosticSeverity.Error, zm005.Severity);
     }
 
     [Fact]
-    public void ZAM006_DuplicateOrder_EmitsWarning()
+    public void ZM006_DuplicateOrder_EmitsWarning()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -180,16 +180,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam006 = diagnostics.FirstOrDefault(d => d.Id == "ZAM006");
-        Assert.NotNull(zam006);
-        Assert.Equal(DiagnosticSeverity.Warning, zam006.Severity);
+        var zm006 = diagnostics.FirstOrDefault(d => d.Id == "ZM006");
+        Assert.NotNull(zm006);
+        Assert.Equal(DiagnosticSeverity.Warning, zm006.Severity);
     }
 
     [Fact]
-    public void ZAM003_NotEmitted_ForStructRequest()
+    public void ZM003_NotEmitted_ForStructRequest()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -206,15 +206,15 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam003 = diagnostics.FirstOrDefault(d => d.Id == "ZAM003");
-        Assert.Null(zam003);
+        var zm003 = diagnostics.FirstOrDefault(d => d.Id == "ZM003");
+        Assert.Null(zm003);
     }
 
     [Fact]
-    public void ZAM005_NotEmitted_WhenValidHandleMethodExists()
+    public void ZM005_NotEmitted_WhenValidHandleMethodExists()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -242,15 +242,15 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam005 = diagnostics.FirstOrDefault(d => d.Id == "ZAM005");
-        Assert.Null(zam005);
+        var zm005 = diagnostics.FirstOrDefault(d => d.Id == "ZM005");
+        Assert.Null(zm005);
     }
 
     [Fact]
-    public void ZAM002_IncludesHandlerNames_InMessage()
+    public void ZM002_IncludesHandlerNames_InMessage()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -273,9 +273,9 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        var zam002 = diagnostics.FirstOrDefault(d => d.Id == "ZAM002");
-        Assert.NotNull(zam002);
-        var message = zam002.GetMessage();
+        var zm002 = diagnostics.FirstOrDefault(d => d.Id == "ZM002");
+        Assert.NotNull(zm002);
+        var message = zm002.GetMessage();
         Assert.Contains("PingHandlerA", message);
         Assert.Contains("PingHandlerB", message);
     }
@@ -284,7 +284,7 @@ public class DiagnosticTests
     public void NoDiagnostics_WhenEverythingIsValid()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
             using System;
             using System.Threading;
             using System.Threading.Tasks;
@@ -312,16 +312,16 @@ public class DiagnosticTests
 
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
-        // No ZeroAlloc.Mediator diagnostics at all
-        var zamDiagnostics = diagnostics.Where(d => d.Id.StartsWith("ZAM", StringComparison.Ordinal)).ToList();
-        Assert.Empty(zamDiagnostics);
+        // No ZMediator diagnostics at all
+        var zmDiagnostics = diagnostics.Where(d => d.Id.StartsWith("ZM", StringComparison.Ordinal)).ToList();
+        Assert.Empty(zmDiagnostics);
     }
 
     [Fact]
     public void Generator_EmitsNoCode_WhenNoHandlers()
     {
         var source = """
-            using ZeroAlloc;
+            using ZMediator;
 
             namespace TestApp;
 

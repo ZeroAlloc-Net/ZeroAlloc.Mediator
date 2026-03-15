@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using System.Collections.Immutable;
 
-namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
+namespace ZMediator.Tests.GeneratorTests;
 
 internal static class GeneratorTestHelper
 {
@@ -24,12 +24,12 @@ internal static class GeneratorTestHelper
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new Generator.MediatorGenerator();
+        var generator = new Generator.ZMediatorGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
 
         var generatedTrees = outputCompilation.SyntaxTrees
-            .Where(t => t.FilePath.Contains("ZeroAlloc"))
+            .Where(t => t.FilePath.Contains("ZMediator"))
             .ToList();
 
         var output = string.Join("\n", generatedTrees.Select(t => t.GetText().ToString()));
