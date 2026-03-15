@@ -18,7 +18,7 @@ public class MediatorBenchmarks
 {
     private readonly CancellationToken _ct = CancellationToken.None;
     private IMediator _mediatR = null!;
-    private ZeroAlloc.Mediator.IMediator _zMediatorDi = null!;
+    private ZeroAlloc.Mediator.IMediator _mediatorDi = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -30,7 +30,7 @@ public class MediatorBenchmarks
         services.AddSingleton<ZeroAlloc.Mediator.IMediator, ZeroAlloc.Mediator.MediatorService>();
         var provider = services.BuildServiceProvider();
         _mediatR = provider.GetRequiredService<IMediator>();
-        _zMediatorDi = provider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        _mediatorDi = provider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
     }
 
     // === Request/Response ===
@@ -99,7 +99,7 @@ public class MediatorBenchmarks
 
     [BenchmarkCategory("SendDI"), Benchmark]
     public ValueTask<string> ZeroAllocMediator_Send_DI()
-        => _zMediatorDi.Send(new ZBenchPing("test"), _ct);
+        => _mediatorDi.Send(new ZBenchPing("test"), _ct);
 
     [BenchmarkCategory("SendDI"), Benchmark]
     public Task<string> MediatR_Send_DI()

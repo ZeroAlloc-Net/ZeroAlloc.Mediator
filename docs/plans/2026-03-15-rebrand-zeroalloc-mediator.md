@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Rename the project from `ZMediator` to `ZeroAlloc.Mediator` — folders, project files, namespaces, type names, diagnostic IDs, CI/CD, and README.
+**Goal:** Rename the project from `ZeroAlloc.Mediator` to `ZeroAlloc.Mediator` — folders, project files, namespaces, type names, diagnostic IDs, CI/CD, and README.
 
-**Architecture:** Mechanical rename only — no behavioural changes. The core library namespace becomes `ZeroAlloc` (flat, shared across all future ZeroAlloc packages). The generator package namespace stays `ZeroAlloc.Mediator.Generator` (internal, never user-facing). All public DI types are cleaned up: `IZMediator` → `IMediator`, `ZMediatorService` → `MediatorService`.
+**Architecture:** Mechanical rename only — no behavioural changes. The core library namespace becomes `ZeroAlloc` (flat, shared across all future ZeroAlloc packages). The generator package namespace stays `ZeroAlloc.Mediator.Generator` (internal, never user-facing). All public DI types are cleaned up: `IZeroAlloc.Mediator` → `IMediator`, `ZeroAlloc.MediatorService` → `MediatorService`.
 
 **Tech Stack:** .NET 10, C# 13, Roslyn incremental source generator, xUnit, BenchmarkDotNet, GitHub Actions
 
@@ -13,36 +13,36 @@
 ### Task 1: Rename folders with git mv
 
 **Files:**
-- Rename: `src/ZMediator/` → `src/ZeroAlloc.Mediator/`
-- Rename: `src/ZMediator.Generator/` → `src/ZeroAlloc.Mediator.Generator/`
-- Rename: `tests/ZMediator.Tests/` → `tests/ZeroAlloc.Mediator.Tests/`
-- Rename: `tests/ZMediator.Benchmarks/` → `tests/ZeroAlloc.Mediator.Benchmarks/`
-- Rename: `samples/ZMediator.Sample/` → `samples/ZeroAlloc.Mediator.Sample/`
+- Rename: `src/ZeroAlloc.Mediator/` → `src/ZeroAlloc.Mediator/`
+- Rename: `src/ZeroAlloc.Mediator.Generator/` → `src/ZeroAlloc.Mediator.Generator/`
+- Rename: `tests/ZeroAlloc.Mediator.Tests/` → `tests/ZeroAlloc.Mediator.Tests/`
+- Rename: `tests/ZeroAlloc.Mediator.Benchmarks/` → `tests/ZeroAlloc.Mediator.Benchmarks/`
+- Rename: `samples/ZeroAlloc.Mediator.Sample/` → `samples/ZeroAlloc.Mediator.Sample/`
 
 **Step 1: Move all project folders**
 
 ```bash
-git mv src/ZMediator src/ZeroAlloc.Mediator
-git mv src/ZMediator.Generator src/ZeroAlloc.Mediator.Generator
-git mv tests/ZMediator.Tests tests/ZeroAlloc.Mediator.Tests
-git mv tests/ZMediator.Benchmarks tests/ZeroAlloc.Mediator.Benchmarks
-git mv samples/ZMediator.Sample samples/ZeroAlloc.Mediator.Sample
+git mv src/ZeroAlloc.Mediator src/ZeroAlloc.Mediator
+git mv src/ZeroAlloc.Mediator.Generator src/ZeroAlloc.Mediator.Generator
+git mv tests/ZeroAlloc.Mediator.Tests tests/ZeroAlloc.Mediator.Tests
+git mv tests/ZeroAlloc.Mediator.Benchmarks tests/ZeroAlloc.Mediator.Benchmarks
+git mv samples/ZeroAlloc.Mediator.Sample samples/ZeroAlloc.Mediator.Sample
 ```
 
 **Step 2: Rename csproj files inside their new folders**
 
 ```bash
-git mv src/ZeroAlloc.Mediator/ZMediator.csproj src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj
-git mv src/ZeroAlloc.Mediator.Generator/ZMediator.Generator.csproj src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj
-git mv tests/ZeroAlloc.Mediator.Tests/ZMediator.Tests.csproj tests/ZeroAlloc.Mediator.Tests/ZeroAlloc.Mediator.Tests.csproj
-git mv tests/ZeroAlloc.Mediator.Benchmarks/ZMediator.Benchmarks.csproj tests/ZeroAlloc.Mediator.Benchmarks/ZeroAlloc.Mediator.Benchmarks.csproj
-git mv samples/ZeroAlloc.Mediator.Sample/ZMediator.Sample.csproj samples/ZeroAlloc.Mediator.Sample/ZeroAlloc.Mediator.Sample.csproj
+git mv src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj
+git mv src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj
+git mv tests/ZeroAlloc.Mediator.Tests/ZeroAlloc.Mediator.Tests.csproj tests/ZeroAlloc.Mediator.Tests/ZeroAlloc.Mediator.Tests.csproj
+git mv tests/ZeroAlloc.Mediator.Benchmarks/ZeroAlloc.Mediator.Benchmarks.csproj tests/ZeroAlloc.Mediator.Benchmarks/ZeroAlloc.Mediator.Benchmarks.csproj
+git mv samples/ZeroAlloc.Mediator.Sample/ZeroAlloc.Mediator.Sample.csproj samples/ZeroAlloc.Mediator.Sample/ZeroAlloc.Mediator.Sample.csproj
 ```
 
 **Step 3: Rename the solution file**
 
 ```bash
-git mv ZMediator.slnx ZeroAlloc.Mediator.slnx
+git mv ZeroAlloc.Mediator.slnx ZeroAlloc.Mediator.slnx
 ```
 
 **Step 4: Commit**
@@ -212,7 +212,7 @@ git commit -m "refactor: update all csproj PackageId, RootNamespace, and Project
 **Files:**
 - Modify: all `*.cs` in `src/ZeroAlloc.Mediator/` (10 files)
 
-All files currently declare `namespace ZMediator`. Change every one to `namespace ZeroAlloc`.
+All files currently declare `namespace ZeroAlloc.Mediator`. Change every one to `namespace ZeroAlloc`.
 
 Files to update (all with the same change):
 - `IRequest.cs`
@@ -228,7 +228,7 @@ Files to update (all with the same change):
 
 **Step 1: Rename namespace in all core library files**
 
-For each file: change `namespace ZMediator` → `namespace ZeroAlloc`
+For each file: change `namespace ZeroAlloc.Mediator` → `namespace ZeroAlloc`
 
 **Step 2: Verify the build compiles (partial check)**
 
@@ -242,7 +242,7 @@ Expected: no errors (tests may still fail — that's fine at this stage).
 
 ```bash
 git add src/ZeroAlloc.Mediator/
-git commit -m "refactor: rename core library namespace ZMediator -> ZeroAlloc"
+git commit -m "refactor: rename core library namespace ZeroAlloc.Mediator -> ZeroAlloc"
 ```
 
 ---
@@ -260,7 +260,7 @@ git commit -m "refactor: rename core library namespace ZMediator -> ZeroAlloc"
 
 ```csharp
 // Before
-namespace ZMediator.Generator
+namespace ZeroAlloc.Mediator.Generator
 
 // After
 namespace ZeroAlloc.Mediator.Generator
@@ -358,11 +358,11 @@ git commit -m "refactor: rename diagnostic IDs ZM00x -> ZAM00x and update catego
 
 ---
 
-### Task 7: Update ZMediatorGenerator.cs — the main generator class
+### Task 7: Update ZeroAlloc.MediatorGenerator.cs — the main generator class
 
 **Files:**
-- Modify: `src/ZeroAlloc.Mediator.Generator/ZMediatorGenerator.cs`
-- Rename: `src/ZeroAlloc.Mediator.Generator/ZMediatorGenerator.cs` → `src/ZeroAlloc.Mediator.Generator/MediatorGenerator.cs`
+- Modify: `src/ZeroAlloc.Mediator.Generator/ZeroAlloc.MediatorGenerator.cs`
+- Rename: `src/ZeroAlloc.Mediator.Generator/ZeroAlloc.MediatorGenerator.cs` → `src/ZeroAlloc.Mediator.Generator/MediatorGenerator.cs`
 
 This is the largest single change. Make all updates to the file first, then rename it.
 
@@ -370,10 +370,10 @@ This is the largest single change. Make all updates to the file first, then rena
 
 ```csharp
 // Before
-namespace ZMediator.Generator
+namespace ZeroAlloc.Mediator.Generator
 {
     [Generator]
-    public sealed class ZMediatorGenerator : IIncrementalGenerator
+    public sealed class ZeroAlloc.MediatorGenerator : IIncrementalGenerator
 
 // After
 namespace ZeroAlloc.Mediator.Generator
@@ -386,7 +386,7 @@ namespace ZeroAlloc.Mediator.Generator
 
 ```csharp
 // Before
-spc.AddSource("ZMediator.Mediator.g.cs", source);
+spc.AddSource("ZeroAlloc.Mediator.Mediator.g.cs", source);
 
 // After
 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
@@ -396,21 +396,21 @@ spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
 
 ```csharp
 // Before → After (all occurrences)
-"ZMediator.IRequestHandler<TRequest, TResponse>"  →  "ZeroAlloc.IRequestHandler<TRequest, TResponse>"
-"ZMediator.INotificationHandler<TNotification>"   →  "ZeroAlloc.INotificationHandler<TNotification>"
-"ZMediator.ParallelNotificationAttribute"          →  "ZeroAlloc.ParallelNotificationAttribute"
-"ZMediator.INotification"                          →  "ZeroAlloc.INotification"
-"ZMediator.IStreamRequestHandler<TRequest, TResponse>" → "ZeroAlloc.IStreamRequestHandler<TRequest, TResponse>"
-"ZMediator.PipelineBehaviorAttribute"              →  "ZeroAlloc.PipelineBehaviorAttribute"
-"ZMediator.IPipelineBehavior"                      →  "ZeroAlloc.IPipelineBehavior"
-"ZMediator.IRequest<TResponse>"                    →  "ZeroAlloc.IRequest<TResponse>"
+"ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>"  →  "ZeroAlloc.IRequestHandler<TRequest, TResponse>"
+"ZeroAlloc.Mediator.INotificationHandler<TNotification>"   →  "ZeroAlloc.INotificationHandler<TNotification>"
+"ZeroAlloc.Mediator.ParallelNotificationAttribute"          →  "ZeroAlloc.ParallelNotificationAttribute"
+"ZeroAlloc.Mediator.INotification"                          →  "ZeroAlloc.INotification"
+"ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>" → "ZeroAlloc.IStreamRequestHandler<TRequest, TResponse>"
+"ZeroAlloc.Mediator.PipelineBehaviorAttribute"              →  "ZeroAlloc.PipelineBehaviorAttribute"
+"ZeroAlloc.Mediator.IPipelineBehavior"                      →  "ZeroAlloc.IPipelineBehavior"
+"ZeroAlloc.Mediator.IRequest<TResponse>"                    →  "ZeroAlloc.IRequest<TResponse>"
 ```
 
 **Step 4: Update the emitted namespace in generated code**
 
 ```csharp
 // Before
-sb.AppendLine("namespace ZMediator");
+sb.AppendLine("namespace ZeroAlloc.Mediator");
 
 // After
 sb.AppendLine("namespace ZeroAlloc");
@@ -419,15 +419,15 @@ sb.AppendLine("namespace ZeroAlloc");
 **Step 5: Update the emitted DI type names**
 
 ```csharp
-// EmitIZMediatorInterface method — rename the emitted interface
+// EmitIZeroAlloc.MediatorInterface method — rename the emitted interface
 // Before
-sb.AppendLine("    public partial interface IZMediator");
+sb.AppendLine("    public partial interface IZeroAlloc.Mediator");
 // After
 sb.AppendLine("    public partial interface IMediator");
 
-// EmitZMediatorService method — rename the emitted class and interface reference
+// EmitZeroAlloc.MediatorService method — rename the emitted class and interface reference
 // Before
-sb.AppendLine("    public partial class ZMediatorService : IZMediator");
+sb.AppendLine("    public partial class ZeroAlloc.MediatorService : IZeroAlloc.Mediator");
 // After
 sb.AppendLine("    public partial class MediatorService : IMediator");
 ```
@@ -436,16 +436,16 @@ sb.AppendLine("    public partial class MediatorService : IMediator");
 
 ```csharp
 // Rename method signatures (internal refactor, no behavioural change):
-EmitIZMediatorInterface  →  EmitIMediatorInterface
-EmitZMediatorService     →  EmitMediatorService
+EmitIZeroAlloc.MediatorInterface  →  EmitIMediatorInterface
+EmitZeroAlloc.MediatorService     →  EmitMediatorService
 ```
 
 Update the call sites in `GenerateMediatorClass`:
 
 ```csharp
 // Before
-EmitIZMediatorInterface(sb, validRequests, validNotifications, validStreams);
-EmitZMediatorService(sb, validRequests, validNotifications, validStreams);
+EmitIZeroAlloc.MediatorInterface(sb, validRequests, validNotifications, validStreams);
+EmitZeroAlloc.MediatorService(sb, validRequests, validNotifications, validStreams);
 
 // After
 EmitIMediatorInterface(sb, validRequests, validNotifications, validStreams);
@@ -455,7 +455,7 @@ EmitMediatorService(sb, validRequests, validNotifications, validStreams);
 **Step 7: Rename the file**
 
 ```bash
-git mv src/ZeroAlloc.Mediator.Generator/ZMediatorGenerator.cs src/ZeroAlloc.Mediator.Generator/MediatorGenerator.cs
+git mv src/ZeroAlloc.Mediator.Generator/ZeroAlloc.MediatorGenerator.cs src/ZeroAlloc.Mediator.Generator/MediatorGenerator.cs
 ```
 
 **Step 8: Build the generator to verify**
@@ -470,7 +470,7 @@ Expected: 0 errors, 0 warnings.
 
 ```bash
 git add src/ZeroAlloc.Mediator.Generator/
-git commit -m "refactor: rename generator class ZMediatorGenerator -> MediatorGenerator, update all ZMediator string literals and emitted type names"
+git commit -m "refactor: rename generator class ZeroAlloc.MediatorGenerator -> MediatorGenerator, update all ZeroAlloc.Mediator string literals and emitted type names"
 ```
 
 ---
@@ -484,9 +484,9 @@ git commit -m "refactor: rename generator class ZMediatorGenerator -> MediatorGe
 **Step 1: Update `GeneratorTestHelper.cs`**
 
 Two changes:
-1. Namespace declaration: `namespace ZMediator.Tests.GeneratorTests` → `namespace ZeroAlloc.Mediator.Tests.GeneratorTests`
-2. Generator instantiation: `new Generator.ZMediatorGenerator()` → `new Generator.MediatorGenerator()`
-3. Generated file filter: `.Contains("ZMediator")` → `.Contains("ZeroAlloc")`
+1. Namespace declaration: `namespace ZeroAlloc.Mediator.Tests.GeneratorTests` → `namespace ZeroAlloc.Mediator.Tests.GeneratorTests`
+2. Generator instantiation: `new Generator.ZeroAlloc.MediatorGenerator()` → `new Generator.MediatorGenerator()`
+3. Generated file filter: `.Contains("ZeroAlloc.Mediator")` → `.Contains("ZeroAlloc")`
 
 ```csharp
 namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
@@ -505,9 +505,9 @@ var generatedTrees = outputCompilation.SyntaxTrees
 **Step 2: Update namespace declarations in all remaining test files**
 
 For every `*.cs` under `tests/ZeroAlloc.Mediator.Tests/`, change:
-- `namespace ZMediator.Tests` → `namespace ZeroAlloc.Mediator.Tests`
-- `namespace ZMediator.Tests.GeneratorTests` → `namespace ZeroAlloc.Mediator.Tests.GeneratorTests`
-- `namespace ZMediator.Tests.IntegrationTests` → `namespace ZeroAlloc.Mediator.Tests.IntegrationTests`
+- `namespace ZeroAlloc.Mediator.Tests` → `namespace ZeroAlloc.Mediator.Tests`
+- `namespace ZeroAlloc.Mediator.Tests.GeneratorTests` → `namespace ZeroAlloc.Mediator.Tests.GeneratorTests`
+- `namespace ZeroAlloc.Mediator.Tests.IntegrationTests` → `namespace ZeroAlloc.Mediator.Tests.IntegrationTests`
 
 **Step 3: Update diagnostic ID string literals in test files**
 
@@ -520,18 +520,18 @@ In `DiagnosticTests.cs` and any file asserting diagnostic IDs, replace:
 - `"ZM006"` → `"ZAM006"`
 - `"ZM007"` → `"ZAM007"`
 
-**Step 4: Update any test strings referencing `IZMediator` or `ZMediatorService`**
+**Step 4: Update any test strings referencing `IZeroAlloc.Mediator` or `ZeroAlloc.MediatorService`**
 
 In generator snapshot tests (e.g., `DiInterfaceGeneratorTests.cs`), update expected output strings:
-- `"IZMediator"` → `"IMediator"`
-- `"ZMediatorService"` → `"MediatorService"`
-- `"namespace ZMediator"` → `"namespace ZeroAlloc"`
+- `"IZeroAlloc.Mediator"` → `"IMediator"`
+- `"ZeroAlloc.MediatorService"` → `"MediatorService"`
+- `"namespace ZeroAlloc.Mediator"` → `"namespace ZeroAlloc"`
 
-**Step 5: Update `using ZMediator` statements in integration test files**
+**Step 5: Update `using ZeroAlloc.Mediator` statements in integration test files**
 
 ```csharp
 // Before
-using ZMediator;
+using ZeroAlloc.Mediator;
 
 // After
 using ZeroAlloc;
@@ -562,15 +562,15 @@ git commit -m "refactor: update test namespaces, diagnostic IDs, and generated t
 
 **Step 1: Update `samples/ZeroAlloc.Mediator.Sample/Program.cs`**
 
-- Change `using ZMediator;` → `using ZeroAlloc;`
-- Change `IZMediator` → `IMediator`, `ZMediatorService` → `MediatorService` if referenced
-- Change any namespace declaration from `ZMediator.Sample` → `ZeroAlloc.Mediator.Sample`
+- Change `using ZeroAlloc.Mediator;` → `using ZeroAlloc;`
+- Change `IZeroAlloc.Mediator` → `IMediator`, `ZeroAlloc.MediatorService` → `MediatorService` if referenced
+- Change any namespace declaration from `ZeroAlloc.Mediator.Sample` → `ZeroAlloc.Mediator.Sample`
 
 **Step 2: Update `tests/ZeroAlloc.Mediator.Benchmarks/Program.cs`**
 
-- Change `using ZMediator;` → `using ZeroAlloc;`
-- Change `IZMediator` → `IMediator`, `ZMediatorService` → `MediatorService` if referenced
-- Change any namespace declaration from `ZMediator.Benchmarks` → `ZeroAlloc.Mediator.Benchmarks`
+- Change `using ZeroAlloc.Mediator;` → `using ZeroAlloc;`
+- Change `IZeroAlloc.Mediator` → `IMediator`, `ZeroAlloc.MediatorService` → `MediatorService` if referenced
+- Change any namespace declaration from `ZeroAlloc.Mediator.Benchmarks` → `ZeroAlloc.Mediator.Benchmarks`
 
 **Step 3: Do a full solution build**
 
@@ -603,7 +603,7 @@ git commit -m "refactor: update sample and benchmark namespaces and using direct
 - Modify: `.github/workflows/ci.yml`
 - Modify: `.github/workflows/release.yml`
 
-**Step 1: Update `ci.yml`** — replace all `ZMediator.slnx` references and benchmark path
+**Step 1: Update `ci.yml`** — replace all `ZeroAlloc.Mediator.slnx` references and benchmark path
 
 ```yaml
 # Restore
@@ -710,7 +710,7 @@ ZeroAlloc.Mediator/
     └── ZeroAlloc.Mediator.Sample/
 ```
 
-**Step 7: Update benchmark table header** (replace `ZMediator_` prefix with `ZeroAlloc_`)
+**Step 7: Update benchmark table header** (replace `ZeroAlloc.Mediator_` prefix with `ZeroAlloc_`)
 
 **Step 8: Commit**
 
@@ -742,7 +742,7 @@ Expected: all tests pass.
 **Step 3: Verify no old names remain in source files**
 
 ```bash
-grep -r "ZMediator" src/ tests/ samples/ --include="*.cs" --include="*.csproj" --include="*.slnx"
+grep -r "ZeroAlloc.Mediator" src/ tests/ samples/ --include="*.cs" --include="*.csproj" --include="*.slnx"
 ```
 
 Expected: no output (zero matches).

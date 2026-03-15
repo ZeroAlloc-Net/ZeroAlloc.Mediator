@@ -8,8 +8,8 @@
     <Authors>Marcel Roozekrans</Authors>
     <Company>Marcel Roozekrans</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/MarcelRoozekrans/ZMediator</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/MarcelRoozekrans/ZMediator</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Description>A zero-allocation mediator library for .NET. Roslyn source generator wires all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch.</Description>
     <PackageTags>mediator;cqrs;source-generator;zero-allocation;roslyn</PackageTags>
