@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.0...v1.1.1) (2026-03-16)
+
+
+### Documentation
+
+* add slug: / to getting-started for Docusaurus routeBasePath ([fe162b4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fe162b4eccd104966f27f015a557c00ba51a8c89))
+* make getting-started.md the root page ([e2809f6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/e2809f6debb98fa4a9e4bdf77b3c5ad82dc57ebf))
+
 ## [1.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.0.0...v1.1.0) (2026-03-16)
 
 
