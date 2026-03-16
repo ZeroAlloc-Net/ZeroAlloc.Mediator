@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v0.1.5...v1.0.0) (2026-03-16)
+
+First stable release. API is considered production-ready.
+
+### Features
+
+* stable public API: `IRequest<T>`, `INotification`, `IStreamRequest<T>`, `IPipelineBehavior`, `IMediator`, `MediatorService`, `Unit`
+* Native AOT compatibility confirmed
+* Targets net8.0 (LTS) and net10.0
+
+### Documentation
+
+* extensive consumer documentation with real-world examples, Mermaid diagrams, and cookbook recipes
+
+---
+
 ## [0.1.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v0.1.4...v0.1.5) (2026-03-16)
 
 
