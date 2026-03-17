@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.2...v1.1.3) (2026-03-17)
+
+
+### Documentation
+
+* uniformize documentation structure and frontmatter ([fca2398](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fca239846e50cc5f9fb2fd27da7494f2c25beded))
+
 ## [1.1.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.1...v1.1.2) (2026-03-17)
 
 
