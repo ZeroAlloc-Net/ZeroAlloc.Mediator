@@ -76,19 +76,19 @@ For I/O-bound handlers that do suspend, `ValueTask` still reduces overhead compa
 
 ## Benchmark Results
 
-Benchmarks run with BenchmarkDotNet on .NET 8, Release build. Full benchmark source in `tests/ZeroAlloc.Mediator.Benchmarks/`.
+Benchmarks run with BenchmarkDotNet on .NET 10, Release build, 12th Gen Intel Core i9-12900HK. Full benchmark source in `tests/ZeroAlloc.Mediator.Benchmarks/`.
 
-| Method | Library | Mean | Allocated |
-|---|---|---|---|
-| Send | ZeroAlloc.Mediator | ~1–3 ns | 0 B |
-| Publish (1 handler) | ZeroAlloc.Mediator | ~1–3 ns | 0 B |
-| Publish (multi handler) | ZeroAlloc.Mediator | ~2–5 ns | 0 B |
-| SendPipeline | ZeroAlloc.Mediator | ~2–5 ns | 0 B |
-| Send (via IMediator) | ZeroAlloc.Mediator | ~3–6 ns | 0 B |
-| Send | MediatR | ~75–150 ns | 152–400 B |
-| Publish | MediatR | ~100–200 ns | 400+ B |
+| Method | ZeroAlloc.Mediator | MediatR | Ratio | ZA Alloc | MediatR Alloc |
+|---|---:|---:|---:|---:|---:|
+| Send | 0.5 ns | 78.3 ns | **~160×** | 0 B | 224 B |
+| Publish (1 handler) | 6.1 ns | 243.8 ns | **~40×** | 0 B | 792 B |
+| Publish (multi handler) | 6.6 ns | 332.4 ns | **~51×** | 0 B | 1032 B |
+| Send + Pipeline | 2.8 ns | 101.8 ns | **~46×** | 0 B | 152 B |
+| Send (static) | 0.7 ns | — | — | 0 B | — |
+| Send (via IMediator DI) | 5.8 ns | 86.3 ns | **~15×** | 0 B | 224 B |
+| Stream (5 items) | 202.8 ns | 654.4 ns | **~3×** | 104 B | 528 B |
 
-ZeroAlloc.Mediator is approximately 26–65x faster than MediatR on the Send path, with zero heap allocations on all measured paths.
+ZeroAlloc.Mediator is **40–160× faster** than MediatR across all measured paths, with zero heap allocations on every non-streaming path.
 
 ## Dispatch Comparison
 
