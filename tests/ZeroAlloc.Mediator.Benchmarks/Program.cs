@@ -78,7 +78,7 @@ public class MediatorBenchmarks
     [BenchmarkCategory("Stream"), Benchmark(Baseline = true)]
     public async Task ZeroAllocMediator_Stream()
     {
-        await foreach (var _ in ZeroAlloc.Mediator.Mediator.CreateStream(new ZBenchStreamRequest(5), _ct))
+        await foreach (var _ in ZeroAlloc.Mediator.Mediator.CreateStream(new ZBenchStreamRequest(5), _ct).ConfigureAwait(false))
         {
         }
     }
@@ -86,7 +86,7 @@ public class MediatorBenchmarks
     [BenchmarkCategory("Stream"), Benchmark]
     public async Task MediatR_Stream()
     {
-        await foreach (var _ in _mediatR.CreateStream(new MBenchStreamRequest(5), _ct))
+        await foreach (var _ in _mediatR.CreateStream(new MBenchStreamRequest(5), _ct).ConfigureAwait(false))
         {
         }
     }

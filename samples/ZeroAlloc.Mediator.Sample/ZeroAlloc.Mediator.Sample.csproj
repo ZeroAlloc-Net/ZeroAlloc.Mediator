@@ -3,6 +3,9 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ZeroAlloc.Mediator.Sample</RootNamespace>
+    <!-- MA0048: multiple types share Program.cs by design (compact sample). -->
+    <!-- EPS05: fires on auto-generated Mediator.g.cs, not directly fixable here. -->
+    <NoWarn>$(NoWarn);MA0048;EPS05</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />

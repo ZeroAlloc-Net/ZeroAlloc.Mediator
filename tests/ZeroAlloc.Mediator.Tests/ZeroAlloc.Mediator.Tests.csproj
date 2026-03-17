@@ -3,6 +3,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ZeroAlloc.Mediator.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- NU1608/NU1701: transitive CodeAnalysis testing packages lack net10 TFM but work fine. -->
+    <!-- MA0074: Assert.Contains is an xUnit method, not a string Contains — no StringComparison needed. -->
+    <!-- MA0006: string == comparisons in LINQ predicates in test helpers are fine. -->
+    <!-- MA0048/MA0051: test files intentionally group related types; long test methods are acceptable. -->
+    <!-- MA0008: test-only record structs don't need StructLayout. -->
+    <!-- EPS05: fires on auto-generated Mediator.g.cs, not directly fixable here. -->
+    <!-- EPS06: ImmutableArray.Where/FirstOrDefault in test helpers; no perf concern in tests. -->
+    <!-- HLQ005: Assert.Single is an xUnit method, not LINQ Single. -->
+    <NoWarn>$(NoWarn);NU1608;NU1701;MA0074;MA0006;MA0048;MA0051;MA0008;EPS05;EPS06;HLQ005</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
