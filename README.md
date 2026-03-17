@@ -1,5 +1,8 @@
 # ZeroAlloc.Mediator
 
+[![NuGet](https://img.shields.io/nuget/v/ZeroAlloc.Mediator.svg)](https://www.nuget.org/packages/ZeroAlloc.Mediator)
+[![Build](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/actions/workflows/ci.yml/badge.svg)](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/actions/workflows/ci.yml)
+
 A zero-allocation, Native AOT-compatible mediator library for .NET 8 and .NET 10. Uses a Roslyn incremental source generator to wire all dispatch at compile time — no reflection, no dictionaries, no virtual dispatch, no delegate allocation per request.
 
 ## Features
@@ -18,8 +21,8 @@ A zero-allocation, Native AOT-compatible mediator library for .NET 8 and .NET 10
 Add the NuGet packages:
 
 ```xml
-<PackageReference Include="ZeroAlloc.Mediator" Version="0.1.0" />
-<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="0.1.0" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+<PackageReference Include="ZeroAlloc.Mediator" Version="1.1.1" />
+<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="1.1.1" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 ```
 
 ### Request/Response
@@ -55,7 +58,7 @@ public class UserCreatedLogger : INotificationHandler<UserCreated>
 await Mediator.Publish(new UserCreated(42, "Alice"), ct);
 ```
 
-#### Parallel Notifications
+### Parallel Notifications
 
 Apply `[ParallelNotification]` to run all handlers concurrently via `Task.WhenAll`:
 
@@ -64,7 +67,7 @@ Apply `[ParallelNotification]` to run all handlers concurrently via `Task.WhenAl
 public readonly record struct OrderPlaced(int OrderId) : INotification;
 ```
 
-#### Polymorphic Notifications
+### Polymorphic Notifications
 
 Handlers for base notification types are automatically included in all matching concrete notifications:
 
@@ -183,31 +186,25 @@ The interface contains the same strongly-typed `Send`, `Publish`, and `CreateStr
 
 ### ZeroAlloc.Mediator vs MediatR
 
-```
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840)
-12th Gen Intel Core i9-12900HK, .NET 10.0.3
+_BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840) · 12th Gen Intel Core i9-12900HK · .NET 10.0.3_
 
-| Method                          | Categories   | Mean        | Ratio  | Allocated | Alloc Ratio |
-|-------------------------------- |------------- |------------:|-------:|----------:|------------:|
-| ZeroAllocMediator_Publish_Single | Publish1     |   5.907 ns  |   1.06 |       0 B |          NA |
-| MediatR_Publish_Single          | Publish1     | 221.578 ns  |  39.61 |     792 B |          NA |
-|                                 |              |             |        |           |             |
-| ZeroAllocMediator_Publish_Multi  | Publish2     |   5.273 ns  |   1.01 |       0 B |          NA |
-| MediatR_Publish_Multi           | Publish2     | 299.262 ns  |  57.41 |   1,032 B |          NA |
-|                                 |              |             |        |           |             |
-| ZeroAllocMediator_Send           | Send         |   1.883 ns  |   1.62 |       0 B |          NA |
-| MediatR_Send                    | Send         |  75.159 ns  |  64.69 |     224 B |          NA |
-|                                 |              |             |        |           |             |
-| ZeroAllocMediator_Send_Static    | SendDI       |   2.539 ns  |   1.29 |       0 B |          NA |
-| ZeroAllocMediator_Send_DI        | SendDI       |   1.339 ns  |   0.68 |       0 B |          NA |
-| MediatR_Send_DI                 | SendDI       |  88.618 ns  |  44.90 |     224 B |          NA |
-|                                 |              |             |        |           |             |
-| ZeroAllocMediator_SendPipeline   | SendPipeline |   2.961 ns  |   1.14 |       0 B |          NA |
-| MediatR_SendPipeline            | SendPipeline |  76.742 ns  |  29.51 |     152 B |          NA |
-|                                 |              |             |        |           |             |
-| ZeroAllocMediator_Stream         | Stream       | 149.316 ns  |   1.02 |     104 B |        1.00 |
-| MediatR_Stream                  | Stream       | 449.751 ns  |   3.06 |     528 B |        5.08 |
-```
+Ratio is relative to the ZeroAlloc.Mediator baseline for each category.
+
+| Method | Category | Mean | Ratio | Allocated | Alloc Ratio |
+|---|---|---:|---:|---:|---:|
+| ZeroAllocMediator_Publish_Single | Publish1 | 5.907 ns | 1.06 | 0 B | NA |
+| MediatR_Publish_Single | Publish1 | 221.578 ns | 39.61 | 792 B | NA |
+| ZeroAllocMediator_Publish_Multi | Publish2 | 5.273 ns | 1.01 | 0 B | NA |
+| MediatR_Publish_Multi | Publish2 | 299.262 ns | 57.41 | 1,032 B | NA |
+| ZeroAllocMediator_Send | Send | 1.883 ns | 1.62 | 0 B | NA |
+| MediatR_Send | Send | 75.159 ns | 64.69 | 224 B | NA |
+| ZeroAllocMediator_Send_Static | SendDI | 2.539 ns | 1.29 | 0 B | NA |
+| ZeroAllocMediator_Send_DI | SendDI | 1.339 ns | 0.68 | 0 B | NA |
+| MediatR_Send_DI | SendDI | 88.618 ns | 44.90 | 224 B | NA |
+| ZeroAllocMediator_SendPipeline | SendPipeline | 2.961 ns | 1.14 | 0 B | NA |
+| MediatR_SendPipeline | SendPipeline | 76.742 ns | 29.51 | 152 B | NA |
+| ZeroAllocMediator_Stream | Stream | 149.316 ns | 1.02 | 104 B | 1.00 |
+| MediatR_Stream | Stream | 449.751 ns | 3.06 | 528 B | 5.08 |
 
 ZeroAlloc.Mediator is **26-65x faster** than MediatR with **zero allocation** on all synchronous paths. The DI interface (`IMediator`) adds no measurable overhead vs the static API — both complete in ~1-3 ns with 0 bytes allocated. MediatR allocates 152-1,032 bytes per call due to DI resolution, delegate creation, and `Task<T>` boxing.
 
