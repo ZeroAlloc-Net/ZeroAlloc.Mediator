@@ -11,8 +11,15 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
   </ItemGroup>
-  <ItemGroup>
+  <!--
+    Local development: use the sibling checkout when available.
+    CI / NuGet consumers: falls back to the published package automatically.
+  -->
+  <ItemGroup Condition="Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj')">
     <ProjectReference Include="..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj')">
+    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" PrivateAssets="all" />
   </ItemGroup>
 
   <!--

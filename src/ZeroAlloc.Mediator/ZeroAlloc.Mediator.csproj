@@ -5,7 +5,15 @@
     <PackageId>ZeroAlloc.Mediator</PackageId>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
-  <ItemGroup>
+  <!--
+    Local development: use the sibling checkout when available.
+    CI / NuGet consumers: falls back to the published package automatically.
+    To override the version when using the package, set $(ZeroAllocPipelineVersion) before the import.
+  -->
+  <ItemGroup Condition="Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline\ZeroAlloc.Pipeline.csproj')">
     <ProjectReference Include="..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline\ZeroAlloc.Pipeline.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline\ZeroAlloc.Pipeline.csproj')">
+    <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
   </ItemGroup>
 </Project>

@@ -37,10 +37,33 @@ namespace ZeroAlloc.Mediator.Generator
                 .Where(static x => x != null)
                 .Collect();
 
-            var pipelineBehaviors = context.CompilationProvider.Select(static (compilation, _) =>
-                PipelineBehaviorDiscoverer.Discover(compilation)
-                    .OrderBy(b => b.Order)
-                    .ToImmutableArray());
+            // Use ForAttributeWithMetadataName so Roslyn can cache at the per-class level and
+            // avoid re-running discovery on every compilation change (unlike CompilationProvider).
+            // Two registrations are needed: one for direct use of the base attribute and one for
+            // the ZeroAlloc.Mediator subclass attribute — ForAttributeWithMetadataName matches
+            // exact FQNs only (no subclass walk).
+            var pipelineBehaviorsBase = context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    "ZeroAlloc.Pipeline.PipelineBehaviorAttribute",
+                    predicate: static (node, _) => node is ClassDeclarationSyntax,
+                    transform: static (ctx, _) => PipelineBehaviorDiscoverer.FromAttributeSyntaxContext(ctx))
+                .Where(static x => x != null)
+                .Select(static (x, _) => x!);
+
+            var pipelineBehaviorsMediator = context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    "ZeroAlloc.Mediator.PipelineBehaviorAttribute",
+                    predicate: static (node, _) => node is ClassDeclarationSyntax,
+                    transform: static (ctx, _) => PipelineBehaviorDiscoverer.FromAttributeSyntaxContext(ctx))
+                .Where(static x => x != null)
+                .Select(static (x, _) => x!);
+
+            var pipelineBehaviors = pipelineBehaviorsBase.Collect()
+                .Combine(pipelineBehaviorsMediator.Collect())
+                .Select(static (pair, _) =>
+                    pair.Left.AddRange(pair.Right)
+                        .OrderBy(static b => b.Order)
+                        .ToImmutableArray());
 
             var requestTypes = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is TypeDeclarationSyntax tds && tds.BaseList != null,
@@ -406,16 +429,18 @@ namespace ZeroAlloc.Mediator.Generator
             }
             else
             {
+                var handlerTypeName = handler.HandlerTypeName;
+                var factoryFieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 var shape = new PipelineShape
                 {
                     TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
                     OuterParameterNames = new[] { "request", "ct" },
                     LambdaParameterPrefixes = new[] { "r", "c" },
-                    InnermostBodyTemplate = string.Format(
+                    InnermostBodyFactory = depth => string.Format(
                         "{{ var handler = {0}?.Invoke() ?? new {1}(); return handler.Handle(r{2}, c{2}); }}",
-                        GetFactoryFieldName(handler.HandlerTypeName),
-                        handler.HandlerTypeName,
-                        applicablePipelines.Count),
+                        factoryFieldName,
+                        handlerTypeName,
+                        depth),
                 };
 
                 var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
