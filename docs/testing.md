@@ -105,7 +105,9 @@ public class RequestIntegrationTests : IDisposable
 
     public void Dispose()
     {
-        // Reset factories between tests if needed
+        // Note: Mediator.Configure with an empty action is a no-op — it does NOT reset factories.
+        // To reset a factory between tests, call Configure again with the desired factory,
+        // or restructure the test to avoid shared factory state.
         Mediator.Configure(cfg => { });
     }
 }
@@ -143,8 +145,10 @@ Because `IMediator` contains strongly-typed overloads (one per request/notificat
 A pipeline behavior is a static class with a static `Handle` method. Test it by calling the method directly, passing a lambda as the `next` delegate:
 
 ```csharp
+// Note: in real usage, `: IPipelineBehavior` is required so the generator registers this behavior.
+// The tests below call the static method directly, so the interface is not strictly needed for isolation testing.
 [PipelineBehavior(Order = 0)]
-public static class ValidationBehavior
+public static class ValidationBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,

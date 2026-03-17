@@ -45,7 +45,7 @@ The recommended pattern for cross-cutting exception handling is a pipeline behav
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class ExceptionHandlingBehavior
+public static class ExceptionHandlingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -159,12 +159,8 @@ Without `[EnumeratorCancellation]`, the token passed to `CreateStream` is not fo
 ASP.NET Core automatically wires `HttpContext.RequestAborted` into the `CancellationToken` parameter of minimal API endpoints and controller actions. Pass it through to `Mediator.Send` or `CreateStream`:
 
 ```csharp
-app.MapGet("/orders/export", async (IMediator mediator, CancellationToken ct) =>
-{
-    await foreach (var row in mediator.CreateStream(new ExportOrdersQuery(), ct))
-        // If the client disconnects, ct is cancelled — the stream stops
-        yield return row;
-});
+app.MapGet("/orders/export", (IMediator mediator, CancellationToken ct) =>
+    mediator.CreateStream(new ExportOrdersQuery(), ct));
 ```
 
 ## Combining Features
@@ -230,7 +226,7 @@ For all other requests: `LoggingBehavior` → `PerformanceMonitorBehavior` → h
 
 ### The problem: static behaviors have no instance state
 
-Pipeline behaviors must be `static class` — the generator emits them as static method calls, not instantiated objects. This means you cannot inject services via a constructor. For stateless cross-cutting concerns (logging via `Console`, performance counters, lightweight validation) this is fine.
+Pipeline behaviors require a `static` `Handle` method — the generator emits them as static method calls, not instantiated objects. The class itself does not need to be `static`, but because `Handle` is static, you cannot inject services via a constructor. For stateless cross-cutting concerns (logging via `Console`, performance counters, lightweight validation) this is fine.
 
 For behaviors that genuinely need a scoped service (e.g., `DbContext`, `ICurrentUserService`, or a per-request audit log), use an ambient context pattern:
 
@@ -244,7 +240,7 @@ builder.Services.AddHttpContextAccessor();
 
 // In a behavior that needs the current user
 [PipelineBehavior(Order = 5)]
-public static class CurrentUserBehavior
+public static class CurrentUserBehavior : IPipelineBehavior
 {
     // Set once at startup via Mediator.Configure or DI wiring
     internal static IHttpContextAccessor? HttpContextAccessor;
@@ -272,7 +268,7 @@ For non-ASP.NET scenarios, use `AsyncLocal<T>` to flow a scoped value through th
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class TenantBehavior
+public static class TenantBehavior : IPipelineBehavior
 {
     private static readonly AsyncLocal<string?> _tenantId = new();
 

@@ -24,14 +24,11 @@ The generator package must also be added as an analyzer:
 // 1. Define a request record and its expected response type
 public readonly record struct CreateOrder(string Product, int Qty) : IRequest<OrderId>;
 
-// 2. Implement a handler — constructor-injected dependencies are supported
-public class CreateOrderHandler(IOrderRepository repo) : IRequestHandler<CreateOrder, OrderId>
+// 2. Implement a handler — no constructor dependencies needed for this example
+public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderId>
 {
-    public async ValueTask<OrderId> Handle(CreateOrder request, CancellationToken ct)
-    {
-        var id = await repo.InsertAsync(request.Product, request.Qty, ct);
-        return new OrderId(id);
-    }
+    public ValueTask<OrderId> Handle(CreateOrder request, CancellationToken ct)
+        => ValueTask.FromResult(OrderId.NewId());
 }
 
 // 3. Register IMediator with DI (the generator emits MediatorService automatically)
