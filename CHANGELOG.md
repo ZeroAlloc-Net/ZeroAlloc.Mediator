@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.3...v1.1.4) (2026-03-17)
+
+
+### Documentation
+
+* fix code accuracy issues in advanced.md, testing.md, and README ([#23](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/23)) ([d4a8f9c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/d4a8f9c71cfb067feba64b9aefe4f984d3d14c1d))
+
 ## [1.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.2...v1.1.3) (2026-03-17)
 
 
