@@ -387,7 +387,8 @@ namespace ZeroAlloc.Mediator.Generator
             List<PipelineBehaviorInfo> pipelines)
         {
             var applicablePipelines = pipelines
-                .Where(p => p.AppliesTo == null || p.AppliesTo == handler.RequestTypeName)
+                .Where(p => (p.AppliesTo == null || p.AppliesTo == handler.RequestTypeName)
+                         && p.HasValidHandleMethod(expectedTypeParamCount: 2))
                 .ToList();
 
             sb.AppendLine(string.Format(
