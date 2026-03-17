@@ -47,15 +47,16 @@ public class OrderController(IMediator mediator)
 
 ## Performance
 
-ZeroAlloc.Mediator is **26–65x faster** than MediatR with **zero heap allocation** on all synchronous paths (.NET 10, BenchmarkDotNet).
+ZeroAlloc.Mediator is **40–160x faster** than MediatR with **zero heap allocation** on all non-streaming paths (.NET 10.0.4, i9-12900HK, BenchmarkDotNet).
 
 | Operation | ZeroAlloc.Mediator | MediatR | Speedup | Alloc |
 |---|---:|---:|---:|---:|
-| Send | ~1.9 ns | ~75 ns | ~40x | 0 B vs 224 B |
-| Send + pipeline | ~3.0 ns | ~77 ns | ~26x | 0 B vs 152 B |
-| Publish (1 handler) | ~5.9 ns | ~222 ns | ~38x | 0 B vs 792 B |
-| Publish (3 handlers) | ~5.3 ns | ~299 ns | ~57x | 0 B vs 1,032 B |
-| Stream (per item) | ~149 ns | ~450 ns | ~3x | 104 B vs 528 B |
+| Send | 0.5 ns | 78.3 ns | ~160x | 0 B vs 224 B |
+| Send + pipeline | 2.8 ns | 101.8 ns | ~46x | 0 B vs 152 B |
+| Send (via IMediator DI) | 5.8 ns | 86.3 ns | ~15x | 0 B vs 224 B |
+| Publish (1 handler) | 6.1 ns | 243.8 ns | ~40x | 0 B vs 792 B |
+| Publish (multi handler) | 6.6 ns | 332.4 ns | ~51x | 0 B vs 1,032 B |
+| Stream (5 items) | 202.8 ns | 654.4 ns | ~3x | 104 B vs 528 B |
 
 See [docs/performance.md](docs/performance.md) for the full benchmark table and zero-allocation design explanation.
 
