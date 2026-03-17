@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    Roslyn loads source generators in an isolated AssemblyLoadContext. Dependencies of a
+    generator DLL must be explicitly registered with the analyzer loader (passed as /analyzer:
+    to csc) — merely having them next to the generator DLL is not enough.
+
+    ZeroAlloc.Mediator.Generator depends on ZeroAlloc.Pipeline.Generators (and transitively
+    ZeroAlloc.Pipeline). Both are already in ReferencePath (resolved from NuGet). This target
+    promotes them to the Analyzer item group so the compiler registers them as analyzer
+    dependencies, which satisfies the load-context probing done by Roslyn.
+  -->
+  <Target Name="AddPipelineGeneratorAnalyzerDeps" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Analyzer Include="@(ReferencePath)"
+                Condition="'%(Filename)' == 'ZeroAlloc.Pipeline.Generators'
+                        or '%(Filename)' == 'ZeroAlloc.Pipeline'" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -29,14 +29,7 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="true" />
-    <!-- ZeroAlloc.Pipeline analyzer deps: local checkout or NuGet package -->
-    <ProjectReference Include="..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj')" />
-    <ProjectReference Include="..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline\ZeroAlloc.Pipeline.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="true"
-                      Condition="Exists('..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline\ZeroAlloc.Pipeline.csproj')" />
+    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
   </ItemGroup>
 </Project>
