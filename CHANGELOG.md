@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.4...v1.1.5) (2026-03-17)
+
+
+### Refactoring
+
+* extract pipeline infrastructure to ZeroAlloc.Pipeline NuGet package ([#25](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/25)) ([5319e07](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/5319e07e38b44837663c95bf1a6f543aadb6174b))
+
+
+### Documentation
+
+* update README performance table with actual benchmark numbers ([#27](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/27)) ([4519c8b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/4519c8bac45d591d55121c5118cf993958899c67))
+
 ## [1.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.3...v1.1.4) (2026-03-17)
 
 
