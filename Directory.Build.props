@@ -4,6 +4,9 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 
+    <!-- ZeroAlloc.Pipeline dependency version (used when local checkout is absent) -->
+    <ZeroAllocPipelineVersion>0.1.1</ZeroAllocPipelineVersion>
+
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>
     <Company>Marcel Roozekrans</Company>
