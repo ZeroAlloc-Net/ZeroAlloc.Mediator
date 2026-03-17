@@ -324,7 +324,7 @@ namespace ZeroAlloc.Mediator.Generator
             var validRequests = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
             var validNotifications = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
             var validStreams = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
-            var validPipelines = pipelineBehaviors.OrderBy(x => x.Order).ToList();
+            var validPipelines = pipelineBehaviors.ToList();
 
             // Emit factory fields for request handlers
             foreach (var handler in validRequests)
