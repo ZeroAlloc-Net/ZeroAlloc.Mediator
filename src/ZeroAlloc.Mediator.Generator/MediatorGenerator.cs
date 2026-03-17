@@ -275,31 +275,25 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            // ZAM005: Missing behavior Handle method
-            foreach (var behavior in pipelineBehaviors)
+            // ZAM005: Missing behavior Handle method (2 type params expected for Send pipeline)
+            var validBehaviors = pipelineBehaviors.ToList();
+            foreach (var behavior in PipelineDiagnosticRules.FindMissingHandleMethod(validBehaviors, expectedTypeParamCount: 2))
             {
-                if (!behavior.HasValidHandleMethod(2))
-                {
-                    spc.ReportDiagnostic(Diagnostic.Create(
-                        DiagnosticDescriptors.MissingBehaviorHandleMethod,
-                        Location.None,
-                        behavior.BehaviorTypeName));
-                }
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.MissingBehaviorHandleMethod,
+                    Location.None,
+                    behavior.BehaviorTypeName));
             }
 
             // ZAM006: Duplicate behavior order
-            var orderGroups = pipelineBehaviors.GroupBy(b => b.Order).ToList();
-            foreach (var group in orderGroups)
+            foreach (var group in PipelineDiagnosticRules.FindDuplicateOrders(validBehaviors))
             {
-                if (group.Count() > 1)
-                {
-                    var behaviorNames = string.Join(", ", group.Select(b => b.BehaviorTypeName));
-                    spc.ReportDiagnostic(Diagnostic.Create(
-                        DiagnosticDescriptors.DuplicateBehaviorOrder,
-                        Location.None,
-                        behaviorNames,
-                        group.Key));
-                }
+                var behaviorNames = string.Join(", ", group.Select(b => b.BehaviorTypeName));
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.DuplicateBehaviorOrder,
+                    Location.None,
+                    behaviorNames,
+                    group.Key));
             }
         }
 
