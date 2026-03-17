@@ -11,4 +11,27 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" PrivateAssets="all" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\ZeroAlloc.Pipeline\src\ZeroAlloc.Pipeline.Generators\ZeroAlloc.Pipeline.Generators.csproj" />
+  </ItemGroup>
+
+  <!--
+    Source generators run in an isolated context: Roslyn loads the generator DLL but does NOT
+    automatically load its project-reference dependencies.  We work around this by emitting
+    the dependency DLLs next to the generator DLL so that the consuming project can register
+    them as additional analyzers.
+
+    The target below fires after the referenced projects have been built (ResolveProjectReferences
+    runs before Build), so %(ReferencePath) already contains the output paths.
+  -->
+  <Target Name="CopyGeneratorHelperDlls" AfterTargets="Build">
+    <ItemGroup>
+      <_GeneratorHelperDll Include="@(ReferencePath)"
+                           Condition="'%(Filename)' == 'ZeroAlloc.Pipeline.Generators'
+                                   or '%(Filename)' == 'ZeroAlloc.Pipeline'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_GeneratorHelperDll)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
