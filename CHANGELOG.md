@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.5...v1.1.6) (2026-03-19)
+
+
+### Bug Fixes
+
+* update PackageProjectUrl to docs site ([#28](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/28)) ([324aca6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/324aca60ccc1361fb269348135532ccb46fca1a4))
+
 ## [1.1.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.4...v1.1.5) (2026-03-17)
 
 
