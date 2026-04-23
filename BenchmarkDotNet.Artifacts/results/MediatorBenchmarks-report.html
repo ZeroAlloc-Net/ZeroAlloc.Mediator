@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>MediatorBenchmarks-20260317-150815</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
+12th Gen Intel Core i9-12900HK 2.50GHz, 1 CPU, 20 logical and 14 physical cores
+.NET SDK 10.0.104
+  [Host]     : .NET 10.0.4 (10.0.4, 10.0.426.12010), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 10.0.4 (10.0.4, 10.0.426.12010), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method                    </th><th>Categories</th><th>Mean </th><th>Ratio</th><th>Gen0</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>ZeroAllocMediator_Publish_Single</td><td>Publish1</td><td>6.0813 ns</td><td>1.00</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>MediatR_Publish_Single</td><td>Publish1</td><td>243.7506 ns</td><td>40.24</td><td>0.0629</td><td>792 B</td><td>NA</td>
+</tr><tr><td>ZeroAllocMediator_Publish_Multi</td><td>Publish2</td><td>6.5769 ns</td><td>1.02</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>MediatR_Publish_Multi</td><td>Publish2</td><td>332.3601 ns</td><td>51.73</td><td>0.0820</td><td>1032 B</td><td>NA</td>
+</tr><tr><td>ZeroAllocMediator_Send</td><td>Send</td><td>0.4857 ns</td><td>?</td><td>-</td><td>-</td><td>?</td>
+</tr><tr><td>MediatR_Send</td><td>Send</td><td>78.3486 ns</td><td>?</td><td>0.0178</td><td>224 B</td><td>?</td>
+</tr><tr><td>ZeroAllocMediator_Send_Static</td><td>SendDI</td><td>0.6715 ns</td><td>?</td><td>-</td><td>-</td><td>?</td>
+</tr><tr><td>ZeroAllocMediator_Send_DI</td><td>SendDI</td><td>5.7502 ns</td><td>?</td><td>-</td><td>-</td><td>?</td>
+</tr><tr><td>MediatR_Send_DI</td><td>SendDI</td><td>86.3096 ns</td><td>?</td><td>0.0178</td><td>224 B</td><td>?</td>
+</tr><tr><td>ZeroAllocMediator_SendPipeline</td><td>SendPipeline</td><td>2.8016 ns</td><td>1.27</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>MediatR_SendPipeline</td><td>SendPipeline</td><td>101.7776 ns</td><td>46.29</td><td>0.0120</td><td>152 B</td><td>NA</td>
+</tr><tr><td>ZeroAllocMediator_Stream</td><td>Stream</td><td>202.8163 ns</td><td>1.06</td><td>0.0081</td><td>104 B</td><td>1.00</td>
+</tr><tr><td>MediatR_Stream</td><td>Stream</td><td>654.4371 ns</td><td>3.41</td><td>0.0420</td><td>528 B</td><td>5.08</td>
+</tr></tbody></table>
+</body>
+</html>
