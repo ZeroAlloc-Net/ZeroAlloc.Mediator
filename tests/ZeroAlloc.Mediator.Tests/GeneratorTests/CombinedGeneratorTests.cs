@@ -86,7 +86,7 @@ public class CombinedGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         // Send is generated with pipeline behavior inlined
-        Assert.Contains("public static ValueTask<string> Send(global::TestApp.Ping request", output);
+        Assert.Contains("public static async ValueTask<string> Send(global::TestApp.Ping request", output);
         Assert.Contains("LoggingBehavior.Handle", output);
 
         // Publish is generated for both notification types

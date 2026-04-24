@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <PackageId>ZeroAlloc.Mediator.Resilience</PackageId>
+    <Description>Pipeline behavior that applies [MediatorRetry], [MediatorCircuitBreaker], and [MediatorTimeout] declared on request types. Composes ZeroAlloc.Resilience policies directly in the Mediator pipeline — no source generation required at the call site.</Description>
+    <Version>0.0.0-local</Version>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+    <PackageReference Include="ZeroAlloc.Resilience" Version="1.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZeroAlloc.Mediator.Resilience.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+  </ItemGroup>
+</Project>

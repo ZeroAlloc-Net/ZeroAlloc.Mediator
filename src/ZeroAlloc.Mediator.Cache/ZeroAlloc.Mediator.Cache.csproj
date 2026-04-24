@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <PackageId>ZeroAlloc.Mediator.Cache</PackageId>
+    <Description>Pipeline behavior that caches IRequest&lt;T&gt; responses when the request type carries [Cache]. Zero-alloc key derivation via interpolated strings on value-type requests.</Description>
+    <Version>0.0.0-local</Version>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+    <PackageReference Include="ZeroAlloc.Cache" Version="0.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZeroAlloc.Mediator.Cache.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+  </ItemGroup>
+</Project>
