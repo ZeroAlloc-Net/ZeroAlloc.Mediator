@@ -343,6 +343,10 @@ namespace ZeroAlloc.Mediator.Generator
             var validStreams = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
             var validPipelines = pipelineBehaviors.ToList();
 
+            // Emit ActivitySource field
+            sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
+            sb.AppendLine();
+
             // Emit factory fields for request handlers
             foreach (var handler in validRequests)
             {
@@ -414,18 +418,27 @@ namespace ZeroAlloc.Mediator.Generator
                          && p.HasValidHandleMethod(expectedTypeParamCount: 2))
                 .ToList();
 
+            var requestSimpleName = GetSimpleTypeName(handler.RequestTypeName);
+
+            // async/await is required here so the activity span covers the full handler lifetime.
+            // This forces an async state machine allocation per call even for synchronous handlers —
+            // an accepted telemetry cost. A custom ValueTask wrapper could eliminate this in a future revision.
             sb.AppendLine(string.Format(
-                "        public static ValueTask<{0}> Send({1} request, CancellationToken ct = default)",
+                "        public static async ValueTask<{0}> Send({1} request, CancellationToken ct = default)",
                 handler.ResponseTypeName, handler.RequestTypeName));
             sb.AppendLine("        {");
+            sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.send\");");
+            sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+            sb.AppendLine("            try");
+            sb.AppendLine("            {");
 
             if (applicablePipelines.Count == 0)
             {
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format(
-                    "            var handler = {0}?.Invoke() ?? new {1}();",
+                    "                var handler = {0}?.Invoke() ?? new {1}();",
                     fieldName, handler.HandlerTypeName));
-                sb.AppendLine("            return handler.Handle(request, ct);");
+                sb.AppendLine("                return await handler.Handle(request, ct);");
             }
             else
             {
@@ -444,9 +457,15 @@ namespace ZeroAlloc.Mediator.Generator
                 };
 
                 var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
-                sb.AppendLine(string.Format("            return {0};", chain));
+                sb.AppendLine(string.Format("                return await {0};", chain));
             }
 
+            sb.AppendLine("            }");
+            sb.AppendLine("            catch (global::System.Exception __ex)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+            sb.AppendLine("                throw;");
+            sb.AppendLine("            }");
             sb.AppendLine("        }");
             sb.AppendLine();
         }
@@ -482,12 +501,18 @@ namespace ZeroAlloc.Mediator.Generator
                 var allHandlers = new List<NotificationHandlerInfo>(handlerList);
                 allHandlers.AddRange(matchingBaseHandlers);
 
+                var notificationSimpleName = GetSimpleTypeName(notificationType);
+
                 if (isParallel)
                 {
                     sb.AppendLine(string.Format(
                         "        public static async ValueTask Publish({0} notification, CancellationToken ct = default)",
                         notificationType));
                     sb.AppendLine("        {");
+                    sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.publish\");");
+                    sb.AppendLine(string.Format("            __activity?.SetTag(\"notification.type\", \"{0}\");", notificationSimpleName));
+                    sb.AppendLine("            try");
+                    sb.AppendLine("            {");
 
                     // Use Task.WhenAll for parallel execution
                     var taskExprs = new List<string>();
@@ -499,13 +524,19 @@ namespace ZeroAlloc.Mediator.Generator
                             fieldName, handler.HandlerTypeName));
                     }
 
-                    sb.AppendLine("            await Task.WhenAll(");
+                    sb.AppendLine("                await Task.WhenAll(");
                     for (int i = 0; i < taskExprs.Count; i++)
                     {
                         var comma = i < taskExprs.Count - 1 ? "," : "";
-                        sb.AppendLine(string.Format("                {0}{1}", taskExprs[i], comma));
+                        sb.AppendLine(string.Format("                    {0}{1}", taskExprs[i], comma));
                     }
-                    sb.AppendLine("            );");
+                    sb.AppendLine("                );");
+                    sb.AppendLine("            }");
+                    sb.AppendLine("            catch (global::System.Exception __ex)");
+                    sb.AppendLine("            {");
+                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                    sb.AppendLine("                throw;");
+                    sb.AppendLine("            }");
                     sb.AppendLine("        }");
                 }
                 else
@@ -514,15 +545,25 @@ namespace ZeroAlloc.Mediator.Generator
                         "        public static async ValueTask Publish({0} notification, CancellationToken ct = default)",
                         notificationType));
                     sb.AppendLine("        {");
+                    sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.publish\");");
+                    sb.AppendLine(string.Format("            __activity?.SetTag(\"notification.type\", \"{0}\");", notificationSimpleName));
+                    sb.AppendLine("            try");
+                    sb.AppendLine("            {");
 
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         sb.AppendLine(string.Format(
-                            "            await ({0}?.Invoke() ?? new {1}()).Handle(notification, ct);",
+                            "                await ({0}?.Invoke() ?? new {1}()).Handle(notification, ct);",
                             fieldName, handler.HandlerTypeName));
                     }
 
+                    sb.AppendLine("            }");
+                    sb.AppendLine("            catch (global::System.Exception __ex)");
+                    sb.AppendLine("            {");
+                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                    sb.AppendLine("                throw;");
+                    sb.AppendLine("            }");
                     sb.AppendLine("        }");
                 }
 
@@ -533,10 +574,15 @@ namespace ZeroAlloc.Mediator.Generator
         private static void EmitCreateStreamMethod(StringBuilder sb, StreamHandlerInfo handler)
         {
             var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+            var requestSimpleName = GetSimpleTypeName(handler.RequestTypeName);
             sb.AppendLine(string.Format(
                 "        public static System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct = default)",
                 handler.ResponseTypeName, handler.RequestTypeName));
             sb.AppendLine("        {");
+            // Span covers only iterator construction, not enumeration — "dispatch" semantics.
+            // Enumeration errors are not captured by this span.
+            sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
+            sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
             sb.AppendLine(string.Format(
                 "            var handler = {0}?.Invoke() ?? new {1}();",
                 fieldName, handler.HandlerTypeName));

@@ -17,3 +17,5 @@ obj/
 
 # BenchmarkDotNet output
 BenchmarkDotNet.Artifacts/
+
+!src/ZeroAlloc.Mediator.Cache/

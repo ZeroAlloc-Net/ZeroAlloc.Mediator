@@ -27,7 +27,7 @@ public class RequestDispatchGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public static ValueTask<string> Send(global::TestApp.Ping request", output);
+        Assert.Contains("public static async ValueTask<string> Send(global::TestApp.Ping request", output);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class RequestDispatchGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public static ValueTask<global::ZeroAlloc.Mediator.Unit> Send(global::TestApp.DoSomething request", output);
+        Assert.Contains("public static async ValueTask<global::ZeroAlloc.Mediator.Unit> Send(global::TestApp.DoSomething request", output);
     }
 
     [Fact]
