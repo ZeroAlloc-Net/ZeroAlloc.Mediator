@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.7...v1.2.0) (2026-04-24)
+
+
+### Features
+
+* telemetry spans + Cache/Validation/Resilience bridge packages + NuGet isolation ([#44](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/44)) ([3adbe2b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3adbe2bf8ab6a4761b2e11c94a60832c8c50bf76))
+
 ## [1.1.7](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.6...v1.1.7) (2026-03-19)
 
 
