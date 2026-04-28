@@ -3,6 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/ZeroAlloc.Mediator.svg)](https://www.nuget.org/packages/ZeroAlloc.Mediator)
 [![Build](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/actions/workflows/ci.yml/badge.svg)](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/MarcelRoozekrans?style=flat&logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/MarcelRoozekrans)
 
 ZeroAlloc.Mediator is a source-generated, zero-allocation mediator for .NET 8 and .NET 10. It supports request/response, notifications, and streaming without reflection or dynamic dispatch. The source generator eliminates the runtime overhead that reflection-based mediators incur by wiring all dispatch at compile time — no dictionaries, no virtual dispatch, no delegate allocation per request.
 
