@@ -10,6 +10,21 @@ sidebar_position: 6
 
 By default, ZeroAlloc.Mediator instantiates handlers via their parameterless constructor. For handlers that depend on services — repositories, loggers, HTTP clients — you have three options: factory delegates via `Mediator.Configure()`, full DI container integration via `IMediator`/`MediatorService`, or the static `Mediator` class on hot paths where the `IMediator` interface overhead isn't wanted.
 
+## Migrating from v1.x
+
+In v2.0 the Mediator family adopted a fluent builder pattern. Old extensions remain as `[Obsolete]` shims for one minor version.
+
+| v1.x | v2.x |
+|---|---|
+| `services.AddSingleton<IMediator, MediatorService>()` | `services.AddMediator()` (returns `IMediatorBuilder`) |
+| `services.AddMediatorCache()` | `services.AddMediator().WithCache()` |
+| `services.AddMediatorValidation()` | `services.AddMediator().WithValidation()` |
+| `services.AddMediatorResilience()` | `services.AddMediator().WithResilience()` |
+
+Diagnostic IDs `ZAMED001` / `ZAMED002` / `ZAMED003` mark the deprecated bridge entry points.
+
+The static `Mediator.Send(...)` / `Mediator.Publish(...)` API is unaffected. Static-API users do not need to call `AddMediator()`.
+
 ## Option 1 — Factory Delegates (Mediator.Configure)
 
 Best for: console apps, worker services, small APIs, or anywhere you want DI without a container.
@@ -207,15 +222,9 @@ builder.Services.AddTransient<CreateProductHandler>();
 
 If you're testing code that takes `IMediator`, you can mock it with any mocking library. But for testing the actual handler logic, test the handler directly — don't go through `Mediator.Send`. See [Testing](testing.md).
 
-## Migrating from v1.x
+## Bridge Packages
 
-In v1.x you registered `IMediator` by hand:
-
-```csharp
-services.AddSingleton<IMediator, MediatorService>();
-```
-
-In v2.x the source generator emits a `services.AddMediator()` extension that does the same `TryAddSingleton<IMediator, MediatorService>()` call and additionally returns an `IMediatorBuilder`. The builder is the entry point that bridge packages (`ZeroAlloc.Mediator.Cache`, `.Validation`, `.Resilience`, future `.Telemetry`) extend with `WithXxx()` helpers:
+The `IMediatorBuilder` returned by `AddMediator()` is the entry point that bridge packages (`ZeroAlloc.Mediator.Cache`, `.Validation`, `.Resilience`, future `.Telemetry`) extend with `WithXxx()` helpers:
 
 ```csharp
 services.AddMediator()
