@@ -32,8 +32,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderId>
         => ValueTask.FromResult(OrderId.NewId());
 }
 
-// 3. Register IMediator with DI (the generator emits MediatorService automatically)
-services.AddSingleton<IMediator, MediatorService>();
+// 3. Register IMediator with DI (the generator emits services.AddMediator() automatically)
+services.AddMediator();
 
 // 4. Send the request and use the result — fully strongly-typed, zero allocation
 public class OrderController(IMediator mediator)
