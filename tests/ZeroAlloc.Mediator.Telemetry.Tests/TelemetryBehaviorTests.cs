@@ -143,6 +143,32 @@ public class TelemetryBehaviorTests
         Assert.Same(builder, returned);
     }
 
+    [Fact]
+    public async Task Handle_PassesThrough_WhenNoListenerAttached()
+    {
+        // No TestActivityListener wired — _activitySource.StartActivity(...) returns null.
+        ValueTask<int> Next(TestRequest r, CancellationToken c) => ValueTask.FromResult(123);
+
+        var result = await TelemetryBehavior.Handle<TestRequest, int>(
+            new TestRequest(1), CancellationToken.None, Next);
+
+        Assert.Equal(123, result);
+    }
+
+    [Fact]
+    public void WithTelemetry_IsIdempotent()
+    {
+        var services = new ServiceCollection();
+        var builder = services.AddMediator();
+
+        var first = builder.WithTelemetry();
+        var second = builder.WithTelemetry();
+
+        Assert.Same(builder, first);
+        Assert.Same(builder, second);
+        Assert.Same(first, second);
+    }
+
     private static string? GetTag(Activity activity, string name)
     {
         foreach (var kvp in activity.TagObjects)
