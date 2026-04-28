@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.0.0...v2.1.0) (2026-04-28)
+
+
+### Features
+
+* **mediator.telemetry:** add TelemetryBehavior pipeline behavior ([8e5a686](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/8e5a6864ad8d28092fde01975db0b81687cf1cc0))
+* **mediator.telemetry:** add WithTelemetry() builder extension (fluent marker) ([8020da2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/8020da29dfde5e33d95d113e9b720d7bf6f2393e))
+* **mediator.telemetry:** pipeline-behavior bridge for OpenTelemetry ([#42](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/42)) ([cd7f1d2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/cd7f1d21d4dc198d04ba3122ada9dbbffe45174c))
+
 ## [2.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.2.0...v2.0.0) (2026-04-28)
 
 
