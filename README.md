@@ -67,6 +67,7 @@ See [docs/performance.md](docs/performance.md) for the full benchmark table and 
 - **Notifications** — sequential or parallel (`[ParallelNotification]`) dispatch
 - **Streaming** — `IAsyncEnumerable<T>` via `CreateStream`
 - **Pipeline Behaviors** — compile-time inlined middleware chain (logging, validation, etc.)
+- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry spans + metrics on `IRequest<T>.Send`)
 - **Polymorphic Notifications** — base interface handlers are automatically included in concrete notification dispatch
 - **Analyzer Diagnostics** — missing handlers, duplicates, and misconfigurations are build errors/warnings
 - **Zero Allocation** — `ValueTask`, `readonly record struct`, static dispatch, no closures

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <PackageId>ZeroAlloc.Mediator.Telemetry</PackageId>
+    <Description>Pipeline behavior emitting OpenTelemetry spans, counters, and histograms per IRequest&lt;T&gt;.Send call.</Description>
+    <Version>0.0.0-local</Version>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- EPC12 fires on the catch block in TelemetryBehavior because only ex.Message is observed
+         (via Activity.SetStatus) before rethrowing. That is the intended span-error pattern; the
+         exception is rethrown via `throw;` so no information is lost. -->
+    <NoWarn>$(NoWarn);EPC12</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZeroAlloc.Mediator.Telemetry.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+  </ItemGroup>
+</Project>
