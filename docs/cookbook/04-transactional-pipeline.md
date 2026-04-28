@@ -166,16 +166,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddTransient<PlaceOrderHandler>();
 builder.Services.AddTransient<CreateProductHandler>();
 
-// Register IMediator
-builder.Services.AddSingleton<IMediator>(sp =>
+// Register IMediator via the v2 fluent builder
+builder.Services.AddMediator();
+
+// Wire factories so MediatorService can resolve handlers from DI
+var sp = builder.Services.BuildServiceProvider();
+Mediator.Configure(cfg =>
 {
-    Mediator.Configure(cfg =>
-    {
-        cfg.SetFactory(() => sp.GetRequiredService<PlaceOrderHandler>());
-        cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
-        // ... other handlers
-    });
-    return new MediatorService();
+    cfg.SetFactory(() => sp.GetRequiredService<PlaceOrderHandler>());
+    cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
+    // ... other handlers
 });
 
 // Middleware (must be before endpoint routing)

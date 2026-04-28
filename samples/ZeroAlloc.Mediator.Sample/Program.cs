@@ -64,7 +64,7 @@ Console.WriteLine($"Created user ID: {result}");
 // ============================================================
 Console.WriteLine("\n=== Dependency Injection ===");
 var services = new ServiceCollection();
-services.AddSingleton<IMediator, MediatorService>();
+services.AddMediator();
 var provider = services.BuildServiceProvider();
 
 var mediator = provider.GetRequiredService<IMediator>();

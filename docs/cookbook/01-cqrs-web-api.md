@@ -149,17 +149,17 @@ builder.Services.AddTransient<ArchiveProductHandler>();
 builder.Services.AddTransient<GetProductHandler>();
 builder.Services.AddTransient<ListProductsHandler>();
 
-// Register IMediator
-builder.Services.AddSingleton<IMediator>(sp =>
+// Register IMediator via the v2 fluent builder
+builder.Services.AddMediator();
+
+// Wire factories so MediatorService can resolve handlers from DI
+var sp = builder.Services.BuildServiceProvider();
+Mediator.Configure(cfg =>
 {
-    Mediator.Configure(cfg =>
-    {
-        cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
-        cfg.SetFactory(() => sp.GetRequiredService<ArchiveProductHandler>());
-        cfg.SetFactory(() => sp.GetRequiredService<GetProductHandler>());
-        cfg.SetFactory(() => sp.GetRequiredService<ListProductsHandler>());
-    });
-    return new MediatorService();
+    cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
+    cfg.SetFactory(() => sp.GetRequiredService<ArchiveProductHandler>());
+    cfg.SetFactory(() => sp.GetRequiredService<GetProductHandler>());
+    cfg.SetFactory(() => sp.GetRequiredService<ListProductsHandler>());
 });
 
 var app = builder.Build();

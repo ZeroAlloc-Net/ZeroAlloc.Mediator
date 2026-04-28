@@ -27,7 +27,7 @@ public class MediatorBenchmarks
         services.AddLogging();
         services.AddMediatR(static cfg =>
             cfg.RegisterServicesFromAssembly(typeof(MediatorBenchmarks).Assembly));
-        services.AddSingleton<ZeroAlloc.Mediator.IMediator, ZeroAlloc.Mediator.MediatorService>();
+        services.AddMediator();
         var provider = services.BuildServiceProvider();
         _mediatR = provider.GetRequiredService<IMediator>();
         _mediatorDi = provider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();

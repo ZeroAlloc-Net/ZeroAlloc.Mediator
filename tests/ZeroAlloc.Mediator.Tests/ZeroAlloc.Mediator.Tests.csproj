@@ -27,6 +27,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Cache\ZeroAlloc.Mediator.Cache.csproj" />
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Validation\ZeroAlloc.Mediator.Validation.csproj" />
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Resilience\ZeroAlloc.Mediator.Resilience.csproj" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="true" />
