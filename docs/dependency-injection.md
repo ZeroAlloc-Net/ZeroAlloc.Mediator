@@ -224,13 +224,30 @@ If you're testing code that takes `IMediator`, you can mock it with any mocking 
 
 ## Bridge Packages
 
-The `IMediatorBuilder` returned by `AddMediator()` is the entry point that bridge packages (`ZeroAlloc.Mediator.Cache`, `.Validation`, `.Resilience`, future `.Telemetry`) extend with `WithXxx()` helpers:
+The `IMediatorBuilder` returned by `AddMediator()` is the entry point that bridge packages (`ZeroAlloc.Mediator.Cache`, `.Validation`, `.Resilience`, `.Telemetry`) extend with `WithXxx()` helpers:
 
 ```csharp
 services.AddMediator()
         .WithCache()        // ZeroAlloc.Mediator.Cache 2.x
         .WithValidation()   // ZeroAlloc.Mediator.Validation 2.x
-        .WithResilience();  // ZeroAlloc.Mediator.Resilience 2.x
+        .WithResilience()   // ZeroAlloc.Mediator.Resilience 2.x
+        .WithTelemetry();   // ZeroAlloc.Mediator.Telemetry 2.x
 ```
 
 `AddMediator()` is idempotent (`TryAddSingleton`); calling it more than once is safe. The static `Mediator.Send(...)` / `Mediator.Publish(...)` API and the `Mediator.Configure(...)` factory registry are unchanged.
+
+### OpenTelemetry instrumentation
+
+`services.AddMediator().WithTelemetry()` (provided by **ZeroAlloc.Mediator.Telemetry**) registers a pipeline behavior that emits an OpenTelemetry `Activity` per `IRequest<T>.Send` call (ActivitySource: `ZeroAlloc.Mediator`, span: `mediator.send`, tag: `mediator.request_type`), plus a `mediator.requests_total` counter and a `mediator.request_duration_ms` histogram (Meter: `ZeroAlloc.Mediator`).
+
+The behavior runs at `Order = 0` (outermost), so the span captures retries, cache misses, and validation failures from the inner behaviors.
+
+`WithTelemetry()` is a fluent marker; the behavior is wired automatically by package reference (the source generator discovers its `[PipelineBehavior]` attribute at build time). Subscribe to the spans and metrics through OpenTelemetry:
+
+```csharp
+services.AddOpenTelemetry()
+        .WithTracing(t => t.AddSource("ZeroAlloc.Mediator"))
+        .WithMetrics(m => m.AddMeter("ZeroAlloc.Mediator"));
+```
+
+**Coverage:** request handling only. `Mediator.Publish` notifications bypass pipeline behaviors and are not instrumented in v1.
