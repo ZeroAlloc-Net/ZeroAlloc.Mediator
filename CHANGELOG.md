@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.2.0...v2.0.0) (2026-04-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mediator.resilience:** rename AddMediatorResilience to WithResilience on IMediatorBuilder
+* **mediator.validation:** rename AddMediatorValidation to WithValidation on IMediatorBuilder
+* **mediator.cache:** rename AddMediatorCache to WithCache on IMediatorBuilder
+
+### Features
+
+* **mediator.cache:** rename AddMediatorCache to WithCache on IMediatorBuilder ([a40968f](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a40968f8c5ab31a8909800e5b908c698967c449e))
+* **mediator.generator:** emit MediatorServiceCollectionExtensions.AddMediator() ([3d7ce20](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3d7ce20222b2565d8a2a1ecd5e488468f665b4af))
+* **mediator.resilience:** rename AddMediatorResilience to WithResilience on IMediatorBuilder ([4a41bb8](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/4a41bb8583033583fbab6bf398d49d7c64bc7f7e))
+* **mediator.validation:** rename AddMediatorValidation to WithValidation on IMediatorBuilder ([bd4220c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/bd4220c608e25b30ad04ae113a6a4aebc50cdfc8))
+* **mediator:** add IMediatorBuilder interface and internal MediatorBuilder implementation ([a78de5a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a78de5aef4ae13a1b0b883469a2001bb7cb6283d))
+
 ## [1.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v1.1.7...v1.2.0) (2026-04-24)
 
 
