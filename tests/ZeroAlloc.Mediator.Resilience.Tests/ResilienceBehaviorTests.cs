@@ -32,6 +32,50 @@ public readonly record struct TimeoutRequest(int Value) : IRequest<int>;
 [MediatorTimeout(Ms = 50)]
 public readonly record struct ShortTimeoutRequest(int Value) : IRequest<int>;
 
+// Stub handlers — exist only to satisfy the source generator's ZAM001 diagnostic
+// (every IRequest<T> needs a registered handler). The actual resilience tests bypass
+// the dispatcher by calling ResilienceBehavior.Handle directly with a local lambda,
+// so these are never invoked.
+public sealed class PlainRequestHandler : IRequestHandler<PlainRequest, int>
+{
+    public ValueTask<int> Handle(PlainRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class RetryRequestHandler : IRequestHandler<RetryRequest, int>
+{
+    public ValueTask<int> Handle(RetryRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class RetryWithTimeoutRequestHandler : IRequestHandler<RetryWithTimeoutRequest, int>
+{
+    public ValueTask<int> Handle(RetryWithTimeoutRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class PerAttemptTimeoutRequestHandler : IRequestHandler<PerAttemptTimeoutRequest, int>
+{
+    public ValueTask<int> Handle(PerAttemptTimeoutRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class CbRequestHandler : IRequestHandler<CbRequest, int>
+{
+    public ValueTask<int> Handle(CbRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class CbTripRequestHandler : IRequestHandler<CbTripRequest, int>
+{
+    public ValueTask<int> Handle(CbTripRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class TimeoutRequestHandler : IRequestHandler<TimeoutRequest, int>
+{
+    public ValueTask<int> Handle(TimeoutRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class ShortTimeoutRequestHandler : IRequestHandler<ShortTimeoutRequest, int>
+{
+    public ValueTask<int> Handle(ShortTimeoutRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 public sealed class ResilienceBehaviorTests
@@ -188,24 +232,34 @@ public sealed class ResilienceBehaviorTests
     // ── DI extension ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void AddMediatorResilience_RegistersMarker()
+    public void WithResilience_RegistersMarker()
     {
         var services = new ServiceCollection();
-        services.AddMediatorResilience();
+        services.AddMediator().WithResilience();
         using var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetService<MediatorResilienceMarker>());
     }
 
     [Fact]
-    public void AddMediatorResilience_IsIdempotent()
+    public void WithResilience_IsIdempotent()
     {
         var services = new ServiceCollection();
-        services.AddMediatorResilience();
-        services.AddMediatorResilience(); // second call must not throw or double-register
+        var builder = services.AddMediator();
+        builder.WithResilience();
+        builder.WithResilience(); // second call must not throw or double-register
 
         var registrations = services.Count(d => d.ServiceType == typeof(MediatorResilienceMarker));
         Assert.Equal(1, registrations);
+    }
+
+    [Fact]
+    public void AddMediatorResilience_LegacyShim_StillRegistersMarker()
+    {
+        var services = new ServiceCollection();
+        services.AddMediatorResilience();   // shim — emits ZAMED003 warning, suppressed at csproj level
+
+        Assert.Contains(services, d => d.ServiceType == typeof(MediatorResilienceMarker));
     }
 
     // ── Attribute cache ───────────────────────────────────────────────────────
