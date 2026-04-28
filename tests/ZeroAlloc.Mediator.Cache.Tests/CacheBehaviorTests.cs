@@ -20,6 +20,25 @@ public readonly record struct CachedRequest(int Value) : IRequest<int>;
 [CacheResponse(TtlMs = 1000, Sliding = true)]
 public readonly record struct SlidingCachedRequest(int Value) : IRequest<string>;
 
+// Stub handlers — exist only to satisfy the source generator's ZAM001 diagnostic
+// (every IRequest<T> needs a registered handler). The actual cache tests bypass
+// the dispatcher by calling CacheBehavior.Handle directly with a local lambda,
+// so these are never invoked.
+public sealed class UncachedRequestHandler : IRequestHandler<UncachedRequest, int>
+{
+    public ValueTask<int> Handle(UncachedRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class CachedRequestHandler : IRequestHandler<CachedRequest, int>
+{
+    public ValueTask<int> Handle(CachedRequest request, CancellationToken ct) => ValueTask.FromResult(0);
+}
+
+public sealed class SlidingCachedRequestHandler : IRequestHandler<SlidingCachedRequest, string>
+{
+    public ValueTask<string> Handle(SlidingCachedRequest request, CancellationToken ct) => ValueTask.FromResult(string.Empty);
+}
+
 [Collection("non-parallel")]
 public class CacheBehaviorTests : IDisposable
 {
@@ -122,20 +141,20 @@ public class CacheBehaviorTests : IDisposable
     }
 
     [Fact]
-    public void AddMediatorCache_RegistersMemoryCache()
+    public void WithCache_RegistersMemoryCache()
     {
         var services = new ServiceCollection();
-        services.AddMediatorCache();
+        services.AddMediator().WithCache();
         using var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetService<IMemoryCache>());
     }
 
     [Fact]
-    public void AddMediatorCache_ResolvingAccessorWiresCacheBehaviorState()
+    public void WithCache_ResolvingAccessorWiresCacheBehaviorState()
     {
         var services = new ServiceCollection();
-        services.AddMediatorCache();
+        services.AddMediator().WithCache();
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<MediatorCacheAccessor>();
@@ -144,5 +163,14 @@ public class CacheBehaviorTests : IDisposable
 
         // Restore for other tests in the same run.
         CacheBehaviorState.SetCache(_cache);
+    }
+
+    [Fact]
+    public void AddMediatorCache_LegacyShim_StillRegistersAccessor()
+    {
+        var services = new ServiceCollection();
+        services.AddMediatorCache();   // shim — emits ZAMED001 warning, suppressed at csproj level
+
+        Assert.Contains(services, d => d.ServiceType == typeof(MediatorCacheAccessor));
     }
 }
