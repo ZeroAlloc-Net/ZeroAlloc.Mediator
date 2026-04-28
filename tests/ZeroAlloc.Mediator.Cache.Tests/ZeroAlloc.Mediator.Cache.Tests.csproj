@@ -3,7 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long. -->
-    <NoWarn>$(NoWarn);MA0048;MA0051</NoWarn>
+    <!-- Suppress ZAMED001 in this test project so the legacy-shim back-compat tests
+         can deliberately call the obsolete AddMediatorCache(IServiceCollection) extension
+         without breaking TreatWarningsAsErrors. -->
+    <NoWarn>$(NoWarn);MA0048;MA0051;ZAMED001</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
@@ -16,5 +19,14 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Cache\ZeroAlloc.Mediator.Cache.csproj" />
+    <!-- Pulls the source generator so services.AddMediator() is emitted into this test project,
+         letting tests exercise the canonical services.AddMediator().WithCache() form.
+         The generator depends on ZeroAlloc.Pipeline.Generators being loaded in the same
+         analyzer load context, so both must be referenced as analyzers. -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
   </ItemGroup>
 </Project>
