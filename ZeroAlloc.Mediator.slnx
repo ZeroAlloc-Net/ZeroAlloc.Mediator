@@ -7,6 +7,7 @@
     <Project Path="src/ZeroAlloc.Mediator.Cache/ZeroAlloc.Mediator.Cache.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Resilience/ZeroAlloc.Mediator.Resilience.csproj" />
+    <Project Path="src/ZeroAlloc.Mediator.Telemetry/ZeroAlloc.Mediator.Telemetry.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Validation/ZeroAlloc.Mediator.Validation.csproj" />
     <Project Path="src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj" />
   </Folder>
