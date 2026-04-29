@@ -6,6 +6,15 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
     <NoWarn>$(NoWarn);RS2008</NoWarn>
+
+    <!--
+      Source-generator packaging: ship the generator DLL under analyzers/dotnet/cs so
+      Roslyn loads it as an analyzer. Without IncludeBuildOutput=false the build output
+      ends up under lib/ and consumers silently get no source generator.
+    -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
@@ -32,4 +41,29 @@
           DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true" />
   </Target>
+
+  <!--
+    Pack the generator DLL (and its helper dependencies, which Roslyn must register as
+    additional analyzers) under analyzers/dotnet/cs. Without this, dotnet pack falls back
+    to the default lib/<tfm>/ layout and consumers do not pick up the generator at all.
+  -->
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <None Include="$(OutputPath)\$(AssemblyName).pdb"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false"
+          Condition="Exists('$(OutputPath)\$(AssemblyName).pdb')" />
+    <None Include="$(OutputPath)\ZeroAlloc.Pipeline.Generators.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <None Include="$(OutputPath)\ZeroAlloc.Pipeline.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
 </Project>

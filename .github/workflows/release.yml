@@ -48,5 +48,8 @@ jobs:
           dotnet pack src/ZeroAlloc.Mediator.Resilience/ZeroAlloc.Mediator.Resilience.csproj --no-build -c Release -p:PackageVersion=${{ steps.version.outputs.version }} -o ./artifacts
           dotnet pack src/ZeroAlloc.Mediator.Telemetry/ZeroAlloc.Mediator.Telemetry.csproj --no-build -c Release -p:PackageVersion=${{ steps.version.outputs.version }} -o ./artifacts
 
+      - name: Verify generator pack layout
+        run: bash scripts/verify-generator-pack-layout.sh ./artifacts
+
       - name: Push to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
