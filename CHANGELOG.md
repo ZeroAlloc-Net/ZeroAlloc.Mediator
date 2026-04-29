@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.1.0...v2.0.1) (2026-04-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mediator.generator:** ship analyzer DLL under analyzers/dotnet/cs/
+
+### Bug Fixes
+
+* **mediator.generator:** ship analyzer DLL under analyzers/dotnet/cs/ ([48eab4c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/48eab4c6a79fc9c54ce646c52a1f7e49037fa1d9))
+
 ## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.0.0...v2.1.0) (2026-04-28)
 
 
