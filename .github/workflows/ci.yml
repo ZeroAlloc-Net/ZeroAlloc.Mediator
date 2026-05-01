@@ -94,14 +94,21 @@ jobs:
         run: dotnet build src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release -p:Version=9999.0.0 -p:AssemblyVersion=9999.0.0.0 -p:FileVersion=9999.0.0.0
       - name: Pack current
         run: dotnet pack src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release --no-build --output ./current -p:Version=9999.0.0 -p:AssemblyVersion=9999.0.0.0 -p:FileVersion=9999.0.0.0
-      - name: Compare against latest published 1.x
+      - name: Compare against latest published version
+        # Take the highest released version overall (no major filter). When you
+        # bump majors with intentional breaking changes, the FIRST build of the
+        # new major may still gate against the previous major — accept that as
+        # the cost of correctness. Steady-state, this gates each x.y.(z+1) patch
+        # against x.y.z and each x.(y+1).0 minor against x.y.(latest), which is
+        # what we want.
         run: |
           latest=$(curl -s https://api.nuget.org/v3-flatcontainer/zeroalloc.mediator/index.json \
-                   | jq -r '.versions[]' | grep -E '^1\.' | tail -1)
+                   | jq -r '.versions[]' | grep -vE '(-|preview|alpha|beta|rc)' | tail -1)
           if [ -z "$latest" ]; then
-            echo "No published 1.x yet — skipping baseline check."
+            echo "No stable releases on nuget.org yet — skipping baseline check."
             exit 0
           fi
+          echo "Comparing against published version: $latest"
           mkdir -p ./baseline
           curl -sL "https://api.nuget.org/v3-flatcontainer/zeroalloc.mediator/$latest/zeroalloc.mediator.$latest.nupkg" \
                -o ./baseline/baseline.nupkg
