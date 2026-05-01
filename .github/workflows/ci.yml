@@ -81,35 +81,7 @@ jobs:
         run: ./aot-out/ZeroAlloc.Mediator.AotSmoke
 
   api-compat:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      - name: Install ApiCompat tool
-        run: dotnet tool install --global Microsoft.DotNet.ApiCompat.Tool
-      - name: Build current (sentinel assembly version >= any baseline so CP0003 never fires)
-        run: dotnet build src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release -p:Version=9999.0.0 -p:AssemblyVersion=9999.0.0.0 -p:FileVersion=9999.0.0.0
-      - name: Pack current
-        run: dotnet pack src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release --no-build --output ./current -p:Version=9999.0.0 -p:AssemblyVersion=9999.0.0.0 -p:FileVersion=9999.0.0.0
-      - name: Compare against latest published version
-        # Take the highest released version overall (no major filter). When you
-        # bump majors with intentional breaking changes, the FIRST build of the
-        # new major may still gate against the previous major — accept that as
-        # the cost of correctness. Steady-state, this gates each x.y.(z+1) patch
-        # against x.y.z and each x.(y+1).0 minor against x.y.(latest), which is
-        # what we want.
-        run: |
-          latest=$(curl -s https://api.nuget.org/v3-flatcontainer/zeroalloc.mediator/index.json \
-                   | jq -r '.versions[]' | grep -vE '(-|preview|alpha|beta|rc)' | tail -1)
-          if [ -z "$latest" ]; then
-            echo "No stable releases on nuget.org yet — skipping baseline check."
-            exit 0
-          fi
-          echo "Comparing against published version: $latest"
-          mkdir -p ./baseline
-          curl -sL "https://api.nuget.org/v3-flatcontainer/zeroalloc.mediator/$latest/zeroalloc.mediator.$latest.nupkg" \
-               -o ./baseline/baseline.nupkg
-          apicompat package ./current/*.nupkg --baseline-package ./baseline/baseline.nupkg
+    uses: ZeroAlloc-Net/.github/.github/workflows/api-compat.yml@main
+    with:
+      package-id: ZeroAlloc.Mediator
+      csproj-path: src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj
