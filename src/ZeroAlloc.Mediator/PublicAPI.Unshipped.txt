@@ -1,0 +1,28 @@
+#nullable enable
+override ZeroAlloc.Mediator.Unit.GetHashCode() -> int
+static ZeroAlloc.Mediator.Unit.operator !=(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
+static ZeroAlloc.Mediator.Unit.operator ==(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
+static readonly ZeroAlloc.Mediator.Unit.Value -> ZeroAlloc.Mediator.Unit
+ZeroAlloc.Mediator.IMediatorBuilder
+ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> ZeroAlloc.Mediator.IMediatorBuilder!
+ZeroAlloc.Mediator.IMediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+ZeroAlloc.Mediator.INotification
+ZeroAlloc.Mediator.INotificationHandler<TNotification>
+ZeroAlloc.Mediator.INotificationHandler<TNotification>.Handle(TNotification notification, System.Threading.CancellationToken ct) -> System.Threading.Tasks.ValueTask
+ZeroAlloc.Mediator.IPipelineBehavior
+ZeroAlloc.Mediator.IRequest
+ZeroAlloc.Mediator.IRequest<TResponse>
+ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>
+ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>.Handle(TRequest request, System.Threading.CancellationToken ct) -> System.Threading.Tasks.ValueTask<TResponse>
+ZeroAlloc.Mediator.IStreamRequest<TResponse>
+ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>
+ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>.Handle(TRequest request, System.Threading.CancellationToken ct) -> System.Collections.Generic.IAsyncEnumerable<TResponse>!
+ZeroAlloc.Mediator.ParallelNotificationAttribute
+ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
+ZeroAlloc.Mediator.PipelineBehaviorAttribute
+ZeroAlloc.Mediator.PipelineBehaviorAttribute.PipelineBehaviorAttribute(int order = 0) -> void
+ZeroAlloc.Mediator.Unit
+ZeroAlloc.Mediator.Unit.Equals(ZeroAlloc.Mediator.Unit other) -> bool
+ZeroAlloc.Mediator.Unit.Unit() -> void
+~override ZeroAlloc.Mediator.Unit.Equals(object obj) -> bool
+~override ZeroAlloc.Mediator.Unit.ToString() -> string

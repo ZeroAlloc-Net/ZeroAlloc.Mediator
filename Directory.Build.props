@@ -3,6 +3,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017</WarningsAsErrors>
 
     <!-- ZeroAlloc.Pipeline dependency version (used when local checkout is absent) -->
     <ZeroAllocPipelineVersion>0.1.1</ZeroAllocPipelineVersion>
