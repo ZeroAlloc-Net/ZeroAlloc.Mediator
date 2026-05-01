@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.0.1...v2.1.0) (2026-05-01)
+
+
+### Features
+
+* lock public API surface (PublicApiAnalyzers + api-compat gate) ([a09a680](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a09a6806f2dde844acb69aee4933423736f1ef8c))
+
 ## [2.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.1.0...v2.0.1) (2026-04-29)
 
 
