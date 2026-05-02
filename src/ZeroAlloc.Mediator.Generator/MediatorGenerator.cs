@@ -482,7 +482,7 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             // Emit Configure method
-            EmitConfigureMethod(sb, validRequests, validNotifications, validStreams);
+            EmitConfigureMethod(sb);
 
             sb.AppendLine("    }");
 
@@ -692,11 +692,12 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
         }
 
-        private static void EmitConfigureMethod(
-            StringBuilder sb,
-            List<RequestHandlerInfo> requestHandlers,
-            List<NotificationHandlerInfo> notificationHandlers,
-            List<StreamHandlerInfo> streamHandlers)
+        // Emits Mediator.Configure(Action<MediatorConfig>). The MediatorConfig instance has no
+        // state — its sole purpose is to give callers a fluent surface for SetFactory<T>. The
+        // actual side effect is in MediatorConfig.SetFactory<T>, which mutates the static
+        // Mediator._<x>Factory fields directly. Don't replace the instance with a static class:
+        // it would break the existing public API shape (c => c.SetFactory<T>(...)).
+        private static void EmitConfigureMethod(StringBuilder sb)
         {
             sb.AppendLine("        public static void Configure(Action<MediatorConfig> configure)");
             sb.AppendLine("        {");
