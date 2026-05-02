@@ -32,9 +32,11 @@ namespace ZeroAlloc.Mediator.AspNetSample
 
     public readonly record struct GetRequestId : IRequest<Guid>;
 
-    // ZAM008 suppressed at csproj-level: this handler legitimately depends on a scoped
-    // service and is resolved through DI (services.AddMediator().RegisterHandlersFromAssembly),
-    // not via the static Mediator.Send/Publish/CreateStream entry points.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "ZeroAlloc.Mediator",
+        "ZAM008",
+        Justification = "Handler is resolved through DI (services.AddMediator().RegisterHandlersFromAssembly), " +
+                        "not via the static Mediator.Send/Publish/CreateStream entry points.")]
     public sealed class GetRequestIdHandler : IRequestHandler<GetRequestId, Guid>
     {
         private readonly IRequestContext _ctx;

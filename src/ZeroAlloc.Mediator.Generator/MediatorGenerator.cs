@@ -152,7 +152,8 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor);
+                    var location = classDecl.Identifier.GetLocation();
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location);
                 }
             }
 
@@ -200,13 +201,15 @@ namespace ZeroAlloc.Mediator.Generator
                     }
 
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    var location = classDecl.Identifier.GetLocation();
                     return new NotificationHandlerInfo(
                         notificationType,
                         handlerType,
                         isParallel,
                         isBaseHandler,
                         string.Join(";", baseTypeNames),
-                        hasParameterlessCtor);
+                        hasParameterlessCtor,
+                        location);
                 }
             }
 
@@ -245,7 +248,8 @@ namespace ZeroAlloc.Mediator.Generator
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor);
+                    var location = classDecl.Identifier.GetLocation();
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location);
                 }
             }
 
@@ -359,21 +363,21 @@ namespace ZeroAlloc.Mediator.Generator
             // INotificationHandler<Z>) appears in more than one list — deduplicate so the
             // diagnostic fires once per handler type.
             var seenMissingCtor = new HashSet<string>(StringComparer.Ordinal);
-            void ReportIfMissingCtor(string handlerTypeName)
+            void ReportIfMissingCtor(string handlerTypeName, Location? location)
             {
                 if (seenMissingCtor.Add(handlerTypeName))
                     spc.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.HandlerMissingParameterlessConstructor,
-                        Location.None,
+                        location ?? Location.None,
                         handlerTypeName));
             }
 
             foreach (var h in validHandlers.Where(x => !x.HasParameterlessConstructor))
-                ReportIfMissingCtor(h.HandlerTypeName);
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
             foreach (var h in validNotificationHandlers.Where(x => !x.HasParameterlessConstructor))
-                ReportIfMissingCtor(h.HandlerTypeName);
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
             foreach (var h in validStreamHandlers.Where(x => !x.HasParameterlessConstructor))
-                ReportIfMissingCtor(h.HandlerTypeName);
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
         }
 
         private static string GenerateServiceCollectionExtensions()

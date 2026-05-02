@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Microsoft.CodeAnalysis;
 
 namespace ZeroAlloc.Mediator.Generator
 {
@@ -15,6 +16,13 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public string BaseNotificationTypeNames { get; }
         public bool HasParameterlessConstructor { get; }
+        /// <summary>
+        /// Source location of the handler class identifier. See
+        /// <see cref="RequestHandlerInfo.HandlerLocation"/>.
+        /// Excluded from equality so source-position changes do not bust
+        /// the incremental cache.
+        /// </summary>
+        public Location? HandlerLocation { get; }
 
         public NotificationHandlerInfo(
             string notificationTypeName,
@@ -22,7 +30,8 @@ namespace ZeroAlloc.Mediator.Generator
             bool isParallel,
             bool isBaseHandler,
             string baseNotificationTypeNames,
-            bool hasParameterlessConstructor)
+            bool hasParameterlessConstructor,
+            Location? handlerLocation)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
@@ -30,6 +39,7 @@ namespace ZeroAlloc.Mediator.Generator
             IsBaseHandler = isBaseHandler;
             BaseNotificationTypeNames = baseNotificationTypeNames;
             HasParameterlessConstructor = hasParameterlessConstructor;
+            HandlerLocation = handlerLocation;
         }
 
         public bool Equals(NotificationHandlerInfo? other)
