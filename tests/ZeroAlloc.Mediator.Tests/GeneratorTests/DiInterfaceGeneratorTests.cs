@@ -89,7 +89,7 @@ public class DiInterfaceGeneratorTests
     }
 
     [Fact]
-    public void Generator_EmitsMediatorService_DelegatesToStaticMediator()
+    public void Generator_EmitsMediatorService_ResolvesHandlerFromInjectedProvider()
     {
         var source = """
             using ZeroAlloc.Mediator;
@@ -111,7 +111,7 @@ public class DiInterfaceGeneratorTests
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains("public partial class MediatorService : IMediator", output);
-        Assert.Contains("=> Mediator.Send(request, ct);", output);
+        Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", output);
     }
 
     [Fact]
@@ -202,10 +202,43 @@ public class DiInterfaceGeneratorTests
         Assert.Contains("Publish(global::TestApp.UserCreated", interfaceSection);
         Assert.Contains("CreateStream(global::TestApp.CountTo", interfaceSection);
 
-        // Service delegates all three
+        // Service: Send resolves from DI; Publish + CreateStream still delegate to static dispatcher (Tasks 5-6).
         var serviceSection = output.Substring(serviceIdx);
-        Assert.Contains("Mediator.Send(request, ct)", serviceSection);
+        Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", serviceSection);
         Assert.Contains("Mediator.Publish(notification, ct)", serviceSection);
         Assert.Contains("Mediator.CreateStream(request, ct)", serviceSection);
+    }
+
+    [Fact]
+    public void Generator_MediatorService_Send_ResolvesHandlerFromInjectedProvider()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping(string Message) : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                public ValueTask<string> Handle(Ping request, CancellationToken ct)
+                    => ValueTask.FromResult("Pong");
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        Assert.Contains("public partial class MediatorService", output);
+        Assert.Contains("private readonly global::System.IServiceProvider _services", output);
+        Assert.Contains("public MediatorService(global::System.IServiceProvider services)", output);
+        Assert.Contains(
+            "global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::TestApp.PingHandler>(_services)",
+            output);
+        // Old delegation must be gone for Send.
+        Assert.DoesNotContain("=> Mediator.Send(request, ct);", output);
     }
 }

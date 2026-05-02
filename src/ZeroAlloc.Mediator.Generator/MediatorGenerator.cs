@@ -748,16 +748,28 @@ namespace ZeroAlloc.Mediator.Generator
         {
             sb.AppendLine("    public partial class MediatorService : IMediator");
             sb.AppendLine("    {");
+            sb.AppendLine("        private readonly global::System.IServiceProvider _services;");
+            sb.AppendLine("        public MediatorService(global::System.IServiceProvider services) => _services = services;");
+            sb.AppendLine();
 
+            // Request handlers — resolve from injected provider, call handler directly.
+            // Pipeline-behavior support is added in Task 7; this task is plain dispatch.
             foreach (var handler in requestHandlers)
             {
                 sb.AppendLine(string.Format(
-                    "        public ValueTask<{0}> Send({1} request, CancellationToken ct)",
+                    "        public async global::System.Threading.Tasks.ValueTask<{0}> Send({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
+                sb.AppendLine("        {");
                 sb.AppendLine(string.Format(
-                    "            => Mediator.Send(request, ct);"));
+                    "            var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                    handler.HandlerTypeName));
+                sb.AppendLine("            return await handler.Handle(request, ct).ConfigureAwait(false);");
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
+            // Publish and CreateStream still delegate to the static dispatcher.
+            // Tasks 5 and 6 migrate them to scope-aware resolution.
             var concreteNotifications = notificationHandlers
                 .Where(h => !h.IsBaseHandler)
                 .GroupBy(h => h.NotificationTypeName)
@@ -766,19 +778,17 @@ namespace ZeroAlloc.Mediator.Generator
             foreach (var group in concreteNotifications)
             {
                 sb.AppendLine(string.Format(
-                    "        public ValueTask Publish({0} notification, CancellationToken ct)",
+                    "        public global::System.Threading.Tasks.ValueTask Publish({0} notification, global::System.Threading.CancellationToken ct)",
                     group.Key));
-                sb.AppendLine(string.Format(
-                    "            => Mediator.Publish(notification, ct);"));
+                sb.AppendLine("            => Mediator.Publish(notification, ct);");
             }
 
             foreach (var handler in streamHandlers)
             {
                 sb.AppendLine(string.Format(
-                    "        public System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct)",
+                    "        public global::System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
-                sb.AppendLine(string.Format(
-                    "            => Mediator.CreateStream(request, ct);"));
+                sb.AppendLine("            => Mediator.CreateStream(request, ct);");
             }
 
             sb.AppendLine("    }");
