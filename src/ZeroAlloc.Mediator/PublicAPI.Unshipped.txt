@@ -20,6 +20,9 @@ ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>.Handle(TRequest request,
 ZeroAlloc.Mediator.IStreamRequest<TResponse>
 ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>
 ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>.Handle(TRequest request, System.Threading.CancellationToken ct) -> System.Collections.Generic.IAsyncEnumerable<TResponse>!
+ZeroAlloc.Mediator.MediatorBuilderExtensions
+static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssemblies(this ZeroAlloc.Mediator.IMediatorBuilder! builder, params System.Reflection.Assembly![]! assemblies) -> ZeroAlloc.Mediator.IMediatorBuilder!
+static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssembly(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Reflection.Assembly! assembly, Microsoft.Extensions.DependencyInjection.ServiceLifetime defaultLifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient) -> ZeroAlloc.Mediator.IMediatorBuilder!
 ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
