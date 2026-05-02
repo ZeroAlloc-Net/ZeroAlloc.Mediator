@@ -777,10 +777,52 @@ namespace ZeroAlloc.Mediator.Generator
 
             foreach (var group in concreteNotifications)
             {
+                var notificationType = group.Key;
+                var handlerList = group.ToList();
+
+                // Find matching base handlers (matches static-path logic in EmitPublishMethods).
+                var baseTypeNames = handlerList[0].BaseNotificationTypeNames;
+                var baseTypeSet = string.IsNullOrEmpty(baseTypeNames)
+                    ? new HashSet<string>()
+                    : new HashSet<string>(baseTypeNames.Split(';'));
+                var baseHandlers = notificationHandlers
+                    .Where(h => h.IsBaseHandler && baseTypeSet.Contains(h.NotificationTypeName))
+                    .ToList();
+                var allHandlers = new List<NotificationHandlerInfo>(handlerList);
+                allHandlers.AddRange(baseHandlers);
+
+                var isParallel = handlerList.Any(h => h.IsParallel);
+
                 sb.AppendLine(string.Format(
-                    "        public global::System.Threading.Tasks.ValueTask Publish({0} notification, global::System.Threading.CancellationToken ct)",
-                    group.Key));
-                sb.AppendLine("            => Mediator.Publish(notification, ct);");
+                    "        public async global::System.Threading.Tasks.ValueTask Publish({0} notification, global::System.Threading.CancellationToken ct)",
+                    notificationType));
+                sb.AppendLine("        {");
+
+                if (isParallel)
+                {
+                    sb.AppendLine("            await global::System.Threading.Tasks.Task.WhenAll(");
+                    for (var i = 0; i < allHandlers.Count; i++)
+                    {
+                        var h = allHandlers[i];
+                        var comma = i < allHandlers.Count - 1 ? "," : "";
+                        sb.AppendLine(string.Format(
+                            "                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).AsTask(){1}",
+                            h.HandlerTypeName, comma));
+                    }
+                    sb.AppendLine("            ).ConfigureAwait(false);");
+                }
+                else
+                {
+                    foreach (var h in allHandlers)
+                    {
+                        sb.AppendLine(string.Format(
+                            "            await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).ConfigureAwait(false);",
+                            h.HandlerTypeName));
+                    }
+                }
+
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
             foreach (var handler in streamHandlers)

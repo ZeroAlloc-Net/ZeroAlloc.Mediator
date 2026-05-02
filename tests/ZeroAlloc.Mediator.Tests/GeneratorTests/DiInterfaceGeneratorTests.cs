@@ -202,11 +202,43 @@ public class DiInterfaceGeneratorTests
         Assert.Contains("Publish(global::TestApp.UserCreated", interfaceSection);
         Assert.Contains("CreateStream(global::TestApp.CountTo", interfaceSection);
 
-        // Service: Send resolves from DI; Publish + CreateStream still delegate to static dispatcher (Tasks 5-6).
+        // Service: Send + Publish resolve from DI; CreateStream still delegates to static dispatcher (Task 6).
         var serviceSection = output.Substring(serviceIdx);
         Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", serviceSection);
-        Assert.Contains("Mediator.Publish(notification, ct)", serviceSection);
+        Assert.Contains("GetRequiredService<global::TestApp.UserCreatedHandler>(_services)", serviceSection);
         Assert.Contains("Mediator.CreateStream(request, ct)", serviceSection);
+    }
+
+    [Fact]
+    public void Generator_MediatorService_Publish_ResolvesHandlersFromInjectedProvider()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct UserCreated(int Id) : INotification;
+
+            public class HandlerA : INotificationHandler<UserCreated>
+            {
+                public ValueTask Handle(UserCreated n, CancellationToken ct) => ValueTask.CompletedTask;
+            }
+
+            public class HandlerB : INotificationHandler<UserCreated>
+            {
+                public ValueTask Handle(UserCreated n, CancellationToken ct) => ValueTask.CompletedTask;
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains("public partial class MediatorService", output);
+        Assert.Contains("GetRequiredService<global::TestApp.HandlerA>(_services)", output);
+        Assert.Contains("GetRequiredService<global::TestApp.HandlerB>(_services)", output);
+        Assert.DoesNotContain("=> Mediator.Publish(notification, ct);", output);
     }
 
     [Fact]
