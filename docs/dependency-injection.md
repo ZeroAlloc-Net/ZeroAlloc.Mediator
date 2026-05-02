@@ -2,13 +2,13 @@
 id: dependency-injection
 title: Dependency Injection
 slug: /docs/dependency-injection
-description: Two parallel dispatch paths in 3.1 — static Mediator for zero-alloc, IMediator for DI-resolved handlers.
+description: Two parallel dispatch paths in 3.0 — static Mediator for zero-alloc, IMediator for DI-resolved handlers.
 sidebar_position: 6
 ---
 
 # Dependency Injection
 
-ZeroAlloc.Mediator 3.1 exposes two parallel dispatch paths and lets you choose per call site. Use the static `Mediator.Send/Publish/CreateStream` methods for zero-allocation, no-DI scenarios such as libraries, workers, or hot loops. Inject `IMediator` for ASP.NET Core, hosted services, or anywhere your handlers need scoped services. Both paths coexist in the same project — the static API stays free of DI awareness, while the injected `IMediator` resolves handlers from the caller's `IServiceProvider` scope.
+ZeroAlloc.Mediator 3.0 exposes two parallel dispatch paths and lets you choose per call site. Use the static `Mediator.Send/Publish/CreateStream` methods for zero-allocation, no-DI scenarios such as libraries, workers, or hot loops. Inject `IMediator` for ASP.NET Core, hosted services, or anywhere your handlers need scoped services. Both paths coexist in the same project — the static API stays free of DI awareness, while the injected `IMediator` resolves handlers from the caller's `IServiceProvider` scope.
 
 ## Quickstart — ASP.NET Core
 
@@ -99,7 +99,7 @@ public sealed class GetOrderHandler : IRequestHandler<GetOrderQuery, Order>
 
 ## Static `Mediator.Send` — the zero-alloc path
 
-The static dispatcher is unchanged in 3.1 and remains the right choice for libraries, perf-critical code, and any host that doesn't want a DI container in the path. Handler construction is decided at compile time:
+The static dispatcher is unchanged in 3.0 and remains the right choice for libraries, perf-critical code, and any host that doesn't want a DI container in the path. Handler construction is decided at compile time:
 
 - **Handler has an accessible parameterless constructor** — the generator emits `?? new T()` as the fallback. No registration required.
 - **Handler has only parameterised constructors** — the generator emits `?? throw new InvalidOperationException(...)` as the fallback, and the analyzer raises [ZAM008](diagnostics.md#zam008--handler-has-no-parameterless-constructor) at build time. The static call will throw at runtime unless you register a factory.
