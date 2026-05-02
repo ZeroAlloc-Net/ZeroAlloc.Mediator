@@ -86,7 +86,7 @@ namespace ZeroAlloc.Mediator.Generator
                 var requestTypeInfos = data.Right;
 
                 // Report diagnostics
-                ReportDiagnostics(spc, requestInfos, pipelineInfos, requestTypeInfos);
+                ReportDiagnostics(spc, requestInfos, notificationInfos, streamInfos, pipelineInfos, requestTypeInfos);
 
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos);
                 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
@@ -282,10 +282,14 @@ namespace ZeroAlloc.Mediator.Generator
         private static void ReportDiagnostics(
             Microsoft.CodeAnalysis.SourceProductionContext spc,
             ImmutableArray<RequestHandlerInfo?> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo?> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
             ImmutableArray<RequestTypeInfo?> requestTypes)
         {
             var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validNotificationHandlers = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validStreamHandlers = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
 
             // ZAM001: No registered handler for a request type
             var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
@@ -349,6 +353,27 @@ namespace ZeroAlloc.Mediator.Generator
                     behaviorNames,
                     group.Key));
             }
+
+            // ZAM008: Handler has no accessible parameterless constructor.
+            // A class implementing multiple handler interfaces (e.g. IRequestHandler<X,Y> AND
+            // INotificationHandler<Z>) appears in more than one list — deduplicate so the
+            // diagnostic fires once per handler type.
+            var seenMissingCtor = new HashSet<string>(StringComparer.Ordinal);
+            void ReportIfMissingCtor(string handlerTypeName)
+            {
+                if (seenMissingCtor.Add(handlerTypeName))
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.HandlerMissingParameterlessConstructor,
+                        Location.None,
+                        handlerTypeName));
+            }
+
+            foreach (var h in validHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName);
+            foreach (var h in validNotificationHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName);
+            foreach (var h in validStreamHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName);
         }
 
         private static string GenerateServiceCollectionExtensions()

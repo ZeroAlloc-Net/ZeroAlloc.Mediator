@@ -2,7 +2,7 @@
 id: diagnostics
 title: Compiler Diagnostics
 slug: /docs/diagnostics
-description: ZAM001–ZAM007 Roslyn analyzer rules with triggers, severities, and fix guidance.
+description: ZAM001–ZAM008 Roslyn analyzer rules with triggers, severities, and fix guidance.
 sidebar_position: 7
 ---
 
@@ -21,6 +21,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM005 | Error | Pipeline behavior missing Handle method | A class with `[PipelineBehavior]` has no static `Handle<TRequest,TResponse>` method |
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
 | ZAM007 | Error | Stream handler wrong return type | Stream handler method doesn't return `IAsyncEnumerable<TResponse>` |
+| ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
 
 ## ZAM001 — No Handler for Request
 
@@ -177,6 +178,37 @@ public class ExportOrdersHandler : IStreamRequestHandler<ExportOrdersQuery, Orde
     }
 }
 ```
+
+## ZAM008 — Handler Has No Parameterless Constructor
+
+**Severity:** Warning
+
+**What it means:** A handler class has only parameterised constructors. The static
+`Mediator.Send/Publish/CreateStream` dispatch will throw `InvalidOperationException`
+at runtime unless you register a factory with `Mediator.Configure(...)` or
+register the handler in DI via
+`services.AddMediator().RegisterHandlersFromAssembly(...)` and inject `IMediator`.
+
+**Example that triggers it:**
+```csharp
+public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
+{
+    private readonly IProductRepository _repo;
+    public GetProductHandler(IProductRepository repo) => _repo = repo; // ❌ no parameterless ctor
+    public ValueTask<ProductDto> Handle(GetProductQuery q, CancellationToken ct) => ...;
+}
+```
+
+**Fix options:**
+
+1. **Inject `IMediator` (recommended for ASP.NET / hosted apps).** Add
+   `services.AddMediator().RegisterHandlersFromAssembly(typeof(Program).Assembly);`
+   at startup and inject `IMediator` instead of using the static `Mediator` class.
+2. **Add a parameterless constructor.** Suitable for stateless handlers.
+3. **Register a factory.** Call `Mediator.Configure(c => c.SetFactory<MyHandler>(...))`
+   at startup if you must keep using the static API with a constructor-injected handler.
+4. **Suppress.** `#pragma warning disable ZAM008` on the handler class if you
+   know you only ever go through DI.
 
 ## Suppressing Warnings
 

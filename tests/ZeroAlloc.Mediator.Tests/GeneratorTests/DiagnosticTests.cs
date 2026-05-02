@@ -318,6 +318,55 @@ public class DiagnosticTests
     }
 
     [Fact]
+    public void Generator_ReportsZam008_WhenHandlerHasNoParameterlessConstructor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                private readonly object _dep;
+                public PingHandler(object dep) => _dep = dep;
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam008 = diagnostics.SingleOrDefault(d => d.Id == "ZAM008");
+        Assert.NotNull(zam008);
+        Assert.Equal(DiagnosticSeverity.Warning, zam008!.Severity);
+        Assert.Contains("PingHandler", zam008.GetMessage(null));
+    }
+
+    [Fact]
+    public void Generator_DoesNotReportZam008_WhenHandlerHasParameterlessConstructor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "ZAM008");
+    }
+
+    [Fact]
     public void Generator_EmitsNoCode_WhenNoHandlers()
     {
         var source = """
