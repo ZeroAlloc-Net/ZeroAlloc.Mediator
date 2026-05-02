@@ -21,5 +21,6 @@ public class HandlerLifetimeAttributeTests
             .Single();
         Assert.Equal(System.AttributeTargets.Class, usage.ValidOn);
         Assert.False(usage.AllowMultiple);
+        Assert.False(usage.Inherited);
     }
 }

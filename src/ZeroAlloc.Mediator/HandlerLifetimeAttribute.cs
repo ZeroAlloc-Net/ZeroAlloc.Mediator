@@ -9,6 +9,10 @@ namespace ZeroAlloc.Mediator;
 /// Without this attribute, the lifetime supplied to <c>RegisterHandlersFromAssembly</c>
 /// (default <see cref="ServiceLifetime.Transient"/>) applies.
 /// </summary>
+/// <remarks>
+/// The attribute must be applied directly to the concrete handler type;
+/// it is not inherited from base classes.
+/// </remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class HandlerLifetimeAttribute : Attribute
 {
