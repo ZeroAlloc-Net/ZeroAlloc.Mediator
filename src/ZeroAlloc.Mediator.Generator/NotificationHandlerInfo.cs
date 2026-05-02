@@ -14,19 +14,22 @@ namespace ZeroAlloc.Mediator.Generator
         /// interfaces the notification type implements. Empty for base handlers.
         /// </summary>
         public string BaseNotificationTypeNames { get; }
+        public bool HasParameterlessConstructor { get; }
 
         public NotificationHandlerInfo(
             string notificationTypeName,
             string handlerTypeName,
             bool isParallel,
             bool isBaseHandler,
-            string baseNotificationTypeNames)
+            string baseNotificationTypeNames,
+            bool hasParameterlessConstructor)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
             IsParallel = isParallel;
             IsBaseHandler = isBaseHandler;
             BaseNotificationTypeNames = baseNotificationTypeNames;
+            HasParameterlessConstructor = hasParameterlessConstructor;
         }
 
         public bool Equals(NotificationHandlerInfo? other)
@@ -36,7 +39,8 @@ namespace ZeroAlloc.Mediator.Generator
                 && HandlerTypeName == other.HandlerTypeName
                 && IsParallel == other.IsParallel
                 && IsBaseHandler == other.IsBaseHandler
-                && BaseNotificationTypeNames == other.BaseNotificationTypeNames;
+                && BaseNotificationTypeNames == other.BaseNotificationTypeNames
+                && HasParameterlessConstructor == other.HasParameterlessConstructor;
         }
 
         public override bool Equals(object? obj)
@@ -54,6 +58,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + IsParallel.GetHashCode();
                 hash = hash * 31 + IsBaseHandler.GetHashCode();
                 hash = hash * 31 + BaseNotificationTypeNames.GetHashCode();
+                hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 return hash;
             }
         }

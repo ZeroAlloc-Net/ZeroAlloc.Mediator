@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,16 @@ public class PipelineDiPingHandler : IRequestHandler<PipelineDiPing, string>
 {
     public ValueTask<string> Handle(PipelineDiPing request, CancellationToken ct)
         => ValueTask.FromResult(request.Message);
+}
+
+public readonly record struct ThrowPing(int X) : IRequest<string>;
+
+public class ThrowPingHandler : IRequestHandler<ThrowPing, string>
+{
+    private readonly string _greeting;
+    public ThrowPingHandler(string greeting) => _greeting = greeting;
+    public ValueTask<string> Handle(ThrowPing r, CancellationToken ct)
+        => ValueTask.FromResult(_greeting);
 }
 
 [PipelineBehavior(Order = 0, AppliesTo = typeof(PipelineDiPing))]
@@ -90,5 +101,14 @@ public class RequestIntegrationTests
 
         Assert.Equal("hello", result);
         Assert.Equal(1, PipelineDiObservingBehavior.InvocationCount);
+    }
+
+    [Fact]
+    public async Task StaticSend_NoFactory_NoParameterlessCtor_Throws()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Mediator.Send(new ThrowPing(0), CancellationToken.None).AsTask());
+        Assert.Contains("ThrowPingHandler", ex.Message);
+        Assert.Contains("RegisterHandlersFromAssembly", ex.Message);
     }
 }

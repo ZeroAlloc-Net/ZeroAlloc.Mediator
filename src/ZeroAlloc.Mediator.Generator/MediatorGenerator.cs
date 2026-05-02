@@ -96,6 +96,22 @@ namespace ZeroAlloc.Mediator.Generator
             });
         }
 
+        private static bool HasAccessibleParameterlessConstructor(INamedTypeSymbol type)
+        {
+            foreach (var ctor in type.InstanceConstructors)
+            {
+                if (ctor.Parameters.Length == 0 &&
+                    (ctor.DeclaredAccessibility == Accessibility.Public
+                     || ctor.DeclaredAccessibility == Accessibility.Internal))
+                    return true;
+            }
+            // If no instance constructors are explicitly declared, C# emits a public parameterless one
+            // for non-static classes by default — but Roslyn always reports it in InstanceConstructors,
+            // so the loop above already covers that case. The fallback branch handles the (rare)
+            // case where a symbol has an empty InstanceConstructors list (synthetic types).
+            return type.InstanceConstructors.IsDefaultOrEmpty;
+        }
+
         private static bool IsAccessible(INamedTypeSymbol symbol)
         {
             var current = symbol;
@@ -135,7 +151,8 @@ namespace ZeroAlloc.Mediator.Generator
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var isValueType = iface.TypeArguments[0].IsValueType;
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType);
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor);
                 }
             }
 
@@ -182,12 +199,14 @@ namespace ZeroAlloc.Mediator.Generator
                         }
                     }
 
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     return new NotificationHandlerInfo(
                         notificationType,
                         handlerType,
                         isParallel,
                         isBaseHandler,
-                        string.Join(";", baseTypeNames));
+                        string.Join(";", baseTypeNames),
+                        hasParameterlessCtor);
                 }
             }
 
@@ -225,7 +244,8 @@ namespace ZeroAlloc.Mediator.Generator
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
-                    return new StreamHandlerInfo(requestType, responseType, handlerType);
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor);
                 }
             }
 
@@ -482,24 +502,26 @@ namespace ZeroAlloc.Mediator.Generator
             if (applicablePipelines.Count == 0)
             {
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                 sb.AppendLine(string.Format(
-                    "                var handler = {0}?.Invoke() ?? new {1}();",
-                    fieldName, handler.HandlerTypeName));
+                    "                var handler = {0}?.Invoke() ?? {1};",
+                    fieldName, fallback));
                 sb.AppendLine("                return await handler.Handle(request, ct);");
             }
             else
             {
                 var handlerTypeName = handler.HandlerTypeName;
                 var factoryFieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                 var shape = new PipelineShape
                 {
                     TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
                     OuterParameterNames = new[] { "request", "ct" },
                     LambdaParameterPrefixes = new[] { "r", "c" },
                     InnermostBodyFactory = depth => string.Format(
-                        "{{ var handler = {0}?.Invoke() ?? new {1}(); return handler.Handle(r{2}, c{2}); }}",
+                        "{{ var handler = {0}?.Invoke() ?? {1}; return handler.Handle(r{2}, c{2}); }}",
                         factoryFieldName,
-                        handlerTypeName,
+                        fallback,
                         depth),
                 };
 
@@ -566,9 +588,10 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                         taskExprs.Add(string.Format(
-                            "({0}?.Invoke() ?? new {1}()).Handle(notification, ct).AsTask()",
-                            fieldName, handler.HandlerTypeName));
+                            "({0}?.Invoke() ?? {1}).Handle(notification, ct).AsTask()",
+                            fieldName, fallback));
                     }
 
                     sb.AppendLine("                await Task.WhenAll(");
@@ -600,9 +623,10 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                         sb.AppendLine(string.Format(
-                            "                await ({0}?.Invoke() ?? new {1}()).Handle(notification, ct);",
-                            fieldName, handler.HandlerTypeName));
+                            "                await ({0}?.Invoke() ?? {1}).Handle(notification, ct);",
+                            fieldName, fallback));
                     }
 
                     sb.AppendLine("            }");
@@ -630,9 +654,10 @@ namespace ZeroAlloc.Mediator.Generator
             // Enumeration errors are not captured by this span.
             sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
             sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+            var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
             sb.AppendLine(string.Format(
-                "            var handler = {0}?.Invoke() ?? new {1}();",
-                fieldName, handler.HandlerTypeName));
+                "            var handler = {0}?.Invoke() ?? {1};",
+                fieldName, fallback));
             sb.AppendLine("            return handler.Handle(request, ct);");
             sb.AppendLine("        }");
             sb.AppendLine();
@@ -906,6 +931,15 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             sb.AppendLine("    }");
+        }
+
+        private static string GetFallbackExpression(string handlerTypeName, bool hasParameterlessConstructor)
+        {
+            return hasParameterlessConstructor
+                ? string.Format("new {0}()", handlerTypeName)
+                : string.Format(
+                    "throw new global::System.InvalidOperationException(\"No factory registered for {0}. Inject IMediator (services.AddMediator().RegisterHandlersFromAssembly(...)) or call Mediator.Configure(c => c.SetFactory<{0}>(() => new {0}(...))).\")",
+                    handlerTypeName);
         }
 
         private static string GetSimpleTypeName(string fullyQualifiedName)

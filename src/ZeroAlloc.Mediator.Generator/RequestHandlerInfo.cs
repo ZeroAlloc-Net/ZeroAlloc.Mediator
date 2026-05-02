@@ -9,13 +9,15 @@ namespace ZeroAlloc.Mediator.Generator
         public string ResponseTypeName { get; }
         public string HandlerTypeName { get; }
         public bool IsRequestValueType { get; }
+        public bool HasParameterlessConstructor { get; }
 
-        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType)
+        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
             HandlerTypeName = handlerTypeName;
             IsRequestValueType = isRequestValueType;
+            HasParameterlessConstructor = hasParameterlessConstructor;
         }
 
         public bool Equals(RequestHandlerInfo? other)
@@ -24,7 +26,8 @@ namespace ZeroAlloc.Mediator.Generator
             return RequestTypeName == other.RequestTypeName
                 && ResponseTypeName == other.ResponseTypeName
                 && HandlerTypeName == other.HandlerTypeName
-                && IsRequestValueType == other.IsRequestValueType;
+                && IsRequestValueType == other.IsRequestValueType
+                && HasParameterlessConstructor == other.HasParameterlessConstructor;
         }
 
         public override bool Equals(object? obj)
@@ -41,6 +44,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + ResponseTypeName.GetHashCode();
                 hash = hash * 31 + HandlerTypeName.GetHashCode();
                 hash = hash * 31 + IsRequestValueType.GetHashCode();
+                hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 return hash;
             }
         }
