@@ -33,6 +33,9 @@ public class PipelineDiPingHandler : IRequestHandler<PipelineDiPing, string>
 
 public readonly record struct ThrowPing(int X) : IRequest<string>;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "ZeroAlloc.Mediator", "ZAM008",
+    Justification = "Test fixture deliberately omits parameterless ctor to verify the runtime InvalidOperationException thrown from the static Mediator.Send path.")]
 public class ThrowPingHandler : IRequestHandler<ThrowPing, string>
 {
     private readonly string _greeting;
