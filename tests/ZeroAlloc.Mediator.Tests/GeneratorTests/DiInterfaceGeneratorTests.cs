@@ -202,11 +202,12 @@ public class DiInterfaceGeneratorTests
         Assert.Contains("Publish(global::TestApp.UserCreated", interfaceSection);
         Assert.Contains("CreateStream(global::TestApp.CountTo", interfaceSection);
 
-        // Service: Send + Publish resolve from DI; CreateStream still delegates to static dispatcher (Task 6).
+        // Service: Send + Publish + CreateStream all resolve from DI (Tasks 4, 5, 6).
         var serviceSection = output.Substring(serviceIdx);
         Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", serviceSection);
         Assert.Contains("GetRequiredService<global::TestApp.UserCreatedHandler>(_services)", serviceSection);
-        Assert.Contains("Mediator.CreateStream(request, ct)", serviceSection);
+        Assert.Contains("GetRequiredService<global::TestApp.CountToHandler>(_services)", serviceSection);
+        Assert.DoesNotContain("Mediator.CreateStream(request, ct)", serviceSection);
     }
 
     [Fact]
@@ -272,5 +273,32 @@ public class DiInterfaceGeneratorTests
             output);
         // Old delegation must be gone for Send.
         Assert.DoesNotContain("=> Mediator.Send(request, ct);", output);
+    }
+
+    [Fact]
+    public void Generator_MediatorService_CreateStream_ResolvesHandlerFromInjectedProvider()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct CountTo(int Max) : IStreamRequest<int>;
+
+            public class CountToHandler : IStreamRequestHandler<CountTo, int>
+            {
+                public async IAsyncEnumerable<int> Handle(CountTo r, [EnumeratorCancellation] CancellationToken ct)
+                { yield return 1; }
+            }
+            """;
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains("GetRequiredService<global::TestApp.CountToHandler>(_services)", output);
+        Assert.DoesNotContain("=> Mediator.CreateStream(request, ct);", output);
     }
 }

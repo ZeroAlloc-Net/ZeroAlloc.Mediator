@@ -830,7 +830,13 @@ namespace ZeroAlloc.Mediator.Generator
                 sb.AppendLine(string.Format(
                     "        public global::System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
-                sb.AppendLine("            => Mediator.CreateStream(request, ct);");
+                sb.AppendLine("        {");
+                sb.AppendLine(string.Format(
+                    "            var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                    handler.HandlerTypeName));
+                sb.AppendLine("            return handler.Handle(request, ct);");
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
             sb.AppendLine("    }");
