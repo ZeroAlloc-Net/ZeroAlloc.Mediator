@@ -17,8 +17,8 @@ public static class MediatorBuilderExtensions
     /// <summary>
     /// Scans <paramref name="assembly"/> for concrete public classes implementing
     /// <see cref="IRequestHandler{TRequest,TResponse}"/>, <see cref="INotificationHandler{TNotification}"/>,
-    /// or <see cref="IStreamRequestHandler{TRequest,TResponse}"/> and registers each as itself
-    /// (its concrete type) using <paramref name="defaultLifetime"/>, unless the handler is decorated
+    /// or <see cref="IStreamRequestHandler{TRequest,TResponse}"/> and registers each as a service keyed
+    /// by its concrete type using <paramref name="defaultLifetime"/>, unless the handler is decorated
     /// with <see cref="HandlerLifetimeAttribute"/> in which case the attribute's lifetime wins.
     /// Registrations use <c>TryAdd</c> semantics — calling twice is a no-op for handlers already registered.
     /// </summary>
@@ -39,17 +39,13 @@ public static class MediatorBuilderExtensions
 
         foreach (var type in assembly.GetTypes())
         {
-            if (!type.IsClass || type.IsAbstract || !type.IsPublic) continue;
+            if (!type.IsClass || type.IsAbstract || !type.IsPublic || type.IsGenericTypeDefinition) continue;
             if (!ImplementsHandlerInterface(type)) continue;
 
             var attr = type.GetCustomAttribute<HandlerLifetimeAttribute>();
             var lifetime = attr?.Lifetime ?? defaultLifetime;
 
-            // Public method already declares RequiresUnreferencedCode/RequiresDynamicCode; trim
-            // and AOT analyzers correctly flag this method's callers.
-#pragma warning disable IL2072
             builder.Services.TryAdd(new ServiceDescriptor(type, type, lifetime));
-#pragma warning restore IL2072
         }
         return builder;
     }
@@ -68,15 +64,17 @@ public static class MediatorBuilderExtensions
         if (builder is null) throw new ArgumentNullException(nameof(builder));
         if (assemblies is null) throw new ArgumentNullException(nameof(assemblies));
         foreach (var asm in assemblies)
+        {
+            if (asm is null)
+                throw new ArgumentNullException(nameof(assemblies), "Array contains a null Assembly.");
             RegisterHandlersFromAssembly(builder, asm);
+        }
         return builder;
     }
 
-    [UnconditionalSuppressMessage(
-        "Trimming",
-        "IL2070:'this' argument does not satisfy 'DynamicallyAccessedMemberTypes.Interfaces'",
-        Justification = "Callers are flagged via RequiresUnreferencedCode on the public entry points.")]
-    private static bool ImplementsHandlerInterface(Type type)
+    private static bool ImplementsHandlerInterface(
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
         foreach (var i in type.GetInterfaces())
         {

@@ -34,6 +34,32 @@ public class ScopedHandlerWithAttribute : IRequestHandler<ScopedScanRequest, int
         => ValueTask.FromResult(0);
 }
 
+public class OpenGenericNotificationHandler<T> : INotificationHandler<T> where T : INotification
+{
+    public ValueTask Handle(T notification, CancellationToken ct) => ValueTask.CompletedTask;
+}
+
+public readonly record struct MultiQuery(int Id) : IRequest<int>;
+public readonly record struct MultiEvent(int Id) : INotification;
+
+public class MultiInterfaceHandler : IRequestHandler<MultiQuery, int>, INotificationHandler<MultiEvent>
+{
+    public ValueTask<int> Handle(MultiQuery request, CancellationToken ct) => ValueTask.FromResult(request.Id);
+    public ValueTask Handle(MultiEvent notification, CancellationToken ct) => ValueTask.CompletedTask;
+}
+
+// Distinct request type so the generator (ZAM002) does not see two handlers
+// for the same request type when both ScanPingHandler and InternalScanHandler
+// are present in the same test assembly. Request type is public so the generator
+// can emit public Send-method signatures referencing it; the handler is internal
+// to exercise the scanner's IsPublic filter.
+public readonly record struct InternalScanRequest(string Message) : IRequest<string>;
+
+internal class InternalScanHandler : IRequestHandler<InternalScanRequest, string>
+{
+    public ValueTask<string> Handle(InternalScanRequest request, CancellationToken ct) => ValueTask.FromResult("internal");
+}
+
 public class RegisterHandlersFromAssemblyTests
 {
     [Fact]
@@ -112,5 +138,37 @@ public class RegisterHandlersFromAssemblyTests
 
         Assert.NotNull(builder);
         Assert.IsAssignableFrom<IMediatorBuilder>(builder);
+    }
+
+    [Fact]
+    public void Skips_OpenGeneric_HandlerTypes()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(OpenGenericNotificationHandler<>).Assembly);
+
+        Assert.DoesNotContain(services,
+            d => d.ServiceType == typeof(OpenGenericNotificationHandler<>));
+    }
+
+    [Fact]
+    public void Handler_ImplementingMultipleInterfaces_RegisteredOnce()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(MultiInterfaceHandler).Assembly);
+
+        var count = services.Count(d => d.ServiceType == typeof(MultiInterfaceHandler));
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void Skips_InternalHandlerTypes()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(InternalScanHandler).Assembly);
+
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(InternalScanHandler));
     }
 }

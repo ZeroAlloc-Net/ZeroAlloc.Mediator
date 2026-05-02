@@ -119,12 +119,18 @@ namespace ZeroAlloc.Mediator.Generator
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
+            // Open generic handlers cannot be registered as factory fields because the type
+            // parameter is unbound at code-emit time; the runtime scanner filters them out too.
+            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
                 if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>"
                     && iface.TypeArguments.Length == 2)
                 {
+                    // Skip if the request type is less accessible than the generated Mediator class (public).
+                    if (iface.TypeArguments[0] is INamedTypeSymbol reqNamed && !IsAccessible(reqNamed)) return null;
+                    if (iface.TypeArguments[1] is INamedTypeSymbol respNamed && !IsAccessible(respNamed)) return null;
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
@@ -143,6 +149,8 @@ namespace ZeroAlloc.Mediator.Generator
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
+            // Open generic handlers: see GetRequestHandlerInfo.
+            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
@@ -385,23 +393,24 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
             sb.AppendLine();
 
-            // Emit factory fields for request handlers
+            // Emit factory fields for handlers — deduplicated by handler type name so that a
+            // single class implementing multiple handler interfaces produces one field, not many.
+            var emittedFactoryFields = new HashSet<string>(StringComparer.Ordinal);
             foreach (var handler in validRequests)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
-
-            // Emit factory fields for notification handlers
             foreach (var handler in validNotifications)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
-
-            // Emit factory fields for stream handlers
             foreach (var handler in validStreams)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
@@ -655,26 +664,24 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("        public void SetFactory<THandler>(Func<THandler> factory) where THandler : class");
             sb.AppendLine("        {");
 
+            // Deduplicate across all handler lists so a class implementing multiple
+            // handler interfaces does not produce duplicate locals in the SetFactory dispatch.
             var allHandlers = new List<KeyValuePair<string, string>>();
-
+            var seenAllHandlers = new HashSet<string>(StringComparer.Ordinal);
             foreach (var h in requestHandlers)
             {
-                allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
+                if (seenAllHandlers.Add(h.HandlerTypeName))
+                    allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
             }
-
-            // Deduplicate notification handlers
-            var seenNotificationHandlers = new HashSet<string>();
             foreach (var h in notificationHandlers)
             {
-                if (seenNotificationHandlers.Add(h.HandlerTypeName))
-                {
+                if (seenAllHandlers.Add(h.HandlerTypeName))
                     allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
-                }
             }
-
             foreach (var h in streamHandlers)
             {
-                allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
+                if (seenAllHandlers.Add(h.HandlerTypeName))
+                    allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
             }
 
             bool first = true;
