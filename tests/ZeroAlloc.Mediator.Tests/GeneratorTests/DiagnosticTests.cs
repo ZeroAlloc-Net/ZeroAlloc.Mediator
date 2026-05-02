@@ -318,6 +318,134 @@ public class DiagnosticTests
     }
 
     [Fact]
+    public void Generator_ReportsZam008_WhenHandlerHasNoParameterlessConstructor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                private readonly object _dep;
+                public PingHandler(object dep) => _dep = dep;
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam008 = diagnostics.SingleOrDefault(d => d.Id == "ZAM008");
+        Assert.NotNull(zam008);
+        Assert.Equal(DiagnosticSeverity.Warning, zam008!.Severity);
+        Assert.Contains("PingHandler", zam008.GetMessage(null));
+    }
+
+    [Fact]
+    public void Generator_Zam008_HasHandlerLocation_NotLocationNone()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                private readonly object _dep;
+                public PingHandler(object dep) => _dep = dep;
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam008 = diagnostics.SingleOrDefault(d => d.Id == "ZAM008");
+        Assert.NotNull(zam008);
+        Assert.NotEqual(Location.None, zam008!.Location);
+        Assert.True(zam008.Location.IsInSource);
+        // The reported location should be the PingHandler class identifier.
+        var sourceText = zam008.Location.SourceTree?.GetText().ToString() ?? "";
+        var span = zam008.Location.SourceSpan;
+        Assert.Equal("PingHandler", sourceText.Substring(span.Start, span.Length));
+    }
+
+    [Fact]
+    public void Generator_Zam008_LocationIsInsidePragmaScope()
+    {
+        // This is the user-visible improvement we are shipping: the diagnostic's
+        // location must fall inside the source span between
+        // `#pragma warning disable ZAM008` and `#pragma warning restore ZAM008`,
+        // otherwise the pragma cannot suppress it.
+        //
+        // GeneratorTestHelper.RunGenerator returns the *generator-reported*
+        // diagnostics (via RunGeneratorsAndUpdateCompilation), which are
+        // unsuppressed. So we cannot directly assert IsSuppressed = true here
+        // — instead we verify the location falls inside the pragma-disabled
+        // span, which is the prerequisite Roslyn uses to suppress.
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            #pragma warning disable ZAM008
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                private readonly object _dep;
+                public PingHandler(object dep) => _dep = dep;
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            #pragma warning restore ZAM008
+            """;
+
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam008 = diagnostics.SingleOrDefault(d => d.Id == "ZAM008");
+        Assert.NotNull(zam008);
+        Assert.True(zam008!.Location.IsInSource);
+
+        var sourceText = zam008.Location.SourceTree!.GetText().ToString();
+        var disableIdx = sourceText.IndexOf("#pragma warning disable ZAM008", StringComparison.Ordinal);
+        var restoreIdx = sourceText.IndexOf("#pragma warning restore ZAM008", StringComparison.Ordinal);
+        Assert.True(disableIdx >= 0 && restoreIdx > disableIdx, "pragma directives missing in test source");
+
+        var locStart = zam008.Location.SourceSpan.Start;
+        Assert.InRange(locStart, disableIdx, restoreIdx);
+    }
+
+    [Fact]
+    public void Generator_DoesNotReportZam008_WhenHandlerHasParameterlessConstructor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "ZAM008");
+    }
+
+    [Fact]
     public void Generator_EmitsNoCode_WhenNoHandlers()
     {
         var source = """
