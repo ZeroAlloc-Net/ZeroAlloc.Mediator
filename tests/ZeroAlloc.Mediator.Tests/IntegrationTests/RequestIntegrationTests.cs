@@ -22,6 +22,28 @@ public class IntegrationAddHandler : IRequestHandler<IntegrationAdd, int>
         => ValueTask.FromResult(request.A + request.B);
 }
 
+public readonly record struct PipelineDiPing(string Message) : IRequest<string>;
+
+public class PipelineDiPingHandler : IRequestHandler<PipelineDiPing, string>
+{
+    public ValueTask<string> Handle(PipelineDiPing request, CancellationToken ct)
+        => ValueTask.FromResult(request.Message);
+}
+
+[PipelineBehavior(Order = 0, AppliesTo = typeof(PipelineDiPing))]
+public class PipelineDiObservingBehavior : IPipelineBehavior
+{
+    public static int InvocationCount;
+    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        System.Func<TRequest, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        System.Threading.Interlocked.Increment(ref InvocationCount);
+        return next(request, ct);
+    }
+}
+
 public class RequestIntegrationTests
 {
     [Fact]
@@ -50,5 +72,23 @@ public class RequestIntegrationTests
 
         var result = await mediator.Send(new IntegrationPing("hi"), CancellationToken.None);
         Assert.Equal("Pong: hi", result);
+    }
+
+    [Fact]
+    public async Task Send_ViaDi_AppliesPipelineBehaviors()
+    {
+        PipelineDiObservingBehavior.InvocationCount = 0;
+
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(PipelineDiPingHandler).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<IMediator>();
+
+        var result = await mediator.Send(new PipelineDiPing("hello"), CancellationToken.None);
+
+        Assert.Equal("hello", result);
+        Assert.Equal(1, PipelineDiObservingBehavior.InvocationCount);
     }
 }

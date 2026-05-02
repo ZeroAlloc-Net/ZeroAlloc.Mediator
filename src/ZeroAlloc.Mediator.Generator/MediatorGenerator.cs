@@ -448,7 +448,7 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
 
             // Emit MediatorService class
-            EmitMediatorService(sb, validRequests, validNotifications, validStreams);
+            EmitMediatorService(sb, validRequests, validNotifications, validStreams, validPipelines);
 
             sb.AppendLine("}");
 
@@ -744,26 +744,81 @@ namespace ZeroAlloc.Mediator.Generator
             StringBuilder sb,
             List<RequestHandlerInfo> requestHandlers,
             List<NotificationHandlerInfo> notificationHandlers,
-            List<StreamHandlerInfo> streamHandlers)
+            List<StreamHandlerInfo> streamHandlers,
+            List<PipelineBehaviorInfo> pipelineBehaviors)
         {
             sb.AppendLine("    public partial class MediatorService : IMediator");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly global::System.IServiceProvider _services;");
+            sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
+            // Pipeline behaviors emit static lambdas which cannot capture instance state. Flow the
+            // current scope's IServiceProvider through AsyncLocal so the innermost body of the
+            // generated chain can resolve handlers from this MediatorService's injected provider.
+            sb.AppendLine("        private static readonly global::System.Threading.AsyncLocal<global::System.IServiceProvider?> _currentServices = new();");
             sb.AppendLine("        public MediatorService(global::System.IServiceProvider services) => _services = services;");
             sb.AppendLine();
 
-            // Request handlers — resolve from injected provider, call handler directly.
-            // Pipeline-behavior support is added in Task 7; this task is plain dispatch.
+            // Request handlers — resolve from injected provider, wrap in pipeline behaviors,
+            // and instrument with the same activity span as the static path.
             foreach (var handler in requestHandlers)
             {
+                var applicablePipelines = pipelineBehaviors
+                    .Where(p => (p.AppliesTo == null || p.AppliesTo == handler.RequestTypeName)
+                             && p.HasValidHandleMethod(expectedTypeParamCount: 2))
+                    .ToList();
+
+                var requestSimpleName = GetSimpleTypeName(handler.RequestTypeName);
+
                 sb.AppendLine(string.Format(
                     "        public async global::System.Threading.Tasks.ValueTask<{0}> Send({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
                 sb.AppendLine("        {");
-                sb.AppendLine(string.Format(
-                    "            var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
-                    handler.HandlerTypeName));
-                sb.AppendLine("            return await handler.Handle(request, ct).ConfigureAwait(false);");
+                sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.send\");");
+                sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+                sb.AppendLine("            try");
+                sb.AppendLine("            {");
+
+                if (applicablePipelines.Count == 0)
+                {
+                    sb.AppendLine(string.Format(
+                        "                var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                        handler.HandlerTypeName));
+                    sb.AppendLine("                return await handler.Handle(request, ct).ConfigureAwait(false);");
+                }
+                else
+                {
+                    var handlerTypeName = handler.HandlerTypeName;
+                    // PipelineEmitter emits `static` lambdas that cannot capture `_services`.
+                    // Flow the provider through AsyncLocal so the innermost static lambda body
+                    // can resolve the handler via _currentServices.Value.
+                    var shape = new PipelineShape
+                    {
+                        TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
+                        OuterParameterNames = new[] { "request", "ct" },
+                        LambdaParameterPrefixes = new[] { "r", "c" },
+                        InnermostBodyFactory = depth => string.Format(
+                            "{{ var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_currentServices.Value!); return handler.Handle(r{1}, c{1}); }}",
+                            handlerTypeName, depth),
+                    };
+                    var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
+                    sb.AppendLine("                var __previousServices = _currentServices.Value;");
+                    sb.AppendLine("                _currentServices.Value = _services;");
+                    sb.AppendLine("                try");
+                    sb.AppendLine("                {");
+                    sb.AppendLine(string.Format("                    return await {0}.ConfigureAwait(false);", chain));
+                    sb.AppendLine("                }");
+                    sb.AppendLine("                finally");
+                    sb.AppendLine("                {");
+                    sb.AppendLine("                    _currentServices.Value = __previousServices;");
+                    sb.AppendLine("                }");
+                }
+
+                sb.AppendLine("            }");
+                sb.AppendLine("            catch (global::System.Exception __ex)");
+                sb.AppendLine("            {");
+                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                sb.AppendLine("                throw;");
+                sb.AppendLine("            }");
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -792,35 +847,46 @@ namespace ZeroAlloc.Mediator.Generator
                 allHandlers.AddRange(baseHandlers);
 
                 var isParallel = handlerList.Any(h => h.IsParallel);
+                var notificationSimpleName = GetSimpleTypeName(notificationType);
 
                 sb.AppendLine(string.Format(
                     "        public async global::System.Threading.Tasks.ValueTask Publish({0} notification, global::System.Threading.CancellationToken ct)",
                     notificationType));
                 sb.AppendLine("        {");
+                sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.publish\");");
+                sb.AppendLine(string.Format("            __activity?.SetTag(\"notification.type\", \"{0}\");", notificationSimpleName));
+                sb.AppendLine("            try");
+                sb.AppendLine("            {");
 
                 if (isParallel)
                 {
-                    sb.AppendLine("            await global::System.Threading.Tasks.Task.WhenAll(");
+                    sb.AppendLine("                await global::System.Threading.Tasks.Task.WhenAll(");
                     for (var i = 0; i < allHandlers.Count; i++)
                     {
                         var h = allHandlers[i];
                         var comma = i < allHandlers.Count - 1 ? "," : "";
                         sb.AppendLine(string.Format(
-                            "                global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).AsTask(){1}",
+                            "                    global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).AsTask(){1}",
                             h.HandlerTypeName, comma));
                     }
-                    sb.AppendLine("            ).ConfigureAwait(false);");
+                    sb.AppendLine("                ).ConfigureAwait(false);");
                 }
                 else
                 {
                     foreach (var h in allHandlers)
                     {
                         sb.AppendLine(string.Format(
-                            "            await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).ConfigureAwait(false);",
+                            "                await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).ConfigureAwait(false);",
                             h.HandlerTypeName));
                     }
                 }
 
+                sb.AppendLine("            }");
+                sb.AppendLine("            catch (global::System.Exception __ex)");
+                sb.AppendLine("            {");
+                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                sb.AppendLine("                throw;");
+                sb.AppendLine("            }");
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }

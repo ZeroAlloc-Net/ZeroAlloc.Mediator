@@ -1,3 +1,4 @@
+using System;
 using Microsoft.CodeAnalysis;
 
 namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
@@ -300,5 +301,49 @@ public class DiInterfaceGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains("GetRequiredService<global::TestApp.CountToHandler>(_services)", output);
         Assert.DoesNotContain("=> Mediator.CreateStream(request, ct);", output);
+    }
+
+    [Fact]
+    public void Generator_MediatorService_Send_AppliesPipelineBehaviors()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct CreateUser(string Name) : IRequest<int>;
+
+            public class CreateUserHandler : IRequestHandler<CreateUser, int>
+            {
+                public ValueTask<int> Handle(CreateUser r, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+
+            [PipelineBehavior(Order = 0, AppliesTo = typeof(CreateUser))]
+            public class LoggingBehavior : IPipelineBehavior
+            {
+                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+                    TRequest request, CancellationToken ct,
+                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                    where TRequest : IRequest<TResponse>
+                    => next(request, ct);
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        // The MediatorService.Send method must include the behavior chain wrapped around the handler resolution.
+        var serviceClassStart = output.IndexOf("public partial class MediatorService", StringComparison.Ordinal);
+        Assert.True(serviceClassStart >= 0, "MediatorService partial class missing");
+        var serviceSection = output.Substring(serviceClassStart);
+
+        Assert.Contains("LoggingBehavior.Handle", serviceSection);
+        // The pipeline path resolves the handler from the current scope's services (flowed via
+        // AsyncLocal because PipelineEmitter emits static lambdas that cannot capture instance state).
+        Assert.Contains("GetRequiredService<global::TestApp.CreateUserHandler>", serviceSection);
     }
 }
