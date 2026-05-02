@@ -17,8 +17,9 @@ public static class MediatorBuilderExtensions
     /// <summary>
     /// Scans <paramref name="assembly"/> for concrete public classes implementing
     /// <see cref="IRequestHandler{TRequest,TResponse}"/>, <see cref="INotificationHandler{TNotification}"/>,
-    /// or <see cref="IStreamRequestHandler{TRequest,TResponse}"/> and registers each as a service keyed
-    /// by its concrete type using <paramref name="defaultLifetime"/>, unless the handler is decorated
+    /// or <see cref="IStreamRequestHandler{TRequest,TResponse}"/> and registers each as a non-keyed
+    /// service whose ServiceType is the handler's concrete type, using <paramref name="defaultLifetime"/>,
+    /// unless the handler is decorated
     /// with <see cref="HandlerLifetimeAttribute"/> in which case the attribute's lifetime wins.
     /// Registrations use <c>TryAdd</c> semantics — calling twice is a no-op for handlers already registered.
     /// </summary>
