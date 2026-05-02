@@ -345,7 +345,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "    public static partial class MediatorServiceCollectionExtensions\r\n" +
                 "    {\r\n" +
                 "        /// <summary>\r\n" +
-                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as a singleton resolving to the\r\n" +
+                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as transient resolving to the\r\n" +
                 "        /// generated <c>MediatorService</c> adapter, and returns an\r\n" +
                 "        /// <see cref=\"global::ZeroAlloc.Mediator.IMediatorBuilder\"/> for chaining bridge-package\r\n" +
                 "        /// registrations (<c>WithCache()</c>, <c>WithValidation()</c>, <c>WithResilience()</c>, etc.).\r\n" +
@@ -359,7 +359,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "        public static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)\r\n" +
                 "        {\r\n" +
-                "            services.TryAddSingleton<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
+                "            services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
                 "            return global::ZeroAlloc.Mediator.IMediatorBuilder.Create(services);\r\n" +
                 "        }\r\n" +
                 "    }\r\n" +

@@ -22,7 +22,7 @@ public class MediatorBuilderTests
     }
 
     [Fact]
-    public void AddMediator_RegistersIMediatorAsSingleton_ResolvingToMediatorService()
+    public void AddMediator_RegistersIMediatorAsTransient_ResolvingToMediatorService()
     {
         var services = new ServiceCollection();
         services.AddMediator();
@@ -32,13 +32,13 @@ public class MediatorBuilderTests
 
         Assert.IsType<MediatorService>(resolved);
 
-        // Singleton: second resolve returns the same instance.
+        // Transient: each resolve returns a new instance.
         var resolvedAgain = sp.GetRequiredService<IMediator>();
-        Assert.Same(resolved, resolvedAgain);
+        Assert.NotSame(resolved, resolvedAgain);
     }
 
     [Fact]
-    public void AddMediator_IsIdempotent_TryAddSingletonHandlesDuplicateCalls()
+    public void AddMediator_IsIdempotent_TryAddTransientHandlesDuplicateCalls()
     {
         var services = new ServiceCollection();
 
