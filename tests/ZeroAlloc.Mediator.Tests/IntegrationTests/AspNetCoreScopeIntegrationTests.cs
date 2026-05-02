@@ -31,4 +31,19 @@ public class AspNetCoreScopeIntegrationTests : IClassFixture<WebApplicationFacto
         Assert.NotEmpty(second);
         Assert.NotEqual(first, second);
     }
+
+    [Fact]
+    public async Task Multiple_Sends_WithinOneRequest_ShareTheRequestScope()
+    {
+        var client = _factory.CreateClient();
+        var raw = await client.GetStringAsync("/who-twice");
+
+        var ids = raw.Split(',');
+        Assert.Equal(2, ids.Length);
+        Assert.NotEmpty(ids[0]);
+        // Both Send() calls in one HTTP request must hit the same RequestContext (Scoped),
+        // so the two Guids must be identical. Would fail if MediatorService ever started
+        // creating a fresh sub-scope per Send().
+        Assert.Equal(ids[0], ids[1]);
+    }
 }

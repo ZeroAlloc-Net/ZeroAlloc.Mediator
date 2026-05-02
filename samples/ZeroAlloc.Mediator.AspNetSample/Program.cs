@@ -13,6 +13,13 @@ var app = builder.Build();
 app.MapGet("/who", async (IMediator mediator, CancellationToken ct) =>
     (await mediator.Send(new GetRequestId(), ct).ConfigureAwait(false)).ToString());
 
+app.MapGet("/who-twice", async (IMediator mediator, CancellationToken ct) =>
+{
+    var first = await mediator.Send(new GetRequestId(), ct).ConfigureAwait(false);
+    var second = await mediator.Send(new GetRequestId(), ct).ConfigureAwait(false);
+    return $"{first},{second}";
+});
+
 app.Run();
 
 // Required for WebApplicationFactory<Program> to find the entry-point Program type.

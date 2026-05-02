@@ -58,6 +58,54 @@ public class PipelineDiObservingBehavior : IPipelineBehavior
     }
 }
 
+// === M3: scope flow through pipeline behaviors ===
+
+public interface IScopedFlowMarker
+{
+    Guid Id { get; }
+}
+
+public sealed class ScopedFlowMarker : IScopedFlowMarker
+{
+    public Guid Id { get; } = Guid.NewGuid();
+}
+
+public readonly record struct ScopedFlowQuery : IRequest<Guid>;
+
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "ZeroAlloc.Mediator", "ZAM008",
+    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+public sealed class ScopedFlowHandler : IRequestHandler<ScopedFlowQuery, Guid>
+{
+    private readonly IScopedFlowMarker _marker;
+    public ScopedFlowHandler(IScopedFlowMarker marker) => _marker = marker;
+    public ValueTask<Guid> Handle(ScopedFlowQuery request, CancellationToken ct)
+        => ValueTask.FromResult(_marker.Id);
+}
+
+[PipelineBehavior(Order = 1, AppliesTo = typeof(ScopedFlowQuery))]
+public class ScopedFlowPassthroughBehavior : IPipelineBehavior
+{
+    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        System.Func<TRequest, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => next(request, ct);
+}
+
+public readonly record struct ScopedFlowNoBehaviorQuery : IRequest<Guid>;
+
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "ZeroAlloc.Mediator", "ZAM008",
+    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+public sealed class ScopedFlowNoBehaviorHandler : IRequestHandler<ScopedFlowNoBehaviorQuery, Guid>
+{
+    private readonly IScopedFlowMarker _marker;
+    public ScopedFlowNoBehaviorHandler(IScopedFlowMarker marker) => _marker = marker;
+    public ValueTask<Guid> Handle(ScopedFlowNoBehaviorQuery request, CancellationToken ct)
+        => ValueTask.FromResult(_marker.Id);
+}
+
 public class RequestIntegrationTests
 {
     [Fact]
@@ -113,5 +161,49 @@ public class RequestIntegrationTests
             () => Mediator.Send(new ThrowPing(0), CancellationToken.None).AsTask());
         Assert.Contains("ThrowPingHandler", ex.Message);
         Assert.Contains("RegisterHandlersFromAssembly", ex.Message);
+    }
+
+    [Fact]
+    public async Task Send_ViaDi_WithPipelineBehavior_FlowsCallerScopeIntoHandler()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(ScopedFlowHandler).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+        using var scope = sp.CreateScope();
+
+        // Resolve the scoped marker in this scope first — capture its Id.
+        var markerInScope = scope.ServiceProvider.GetRequiredService<IScopedFlowMarker>();
+        var expected = markerInScope.Id;
+
+        // Resolve the mediator in the SAME scope and Send. The pipeline behavior path uses
+        // AsyncLocal<IServiceProvider> to thread the caller's scope through the static-lambda
+        // chain emitted by PipelineEmitter; the handler's IScopedFlowMarker must resolve to
+        // the SAME instance the caller saw.
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var fromHandler = await mediator.Send(new ScopedFlowQuery(), CancellationToken.None);
+
+        Assert.Equal(expected, fromHandler);
+    }
+
+    [Fact]
+    public async Task Send_ViaDi_NoPipelineBehavior_FlowsCallerScopeIntoHandler()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(ScopedFlowNoBehaviorHandler).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+        using var scope = sp.CreateScope();
+
+        var markerInScope = scope.ServiceProvider.GetRequiredService<IScopedFlowMarker>();
+        var expected = markerInScope.Id;
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var fromHandler = await mediator.Send(new ScopedFlowNoBehaviorQuery(), CancellationToken.None);
+
+        Assert.Equal(expected, fromHandler);
     }
 }
