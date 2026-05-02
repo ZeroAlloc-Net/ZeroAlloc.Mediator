@@ -391,7 +391,11 @@ namespace ZeroAlloc.Mediator.Generator
                 "\r\n" +
                 "namespace Microsoft.Extensions.DependencyInjection\r\n" +
                 "{\r\n" +
-                "    public static partial class MediatorServiceCollectionExtensions\r\n" +
+                "    // Internal so two assemblies that both run the ZeroAlloc.Mediator source generator\r\n" +
+                "    // can both be referenced from a third project without CS0121 ambiguity at the\r\n" +
+                "    // services.AddMediator() call site. Each consuming assembly gets its own internal\r\n" +
+                "    // copy and resolves to its own MediatorService specialisation.\r\n" +
+                "    internal static partial class MediatorServiceCollectionExtensions\r\n" +
                 "    {\r\n" +
                 "        /// <summary>\r\n" +
                 "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as transient resolving to the\r\n" +
@@ -405,7 +409,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "        /// helps users who want to inject <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/>\r\n" +
                 "        /// via constructor parameters.\r\n" +
                 "        /// </remarks>\r\n" +
-                "        public static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
+                "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)\r\n" +
                 "        {\r\n" +
                 "            services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +

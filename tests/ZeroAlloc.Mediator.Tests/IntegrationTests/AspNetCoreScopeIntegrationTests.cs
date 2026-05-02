@@ -1,18 +1,14 @@
-extern alias aspnetsample;
-
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-using SampleProgram = aspnetsample::Program;
-
 namespace ZeroAlloc.Mediator.Tests.IntegrationTests;
 
-public class AspNetCoreScopeIntegrationTests : IClassFixture<WebApplicationFactory<SampleProgram>>
+public class AspNetCoreScopeIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<SampleProgram> _factory;
+    private readonly WebApplicationFactory<Program> _factory;
 
-    public AspNetCoreScopeIntegrationTests(WebApplicationFactory<SampleProgram> factory)
+    public AspNetCoreScopeIntegrationTests(WebApplicationFactory<Program> factory)
         => _factory = factory;
 
     [Fact]
