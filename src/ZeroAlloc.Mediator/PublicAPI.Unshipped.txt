@@ -3,6 +3,9 @@ override ZeroAlloc.Mediator.Unit.GetHashCode() -> int
 static ZeroAlloc.Mediator.Unit.operator !=(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 static ZeroAlloc.Mediator.Unit.operator ==(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 static readonly ZeroAlloc.Mediator.Unit.Value -> ZeroAlloc.Mediator.Unit
+ZeroAlloc.Mediator.HandlerLifetimeAttribute
+ZeroAlloc.Mediator.HandlerLifetimeAttribute.HandlerLifetimeAttribute(Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime) -> void
+ZeroAlloc.Mediator.HandlerLifetimeAttribute.Lifetime.get -> Microsoft.Extensions.DependencyInjection.ServiceLifetime
 ZeroAlloc.Mediator.IMediatorBuilder
 ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> ZeroAlloc.Mediator.IMediatorBuilder!
 ZeroAlloc.Mediator.IMediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
