@@ -18,7 +18,8 @@ public class MediatorBenchmarks
 {
     private readonly CancellationToken _ct = CancellationToken.None;
     private IMediator _mediatR = null!;
-    private ZeroAlloc.Mediator.IMediator _mediatorDi = null!;
+    private IServiceProvider _provider = null!;
+    private IServiceScopeFactory _scopeFactory = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -27,10 +28,12 @@ public class MediatorBenchmarks
         services.AddLogging();
         services.AddMediatR(static cfg =>
             cfg.RegisterServicesFromAssembly(typeof(MediatorBenchmarks).Assembly));
-        services.AddMediator();
-        var provider = services.BuildServiceProvider();
-        _mediatR = provider.GetRequiredService<IMediator>();
-        _mediatorDi = provider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssembly(
+            services.AddMediator(),
+            typeof(MediatorBenchmarks).Assembly);
+        _provider = services.BuildServiceProvider();
+        _scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
+        _mediatR = _provider.GetRequiredService<IMediator>();
     }
 
     // === Request/Response ===
@@ -91,19 +94,118 @@ public class MediatorBenchmarks
         }
     }
 
-    // === DI Interface (IMediator) ===
+    // === DI Send (scope-per-call models real ASP.NET request) ===
 
-    [BenchmarkCategory("SendDI"), Benchmark(Baseline = true)]
+    [BenchmarkCategory("Send_DI"), Benchmark(Baseline = true)]
     public ValueTask<string> ZeroAllocMediator_Send_Static()
         => ZeroAlloc.Mediator.Mediator.Send(new ZBenchPing("test"), _ct);
 
-    [BenchmarkCategory("SendDI"), Benchmark]
-    public ValueTask<string> ZeroAllocMediator_Send_DI()
-        => _mediatorDi.Send(new ZBenchPing("test"), _ct);
+    [BenchmarkCategory("Send_DI"), Benchmark]
+    public async ValueTask<string> ZeroAllocMediator_Send_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        return await m.Send(new ZBenchPing("test"), _ct).ConfigureAwait(false);
+    }
 
-    [BenchmarkCategory("SendDI"), Benchmark]
-    public Task<string> MediatR_Send_DI()
-        => _mediatR.Send(new MBenchPing("test"), _ct);
+    [BenchmarkCategory("Send_DI"), Benchmark]
+    public async Task<string> MediatR_Send_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<IMediator>();
+        return await m.Send(new MBenchPing("test"), _ct).ConfigureAwait(false);
+    }
+
+    // === DI Send with pipeline behavior ===
+
+    [BenchmarkCategory("SendPipeline_DI"), Benchmark(Baseline = true)]
+    public ValueTask<int> ZeroAllocMediator_SendPipeline_Static()
+        => ZeroAlloc.Mediator.Mediator.Send(new ZBenchCreateUser("test"), _ct);
+
+    [BenchmarkCategory("SendPipeline_DI"), Benchmark]
+    public async ValueTask<int> ZeroAllocMediator_SendPipeline_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        return await m.Send(new ZBenchCreateUser("test"), _ct).ConfigureAwait(false);
+    }
+
+    [BenchmarkCategory("SendPipeline_DI"), Benchmark]
+    public async Task<int> MediatR_SendPipeline_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<IMediator>();
+        return await m.Send(new MBenchCreateUser("test"), _ct).ConfigureAwait(false);
+    }
+
+    // === DI Publish (single handler) ===
+
+    [BenchmarkCategory("Publish1_DI"), Benchmark(Baseline = true)]
+    public ValueTask ZeroAllocMediator_Publish1_Static()
+        => ZeroAlloc.Mediator.Mediator.Publish(new ZBenchEvent("test"), _ct);
+
+    [BenchmarkCategory("Publish1_DI"), Benchmark]
+    public async ValueTask ZeroAllocMediator_Publish1_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        await m.Publish(new ZBenchEvent("test"), _ct).ConfigureAwait(false);
+    }
+
+    [BenchmarkCategory("Publish1_DI"), Benchmark]
+    public async Task MediatR_Publish1_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<IMediator>();
+        await m.Publish(new MBenchEvent("test"), _ct).ConfigureAwait(false);
+    }
+
+    // === DI Publish (multi handler) ===
+
+    [BenchmarkCategory("Publish2_DI"), Benchmark(Baseline = true)]
+    public ValueTask ZeroAllocMediator_Publish2_Static()
+        => ZeroAlloc.Mediator.Mediator.Publish(new ZBenchMultiEvent(42), _ct);
+
+    [BenchmarkCategory("Publish2_DI"), Benchmark]
+    public async ValueTask ZeroAllocMediator_Publish2_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        await m.Publish(new ZBenchMultiEvent(42), _ct).ConfigureAwait(false);
+    }
+
+    [BenchmarkCategory("Publish2_DI"), Benchmark]
+    public async Task MediatR_Publish2_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<IMediator>();
+        await m.Publish(new MBenchMultiEvent(42), _ct).ConfigureAwait(false);
+    }
+
+    // === DI Stream ===
+
+    [BenchmarkCategory("Stream_DI"), Benchmark(Baseline = true)]
+    public async Task ZeroAllocMediator_Stream_Static()
+    {
+        await foreach (var _ in ZeroAlloc.Mediator.Mediator
+            .CreateStream(new ZBenchStreamRequest(5), _ct).ConfigureAwait(false)) { }
+    }
+
+    [BenchmarkCategory("Stream_DI"), Benchmark]
+    public async Task ZeroAllocMediator_Stream_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<ZeroAlloc.Mediator.IMediator>();
+        await foreach (var _ in m.CreateStream(new ZBenchStreamRequest(5), _ct).ConfigureAwait(false)) { }
+    }
+
+    [BenchmarkCategory("Stream_DI"), Benchmark]
+    public async Task MediatR_Stream_DI()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var m = scope.ServiceProvider.GetRequiredService<IMediator>();
+        await foreach (var _ in m.CreateStream(new MBenchStreamRequest(5), _ct).ConfigureAwait(false)) { }
+    }
 }
 
 // ============================================================
