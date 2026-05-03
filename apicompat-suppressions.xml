@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Acknowledged API-compat breaks against the most recent published version.
+  Each entry must carry a Justification so future readers know why the break
+  was permitted. Picked up automatically by the reusable api-compat workflow
+  at ZeroAlloc-Net/.github when present at the repo root.
+-->
+<Suppressions>
+
+  <!--
+    3.0.0: IMediatorBuilder.Create(IServiceCollection) was a static interface
+    method (DIM). Replaced with the now-public MediatorBuilder class — call
+    `new MediatorBuilder(services)` directly. Static factory methods on
+    interfaces tie the contract to a specific implementation; promoting the
+    concrete class lets IMediatorBuilder evolve without breaking callers.
+    See https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/pull/63 (review item I3).
+  -->
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection)~ZeroAlloc.Mediator.IMediatorBuilder</Target>
+    <Left>lib/net8.0/ZeroAlloc.Mediator.dll</Left>
+    <Right>lib/net8.0/ZeroAlloc.Mediator.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection)~ZeroAlloc.Mediator.IMediatorBuilder</Target>
+    <Left>lib/net10.0/ZeroAlloc.Mediator.dll</Left>
+    <Right>lib/net10.0/ZeroAlloc.Mediator.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+
+</Suppressions>
