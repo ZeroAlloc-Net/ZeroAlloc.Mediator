@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.1.0...v2.0.1) (2026-05-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mediator.generator:** ship analyzer DLL under analyzers/dotnet/cs/
+
+### Features
+
+* 3.0 di integration ([#63](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/63)) ([06ee609](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/06ee609fad48b75a898749b22d9e9c268b9f8320))
+* lock public API surface (PublicApiAnalyzers + api-compat gate) ([a09a680](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a09a6806f2dde844acb69aee4933423736f1ef8c))
+
+
+### Bug Fixes
+
+* **mediator.generator:** ship analyzer DLL under analyzers/dotnet/cs/ ([48eab4c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/48eab4c6a79fc9c54ce646c52a1f7e49037fa1d9))
+* **release-please:** drop pre-major flags and align manifest with nuget reality ([#65](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/65)) ([83bba31](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/83bba310db15122cd5813d45d74f2f26f382b02a))
+
 ## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.0.1...v2.1.0) (2026-05-01)
 
 
