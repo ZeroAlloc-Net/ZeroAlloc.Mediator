@@ -50,14 +50,15 @@ public class MediatorBuilderTests
     }
 
     [Fact]
-    public void IMediatorBuilder_Create_BuildsBuilder_BackedBySameServiceCollection()
+    public void MediatorBuilder_Construction_IsBackedBySameServiceCollection()
     {
         var services = new ServiceCollection();
 
-        var builder = IMediatorBuilder.Create(services);
+        var builder = new MediatorBuilder(services);
 
         Assert.NotNull(builder);
         Assert.Same(services, builder.Services);
+        Assert.IsAssignableFrom<IMediatorBuilder>(builder);
     }
 
     [Fact]

@@ -810,10 +810,6 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly global::System.IServiceProvider _services;");
             sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
-            // Pipeline behaviors emit static lambdas which cannot capture instance state. Flow the
-            // current scope's IServiceProvider through AsyncLocal so the innermost body of the
-            // generated chain can resolve handlers from this MediatorService's injected provider.
-            sb.AppendLine("        private static readonly global::System.Threading.AsyncLocal<global::System.IServiceProvider?> _currentServices = new();");
             sb.AppendLine("        public MediatorService(global::System.IServiceProvider services) => _services = services;");
             sb.AppendLine();
 
@@ -847,29 +843,20 @@ namespace ZeroAlloc.Mediator.Generator
                 else
                 {
                     var handlerTypeName = handler.HandlerTypeName;
-                    // PipelineEmitter emits `static` lambdas that cannot capture `_services`.
-                    // Flow the provider through AsyncLocal so the innermost static lambda body
-                    // can resolve the handler via _currentServices.Value.
+                    // EmitStaticLambdas=false (Pipeline 1.2.0+) lets the innermost lambda body
+                    // capture _services directly — no AsyncLocal threading needed.
                     var shape = new PipelineShape
                     {
                         TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
                         OuterParameterNames = new[] { "request", "ct" },
                         LambdaParameterPrefixes = new[] { "r", "c" },
+                        EmitStaticLambdas = false,
                         InnermostBodyFactory = depth => string.Format(
-                            "{{ var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_currentServices.Value!); return handler.Handle(r{1}, c{1}); }}",
+                            "{{ var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services); return handler.Handle(r{1}, c{1}); }}",
                             handlerTypeName, depth),
                     };
                     var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
-                    sb.AppendLine("                var __previousServices = _currentServices.Value;");
-                    sb.AppendLine("                _currentServices.Value = _services;");
-                    sb.AppendLine("                try");
-                    sb.AppendLine("                {");
-                    sb.AppendLine(string.Format("                    return await {0}.ConfigureAwait(false);", chain));
-                    sb.AppendLine("                }");
-                    sb.AppendLine("                finally");
-                    sb.AppendLine("                {");
-                    sb.AppendLine("                    _currentServices.Value = __previousServices;");
-                    sb.AppendLine("                }");
+                    sb.AppendLine(string.Format("                return await {0}.ConfigureAwait(false);", chain));
                 }
 
                 sb.AppendLine("            }");
