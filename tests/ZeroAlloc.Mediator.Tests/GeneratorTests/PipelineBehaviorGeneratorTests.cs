@@ -102,10 +102,16 @@ public class PipelineBehaviorGeneratorTests
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
-        var pingSendIdx = output.IndexOf("Send(global::TestApp.Ping", StringComparison.Ordinal);
-        var pongSendIdx = output.IndexOf("Send(global::TestApp.Pong", StringComparison.Ordinal);
-        var pingSection = output.Substring(pingSendIdx, pongSendIdx - pingSendIdx);
-        var pongSection = output.Substring(pongSendIdx);
+        // Constrain search to the static Mediator class — MediatorService also emits Send methods
+        // (Task 7) that apply the same behavior chain, and we only want to verify scoping here.
+        var staticClassStart = output.IndexOf("public static partial class Mediator", StringComparison.Ordinal);
+        var staticClassEnd = output.IndexOf("public sealed class MediatorConfig", StringComparison.Ordinal);
+        var staticSection = output.Substring(staticClassStart, staticClassEnd - staticClassStart);
+
+        var pingSendIdx = staticSection.IndexOf("Send(global::TestApp.Ping", StringComparison.Ordinal);
+        var pongSendIdx = staticSection.IndexOf("Send(global::TestApp.Pong", StringComparison.Ordinal);
+        var pingSection = staticSection.Substring(pingSendIdx, pongSendIdx - pingSendIdx);
+        var pongSection = staticSection.Substring(pongSendIdx);
 
         Assert.Contains("PingOnlyBehavior", pingSection);
         Assert.DoesNotContain("PingOnlyBehavior", pongSection);

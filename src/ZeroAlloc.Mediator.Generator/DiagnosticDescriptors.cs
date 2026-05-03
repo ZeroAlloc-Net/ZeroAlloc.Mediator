@@ -62,5 +62,14 @@ namespace ZeroAlloc.Mediator.Generator
             "ZeroAlloc.Mediator",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor HandlerMissingParameterlessConstructor =
+            new DiagnosticDescriptor(
+                "ZAM008",
+                "Handler has no parameterless constructor",
+                "Handler '{0}' has no parameterless constructor; static Mediator.Send/Publish/CreateStream will throw at runtime unless a factory is registered via Mediator.Configure(...) or services.AddMediator().RegisterHandlersFromAssembly(...). Inject IMediator instead for ASP.NET / hosted apps.",
+                "ZeroAlloc.Mediator",
+                DiagnosticSeverity.Warning,
+                isEnabledByDefault: true);
     }
 }

@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using ZeroAlloc.Mediator;
 
 namespace ZeroAlloc.Mediator.Tests.IntegrationTests;
 
@@ -33,5 +35,22 @@ public class StreamIntegrationTests
         }
 
         Assert.Equal([1, 2, 3, 4, 5], results);
+    }
+
+    [Fact]
+    public async Task CreateStream_ViaDi_ResolvesHandlerFromScope_AndYieldsValues()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator()
+            .RegisterHandlersFromAssembly(typeof(IntegrationCountToHandler).Assembly);
+
+        using var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<IMediator>();
+
+        var values = new List<int>();
+        await foreach (var v in mediator.CreateStream(new IntegrationCountTo(5), CancellationToken.None))
+            values.Add(v);
+
+        Assert.Equal([1, 2, 3, 4, 5], values);
     }
 }

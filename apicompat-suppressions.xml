@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Acknowledged API-compat breaks vs. the latest published version on nuget.org.
+  Picked up automatically by ZeroAlloc-Net/.github/.github/workflows/api-compat.yml
+  when present at the repo root.
+
+  Regenerate after intentional breaks: re-run apicompat against the latest published
+  nupkg with the generate-suppression-file argument.
+
+  Justifications (3.0.0):
+    CP0002 IMediatorBuilder.Create. Static interface method (DIM) replaced by the
+    now-public MediatorBuilder class. Call `new MediatorBuilder(services)` instead.
+    Static factories on interfaces tie the contract to a specific implementation;
+    promoting the concrete class lets IMediatorBuilder evolve without breaking callers.
+    See https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/pull/63 (review item I3).
+
+  Diagnostic-ID reference:
+  https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids
+-->
+<Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
+    <Left>lib/net10.0/ZeroAlloc.Mediator.dll</Left>
+    <Right>lib/net10.0/ZeroAlloc.Mediator.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection)</Target>
+    <Left>lib/net8.0/ZeroAlloc.Mediator.dll</Left>
+    <Right>lib/net8.0/ZeroAlloc.Mediator.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+</Suppressions>

@@ -15,7 +15,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.*" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.*" />
     <PackageReference Include="xunit" Version="2.*" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
@@ -28,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Cache\ZeroAlloc.Mediator.Cache.csproj" />
+    <ProjectReference Include="..\..\samples\ZeroAlloc.Mediator.AspNetSample\ZeroAlloc.Mediator.AspNetSample.csproj" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Validation\ZeroAlloc.Mediator.Validation.csproj" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Resilience\ZeroAlloc.Mediator.Resilience.csproj" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"

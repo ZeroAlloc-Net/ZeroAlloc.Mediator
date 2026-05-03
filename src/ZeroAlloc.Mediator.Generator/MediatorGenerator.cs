@@ -86,7 +86,7 @@ namespace ZeroAlloc.Mediator.Generator
                 var requestTypeInfos = data.Right;
 
                 // Report diagnostics
-                ReportDiagnostics(spc, requestInfos, pipelineInfos, requestTypeInfos);
+                ReportDiagnostics(spc, requestInfos, notificationInfos, streamInfos, pipelineInfos, requestTypeInfos);
 
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos);
                 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
@@ -94,6 +94,22 @@ namespace ZeroAlloc.Mediator.Generator
                 var diSource = GenerateServiceCollectionExtensions();
                 spc.AddSource("ZeroAlloc.Mediator.ServiceCollection.g.cs", diSource);
             });
+        }
+
+        private static bool HasAccessibleParameterlessConstructor(INamedTypeSymbol type)
+        {
+            foreach (var ctor in type.InstanceConstructors)
+            {
+                if (ctor.Parameters.Length == 0 &&
+                    (ctor.DeclaredAccessibility == Accessibility.Public
+                     || ctor.DeclaredAccessibility == Accessibility.Internal))
+                    return true;
+            }
+            // If no instance constructors are explicitly declared, C# emits a public parameterless one
+            // for non-static classes by default — but Roslyn always reports it in InstanceConstructors,
+            // so the loop above already covers that case. The fallback branch handles the (rare)
+            // case where a symbol has an empty InstanceConstructors list (synthetic types).
+            return type.InstanceConstructors.IsDefaultOrEmpty;
         }
 
         private static bool IsAccessible(INamedTypeSymbol symbol)
@@ -119,17 +135,25 @@ namespace ZeroAlloc.Mediator.Generator
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
+            // Open generic handlers cannot be registered as factory fields because the type
+            // parameter is unbound at code-emit time; the runtime scanner filters them out too.
+            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
                 if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>"
                     && iface.TypeArguments.Length == 2)
                 {
+                    // Skip if the request type is less accessible than the generated Mediator class (public).
+                    if (iface.TypeArguments[0] is INamedTypeSymbol reqNamed && !IsAccessible(reqNamed)) return null;
+                    if (iface.TypeArguments[1] is INamedTypeSymbol respNamed && !IsAccessible(respNamed)) return null;
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var isValueType = iface.TypeArguments[0].IsValueType;
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType);
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    var location = classDecl.Identifier.GetLocation();
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location);
                 }
             }
 
@@ -143,6 +167,8 @@ namespace ZeroAlloc.Mediator.Generator
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
+            // Open generic handlers: see GetRequestHandlerInfo.
+            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
@@ -174,12 +200,16 @@ namespace ZeroAlloc.Mediator.Generator
                         }
                     }
 
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    var location = classDecl.Identifier.GetLocation();
                     return new NotificationHandlerInfo(
                         notificationType,
                         handlerType,
                         isParallel,
                         isBaseHandler,
-                        string.Join(";", baseTypeNames));
+                        string.Join(";", baseTypeNames),
+                        hasParameterlessCtor,
+                        location);
                 }
             }
 
@@ -217,7 +247,9 @@ namespace ZeroAlloc.Mediator.Generator
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
-                    return new StreamHandlerInfo(requestType, responseType, handlerType);
+                    var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
+                    var location = classDecl.Identifier.GetLocation();
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location);
                 }
             }
 
@@ -254,10 +286,14 @@ namespace ZeroAlloc.Mediator.Generator
         private static void ReportDiagnostics(
             Microsoft.CodeAnalysis.SourceProductionContext spc,
             ImmutableArray<RequestHandlerInfo?> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo?> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
             ImmutableArray<RequestTypeInfo?> requestTypes)
         {
             var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validNotificationHandlers = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validStreamHandlers = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
 
             // ZAM001: No registered handler for a request type
             var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
@@ -321,6 +357,27 @@ namespace ZeroAlloc.Mediator.Generator
                     behaviorNames,
                     group.Key));
             }
+
+            // ZAM008: Handler has no accessible parameterless constructor.
+            // A class implementing multiple handler interfaces (e.g. IRequestHandler<X,Y> AND
+            // INotificationHandler<Z>) appears in more than one list — deduplicate so the
+            // diagnostic fires once per handler type.
+            var seenMissingCtor = new HashSet<string>(StringComparer.Ordinal);
+            void ReportIfMissingCtor(string handlerTypeName, Location? location)
+            {
+                if (seenMissingCtor.Add(handlerTypeName))
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.HandlerMissingParameterlessConstructor,
+                        location ?? Location.None,
+                        handlerTypeName));
+            }
+
+            foreach (var h in validHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
+            foreach (var h in validNotificationHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
+            foreach (var h in validStreamHandlers.Where(x => !x.HasParameterlessConstructor))
+                ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
         }
 
         private static string GenerateServiceCollectionExtensions()
@@ -334,10 +391,14 @@ namespace ZeroAlloc.Mediator.Generator
                 "\r\n" +
                 "namespace Microsoft.Extensions.DependencyInjection\r\n" +
                 "{\r\n" +
-                "    public static partial class MediatorServiceCollectionExtensions\r\n" +
+                "    // Internal so two assemblies that both run the ZeroAlloc.Mediator source generator\r\n" +
+                "    // can both be referenced from a third project without CS0121 ambiguity at the\r\n" +
+                "    // services.AddMediator() call site. Each consuming assembly gets its own internal\r\n" +
+                "    // copy and resolves to its own MediatorService specialisation.\r\n" +
+                "    internal static partial class MediatorServiceCollectionExtensions\r\n" +
                 "    {\r\n" +
                 "        /// <summary>\r\n" +
-                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as a singleton resolving to the\r\n" +
+                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as transient resolving to the\r\n" +
                 "        /// generated <c>MediatorService</c> adapter, and returns an\r\n" +
                 "        /// <see cref=\"global::ZeroAlloc.Mediator.IMediatorBuilder\"/> for chaining bridge-package\r\n" +
                 "        /// registrations (<c>WithCache()</c>, <c>WithValidation()</c>, <c>WithResilience()</c>, etc.).\r\n" +
@@ -348,11 +409,11 @@ namespace ZeroAlloc.Mediator.Generator
                 "        /// helps users who want to inject <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/>\r\n" +
                 "        /// via constructor parameters.\r\n" +
                 "        /// </remarks>\r\n" +
-                "        public static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
+                "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)\r\n" +
                 "        {\r\n" +
-                "            services.TryAddSingleton<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
-                "            return global::ZeroAlloc.Mediator.IMediatorBuilder.Create(services);\r\n" +
+                "            services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
+                "            return new global::ZeroAlloc.Mediator.MediatorBuilder(services);\r\n" +
                 "        }\r\n" +
                 "    }\r\n" +
                 "}\r\n";
@@ -385,23 +446,24 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
             sb.AppendLine();
 
-            // Emit factory fields for request handlers
+            // Emit factory fields for handlers — deduplicated by handler type name so that a
+            // single class implementing multiple handler interfaces produces one field, not many.
+            var emittedFactoryFields = new HashSet<string>(StringComparer.Ordinal);
             foreach (var handler in validRequests)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
-
-            // Emit factory fields for notification handlers
             foreach (var handler in validNotifications)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
-
-            // Emit factory fields for stream handlers
             foreach (var handler in validStreams)
             {
+                if (!emittedFactoryFields.Add(handler.HandlerTypeName)) continue;
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                 sb.AppendLine(string.Format("        internal static Func<{0}>? {1};", handler.HandlerTypeName, fieldName));
             }
@@ -424,7 +486,7 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             // Emit Configure method
-            EmitConfigureMethod(sb, validRequests, validNotifications, validStreams);
+            EmitConfigureMethod(sb);
 
             sb.AppendLine("    }");
 
@@ -439,7 +501,7 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
 
             // Emit MediatorService class
-            EmitMediatorService(sb, validRequests, validNotifications, validStreams);
+            EmitMediatorService(sb, validRequests, validNotifications, validStreams, validPipelines);
 
             sb.AppendLine("}");
 
@@ -473,24 +535,26 @@ namespace ZeroAlloc.Mediator.Generator
             if (applicablePipelines.Count == 0)
             {
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                 sb.AppendLine(string.Format(
-                    "                var handler = {0}?.Invoke() ?? new {1}();",
-                    fieldName, handler.HandlerTypeName));
+                    "                var handler = {0}?.Invoke() ?? {1};",
+                    fieldName, fallback));
                 sb.AppendLine("                return await handler.Handle(request, ct);");
             }
             else
             {
                 var handlerTypeName = handler.HandlerTypeName;
                 var factoryFieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                 var shape = new PipelineShape
                 {
                     TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
                     OuterParameterNames = new[] { "request", "ct" },
                     LambdaParameterPrefixes = new[] { "r", "c" },
                     InnermostBodyFactory = depth => string.Format(
-                        "{{ var handler = {0}?.Invoke() ?? new {1}(); return handler.Handle(r{2}, c{2}); }}",
+                        "{{ var handler = {0}?.Invoke() ?? {1}; return handler.Handle(r{2}, c{2}); }}",
                         factoryFieldName,
-                        handlerTypeName,
+                        fallback,
                         depth),
                 };
 
@@ -557,9 +621,10 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                         taskExprs.Add(string.Format(
-                            "({0}?.Invoke() ?? new {1}()).Handle(notification, ct).AsTask()",
-                            fieldName, handler.HandlerTypeName));
+                            "({0}?.Invoke() ?? {1}).Handle(notification, ct).AsTask()",
+                            fieldName, fallback));
                     }
 
                     sb.AppendLine("                await Task.WhenAll(");
@@ -591,9 +656,10 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
                         sb.AppendLine(string.Format(
-                            "                await ({0}?.Invoke() ?? new {1}()).Handle(notification, ct);",
-                            fieldName, handler.HandlerTypeName));
+                            "                await ({0}?.Invoke() ?? {1}).Handle(notification, ct);",
+                            fieldName, fallback));
                     }
 
                     sb.AppendLine("            }");
@@ -621,19 +687,21 @@ namespace ZeroAlloc.Mediator.Generator
             // Enumeration errors are not captured by this span.
             sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
             sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+            var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
             sb.AppendLine(string.Format(
-                "            var handler = {0}?.Invoke() ?? new {1}();",
-                fieldName, handler.HandlerTypeName));
+                "            var handler = {0}?.Invoke() ?? {1};",
+                fieldName, fallback));
             sb.AppendLine("            return handler.Handle(request, ct);");
             sb.AppendLine("        }");
             sb.AppendLine();
         }
 
-        private static void EmitConfigureMethod(
-            StringBuilder sb,
-            List<RequestHandlerInfo> requestHandlers,
-            List<NotificationHandlerInfo> notificationHandlers,
-            List<StreamHandlerInfo> streamHandlers)
+        // Emits Mediator.Configure(Action<MediatorConfig>). The MediatorConfig instance has no
+        // state — its sole purpose is to give callers a fluent surface for SetFactory<T>. The
+        // actual side effect is in MediatorConfig.SetFactory<T>, which mutates the static
+        // Mediator._<x>Factory fields directly. Don't replace the instance with a static class:
+        // it would break the existing public API shape (c => c.SetFactory<T>(...)).
+        private static void EmitConfigureMethod(StringBuilder sb)
         {
             sb.AppendLine("        public static void Configure(Action<MediatorConfig> configure)");
             sb.AppendLine("        {");
@@ -655,26 +723,24 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("        public void SetFactory<THandler>(Func<THandler> factory) where THandler : class");
             sb.AppendLine("        {");
 
+            // Deduplicate across all handler lists so a class implementing multiple
+            // handler interfaces does not produce duplicate locals in the SetFactory dispatch.
             var allHandlers = new List<KeyValuePair<string, string>>();
-
+            var seenAllHandlers = new HashSet<string>(StringComparer.Ordinal);
             foreach (var h in requestHandlers)
             {
-                allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
+                if (seenAllHandlers.Add(h.HandlerTypeName))
+                    allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
             }
-
-            // Deduplicate notification handlers
-            var seenNotificationHandlers = new HashSet<string>();
             foreach (var h in notificationHandlers)
             {
-                if (seenNotificationHandlers.Add(h.HandlerTypeName))
-                {
+                if (seenAllHandlers.Add(h.HandlerTypeName))
                     allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
-                }
             }
-
             foreach (var h in streamHandlers)
             {
-                allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
+                if (seenAllHandlers.Add(h.HandlerTypeName))
+                    allHandlers.Add(new KeyValuePair<string, string>(h.HandlerTypeName, GetFactoryFieldName(h.HandlerTypeName)));
             }
 
             bool first = true;
@@ -737,20 +803,74 @@ namespace ZeroAlloc.Mediator.Generator
             StringBuilder sb,
             List<RequestHandlerInfo> requestHandlers,
             List<NotificationHandlerInfo> notificationHandlers,
-            List<StreamHandlerInfo> streamHandlers)
+            List<StreamHandlerInfo> streamHandlers,
+            List<PipelineBehaviorInfo> pipelineBehaviors)
         {
             sb.AppendLine("    public partial class MediatorService : IMediator");
             sb.AppendLine("    {");
+            sb.AppendLine("        private readonly global::System.IServiceProvider _services;");
+            sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");
+            sb.AppendLine("        public MediatorService(global::System.IServiceProvider services) => _services = services;");
+            sb.AppendLine();
 
+            // Request handlers — resolve from injected provider, wrap in pipeline behaviors,
+            // and instrument with the same activity span as the static path.
             foreach (var handler in requestHandlers)
             {
+                var applicablePipelines = pipelineBehaviors
+                    .Where(p => (p.AppliesTo == null || p.AppliesTo == handler.RequestTypeName)
+                             && p.HasValidHandleMethod(expectedTypeParamCount: 2))
+                    .ToList();
+
+                var requestSimpleName = GetSimpleTypeName(handler.RequestTypeName);
+
                 sb.AppendLine(string.Format(
-                    "        public ValueTask<{0}> Send({1} request, CancellationToken ct)",
+                    "        public async global::System.Threading.Tasks.ValueTask<{0}> Send({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
-                sb.AppendLine(string.Format(
-                    "            => Mediator.Send(request, ct);"));
+                sb.AppendLine("        {");
+                sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.send\");");
+                sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+                sb.AppendLine("            try");
+                sb.AppendLine("            {");
+
+                if (applicablePipelines.Count == 0)
+                {
+                    sb.AppendLine(string.Format(
+                        "                var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                        handler.HandlerTypeName));
+                    sb.AppendLine("                return await handler.Handle(request, ct).ConfigureAwait(false);");
+                }
+                else
+                {
+                    var handlerTypeName = handler.HandlerTypeName;
+                    // EmitStaticLambdas=false (Pipeline 1.2.0+) lets the innermost lambda body
+                    // capture _services directly — no AsyncLocal threading needed.
+                    var shape = new PipelineShape
+                    {
+                        TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
+                        OuterParameterNames = new[] { "request", "ct" },
+                        LambdaParameterPrefixes = new[] { "r", "c" },
+                        EmitStaticLambdas = false,
+                        InnermostBodyFactory = depth => string.Format(
+                            "{{ var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services); return handler.Handle(r{1}, c{1}); }}",
+                            handlerTypeName, depth),
+                    };
+                    var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
+                    sb.AppendLine(string.Format("                return await {0}.ConfigureAwait(false);", chain));
+                }
+
+                sb.AppendLine("            }");
+                sb.AppendLine("            catch (global::System.Exception __ex)");
+                sb.AppendLine("            {");
+                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                sb.AppendLine("                throw;");
+                sb.AppendLine("            }");
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
+            // Publish and CreateStream still delegate to the static dispatcher.
+            // Tasks 5 and 6 migrate them to scope-aware resolution.
             var concreteNotifications = notificationHandlers
                 .Where(h => !h.IsBaseHandler)
                 .GroupBy(h => h.NotificationTypeName)
@@ -758,23 +878,89 @@ namespace ZeroAlloc.Mediator.Generator
 
             foreach (var group in concreteNotifications)
             {
+                var notificationType = group.Key;
+                var handlerList = group.ToList();
+
+                // Find matching base handlers (matches static-path logic in EmitPublishMethods).
+                var baseTypeNames = handlerList[0].BaseNotificationTypeNames;
+                var baseTypeSet = string.IsNullOrEmpty(baseTypeNames)
+                    ? new HashSet<string>()
+                    : new HashSet<string>(baseTypeNames.Split(';'));
+                var baseHandlers = notificationHandlers
+                    .Where(h => h.IsBaseHandler && baseTypeSet.Contains(h.NotificationTypeName))
+                    .ToList();
+                var allHandlers = new List<NotificationHandlerInfo>(handlerList);
+                allHandlers.AddRange(baseHandlers);
+
+                var isParallel = handlerList.Any(h => h.IsParallel);
+                var notificationSimpleName = GetSimpleTypeName(notificationType);
+
                 sb.AppendLine(string.Format(
-                    "        public ValueTask Publish({0} notification, CancellationToken ct)",
-                    group.Key));
-                sb.AppendLine(string.Format(
-                    "            => Mediator.Publish(notification, ct);"));
+                    "        public async global::System.Threading.Tasks.ValueTask Publish({0} notification, global::System.Threading.CancellationToken ct)",
+                    notificationType));
+                sb.AppendLine("        {");
+                sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.publish\");");
+                sb.AppendLine(string.Format("            __activity?.SetTag(\"notification.type\", \"{0}\");", notificationSimpleName));
+                sb.AppendLine("            try");
+                sb.AppendLine("            {");
+
+                if (isParallel)
+                {
+                    sb.AppendLine("                await global::System.Threading.Tasks.Task.WhenAll(");
+                    for (var i = 0; i < allHandlers.Count; i++)
+                    {
+                        var h = allHandlers[i];
+                        var comma = i < allHandlers.Count - 1 ? "," : "";
+                        sb.AppendLine(string.Format(
+                            "                    global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).AsTask(){1}",
+                            h.HandlerTypeName, comma));
+                    }
+                    sb.AppendLine("                ).ConfigureAwait(false);");
+                }
+                else
+                {
+                    foreach (var h in allHandlers)
+                    {
+                        sb.AppendLine(string.Format(
+                            "                await global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services).Handle(notification, ct).ConfigureAwait(false);",
+                            h.HandlerTypeName));
+                    }
+                }
+
+                sb.AppendLine("            }");
+                sb.AppendLine("            catch (global::System.Exception __ex)");
+                sb.AppendLine("            {");
+                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+                sb.AppendLine("                throw;");
+                sb.AppendLine("            }");
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
             foreach (var handler in streamHandlers)
             {
                 sb.AppendLine(string.Format(
-                    "        public System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct)",
+                    "        public global::System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
+                sb.AppendLine("        {");
                 sb.AppendLine(string.Format(
-                    "            => Mediator.CreateStream(request, ct);"));
+                    "            var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                    handler.HandlerTypeName));
+                sb.AppendLine("            return handler.Handle(request, ct);");
+                sb.AppendLine("        }");
+                sb.AppendLine();
             }
 
             sb.AppendLine("    }");
+        }
+
+        private static string GetFallbackExpression(string handlerTypeName, bool hasParameterlessConstructor)
+        {
+            return hasParameterlessConstructor
+                ? string.Format("new {0}()", handlerTypeName)
+                : string.Format(
+                    "throw new global::System.InvalidOperationException(\"No factory registered for {0}. Inject IMediator (services.AddMediator().RegisterHandlersFromAssembly(...)) or call Mediator.Configure(c => c.SetFactory<{0}>(() => new {0}(...))).\")",
+                    handlerTypeName);
         }
 
         private static string GetSimpleTypeName(string fullyQualifiedName)

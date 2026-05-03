@@ -6,7 +6,7 @@
     <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017</WarningsAsErrors>
 
     <!-- ZeroAlloc.Pipeline dependency version (used when local checkout is absent) -->
-    <ZeroAllocPipelineVersion>0.1.1</ZeroAllocPipelineVersion>
+    <ZeroAllocPipelineVersion>1.2.0</ZeroAllocPipelineVersion>
 
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>

@@ -165,4 +165,55 @@ public class RequestDispatchGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains("internal static Func<global::TestApp.PingHandler>? _pingHandlerFactory", output);
     }
+
+    [Fact]
+    public void Generator_StaticSend_EmitsNewT_WhenHandlerHasParameterlessCtor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains("?? new global::TestApp.PingHandler()", output);
+    }
+
+    [Fact]
+    public void Generator_StaticSend_ThrowsInvalidOperation_WhenHandlerHasNoParameterlessCtor()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                private readonly object _dep;
+                public PingHandler(object dep) => _dep = dep;
+                public ValueTask<string> Handle(Ping r, CancellationToken ct) => default;
+            }
+            """;
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.DoesNotContain("?? new global::TestApp.PingHandler()", output);
+        Assert.Contains("throw new global::System.InvalidOperationException", output);
+        Assert.Contains("PingHandler", output);  // error message names the handler
+        Assert.Contains("RegisterHandlersFromAssembly", output);  // points users at the fix
+    }
 }
