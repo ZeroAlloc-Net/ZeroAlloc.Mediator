@@ -178,10 +178,10 @@ public class RequestIntegrationTests
         var markerInScope = scope.ServiceProvider.GetRequiredService<IScopedFlowMarker>();
         var expected = markerInScope.Id;
 
-        // Resolve the mediator in the SAME scope and Send. The pipeline behavior path uses
-        // AsyncLocal<IServiceProvider> to thread the caller's scope through the static-lambda
-        // chain emitted by PipelineEmitter; the handler's IScopedFlowMarker must resolve to
-        // the SAME instance the caller saw.
+        // Resolve the mediator in the SAME scope and Send. The pipeline behavior path
+        // captures the MediatorService instance's _services (the caller's scope) inside the
+        // chain emitted by PipelineEmitter (EmitStaticLambdas=false); the handler's
+        // IScopedFlowMarker must resolve to the SAME instance the caller saw.
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var fromHandler = await mediator.Send(new ScopedFlowQuery(), CancellationToken.None);
 
