@@ -413,7 +413,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)\r\n" +
                 "        {\r\n" +
                 "            services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
-                "            return global::ZeroAlloc.Mediator.IMediatorBuilder.Create(services);\r\n" +
+                "            return new global::ZeroAlloc.Mediator.MediatorBuilder(services);\r\n" +
                 "        }\r\n" +
                 "    }\r\n" +
                 "}\r\n";

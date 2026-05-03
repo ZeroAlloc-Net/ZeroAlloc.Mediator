@@ -7,7 +7,6 @@ ZeroAlloc.Mediator.HandlerLifetimeAttribute
 ZeroAlloc.Mediator.HandlerLifetimeAttribute.HandlerLifetimeAttribute(Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime) -> void
 ZeroAlloc.Mediator.HandlerLifetimeAttribute.Lifetime.get -> Microsoft.Extensions.DependencyInjection.ServiceLifetime
 ZeroAlloc.Mediator.IMediatorBuilder
-ZeroAlloc.Mediator.IMediatorBuilder.Create(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> ZeroAlloc.Mediator.IMediatorBuilder!
 ZeroAlloc.Mediator.IMediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 ZeroAlloc.Mediator.INotification
 ZeroAlloc.Mediator.INotificationHandler<TNotification>
@@ -20,6 +19,9 @@ ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>.Handle(TRequest request,
 ZeroAlloc.Mediator.IStreamRequest<TResponse>
 ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>
 ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>.Handle(TRequest request, System.Threading.CancellationToken ct) -> System.Collections.Generic.IAsyncEnumerable<TResponse>!
+ZeroAlloc.Mediator.MediatorBuilder
+ZeroAlloc.Mediator.MediatorBuilder.MediatorBuilder(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> void
+ZeroAlloc.Mediator.MediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 ZeroAlloc.Mediator.MediatorBuilderExtensions
 static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssemblies(this ZeroAlloc.Mediator.IMediatorBuilder! builder, params System.Reflection.Assembly![]! assemblies) -> ZeroAlloc.Mediator.IMediatorBuilder!
 static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssembly(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Reflection.Assembly! assembly, Microsoft.Extensions.DependencyInjection.ServiceLifetime defaultLifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient) -> ZeroAlloc.Mediator.IMediatorBuilder!

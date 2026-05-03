@@ -33,10 +33,10 @@ public static class MediatorResilienceServiceCollectionExtensions
     {
         // Equivalent to services.AddMediator().WithResilience(), but the generated AddMediator()
         // extension is emitted into consuming projects and isn't visible inside this library —
-        // call IMediatorBuilder.Create directly. Consumers should still call AddMediator()
+        // construct the builder directly. Consumers should still call AddMediator()
         // themselves to register IMediator; the back-compat contract here is only that the
         // resilience marker gets registered.
-        IMediatorBuilder.Create(services).WithResilience();
+        new MediatorBuilder(services).WithResilience();
         return services;
     }
 }

@@ -33,10 +33,10 @@ public static class MediatorValidationServiceCollectionExtensions
     {
         // Equivalent to services.AddMediator().WithValidation(), but the generated AddMediator()
         // extension is emitted into consuming projects and isn't visible inside this library —
-        // call IMediatorBuilder.Create directly. Consumers should still call AddMediator()
+        // construct the builder directly. Consumers should still call AddMediator()
         // themselves to register IMediator; the back-compat contract here is only that the
         // validation accessor gets registered.
-        IMediatorBuilder.Create(services).WithValidation();
+        new MediatorBuilder(services).WithValidation();
         return services;
     }
 }

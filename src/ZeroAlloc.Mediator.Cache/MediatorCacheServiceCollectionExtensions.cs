@@ -43,10 +43,10 @@ public static class MediatorCacheServiceCollectionExtensions
     {
         // Equivalent to services.AddMediator().WithCache(), but the generated AddMediator()
         // extension is emitted into consuming projects and isn't visible inside this library —
-        // call IMediatorBuilder.Create directly. Consumers should still call AddMediator()
+        // construct the builder directly. Consumers should still call AddMediator()
         // themselves to register IMediator; the back-compat contract here is only that the
         // cache accessor + IMemoryCache get registered.
-        IMediatorBuilder.Create(services).WithCache();
+        new MediatorBuilder(services).WithCache();
         return services;
     }
 }
