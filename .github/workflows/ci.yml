@@ -49,10 +49,6 @@ jobs:
       - name: Verify generator pack layout
         run: bash scripts/verify-generator-pack-layout.sh ./artifacts
 
-      - name: Push to NuGet (pre-release)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-
   aot-smoke:
     runs-on: ubuntu-latest
     # Publishes samples/ZeroAlloc.Mediator.AotSmoke with PublishAot=true and runs
