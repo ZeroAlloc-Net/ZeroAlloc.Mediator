@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v3.0.0...v3.1.0) (2026-05-03)
+
+
+### Features
+
+* 3.0 di integration ([#63](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/63)) ([06ee609](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/06ee609fad48b75a898749b22d9e9c268b9f8320))
+* lock public API surface (PublicApiAnalyzers + api-compat gate) ([a09a680](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a09a6806f2dde844acb69aee4933423736f1ef8c))
+
+
+### Bug Fixes
+
+* **release-please:** drop pre-major flags and align manifest with nuget reality ([#65](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/65)) ([83bba31](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/83bba310db15122cd5813d45d74f2f26f382b02a))
+
+
+### Documentation
+
+* **readme:** standardize 5-badge set ([efc3697](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/efc36977b2136289830607f618e2cfb9a3f09338))
+* **readme:** standardize 5-badge set (NuGet/Build/License/AOT/Sponsors) ([a6d3435](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a6d3435c503396a4443f6be4facf915aec0c6213))
+
 ## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v2.0.1...v2.1.0) (2026-05-01)
 
 
