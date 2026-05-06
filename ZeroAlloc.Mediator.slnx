@@ -5,6 +5,7 @@
     <Project Path="samples/ZeroAlloc.Mediator.Sample/ZeroAlloc.Mediator.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Cache/ZeroAlloc.Mediator.Cache.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Resilience/ZeroAlloc.Mediator.Resilience.csproj" />
