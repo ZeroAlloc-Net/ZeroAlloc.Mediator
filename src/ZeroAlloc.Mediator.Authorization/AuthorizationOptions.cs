@@ -17,6 +17,13 @@ public sealed class AuthorizationOptions
     internal IServiceCollection Services { get; }
     internal bool ContextSourceConfigured { get; private set; }
 
+    /// <summary>
+    /// When <c>true</c> (default), <c>WithAuthorization()</c> auto-registers every discovered
+    /// <c>[AuthorizationPolicy]</c> as <c>AddScoped&lt;TPolicy&gt;()</c> via the generator-emitted
+    /// hook. Set to <c>false</c> to opt out and register policies manually.
+    /// </summary>
+    public bool AutoRegisterDiscoveredPolicies { get; set; } = true;
+
     internal AuthorizationOptions(IServiceCollection services)
     {
         Services = services;

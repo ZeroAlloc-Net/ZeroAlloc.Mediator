@@ -28,11 +28,18 @@ public sealed class AuthorizationGenerator : IIncrementalGenerator
             var lookupSrc = LookupEmitter.Emit(policies, requests);
             spc.AddSource("GeneratedAuthorizationLookup.g.cs", lookupSrc);
 
-            if (policies.Count > 0)
+            var emitDI = policies.Count > 0;
+            if (emitDI)
             {
                 var diSrc = LookupEmitter.EmitDIExtensions(policies);
                 spc.AddSource("GeneratedAuthorizationDIExtensions.g.cs", diSrc);
             }
+
+            // Emit a [ModuleInitializer] that wires the generated lookup/DI methods into
+            // the runtime's static delegate hooks. This is the only way the runtime
+            // sub-package can reach the user-compilation-local generated code.
+            var initSrc = LookupEmitter.EmitModuleInitializer(emitLookup: true, emitDI: emitDI);
+            spc.AddSource("GeneratedAuthorizationModuleInitializer.g.cs", initSrc);
         });
     }
 
