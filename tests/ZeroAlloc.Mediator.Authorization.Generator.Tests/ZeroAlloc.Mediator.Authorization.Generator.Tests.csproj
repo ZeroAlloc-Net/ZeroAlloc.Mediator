@@ -4,7 +4,7 @@
     <RootNamespace>ZeroAlloc.Mediator.Authorization.Generator.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long; HLQ005: Assert.Single is an assertion, not LINQ; HLQ001: test stubs intentionally use simple LINQ patterns. -->
-    <NoWarn>$(NoWarn);MA0048;MA0051;HLQ005;HLQ001</NoWarn>
+    <NoWarn>$(NoWarn);MA0048;MA0051;MA0006;HLQ005;HLQ001;HLQ012</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
