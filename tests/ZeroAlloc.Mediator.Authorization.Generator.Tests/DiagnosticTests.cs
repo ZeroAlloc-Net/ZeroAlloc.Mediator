@@ -25,10 +25,16 @@ public sealed class DiagnosticTests
             using ZeroAlloc.Authorization;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class FirstAdminPolicy { }
+            public sealed class FirstAdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [AuthorizationPolicy("Admin")]
-            public sealed class SecondAdminPolicy { }
+            public sealed class SecondAdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
             """;
         var diags = TestHarness.RunDiagnostics(source);
         Assert.Contains(diags, d => d.Id == "ZAMA002");
@@ -53,7 +59,10 @@ public sealed class DiagnosticTests
             using ZeroAlloc.Authorization;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class AdminPolicy { }
+            public sealed class AdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("Admin")]
             public sealed class JustAClass { }
@@ -73,7 +82,10 @@ public sealed class DiagnosticTests
             using ZeroAlloc.Mediator;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class AdminPolicy { }
+            public sealed class AdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("Admin", Mode = "Any")]
             public sealed record GetThing(int Id) : IRequest<int>;
@@ -90,7 +102,10 @@ public sealed class DiagnosticTests
             using ZeroAlloc.Mediator;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class AdminPolicy { }
+            public sealed class AdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("Admin")]
             public sealed record SomethingHappened(int Id) : INotification;

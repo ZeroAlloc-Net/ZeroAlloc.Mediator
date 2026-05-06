@@ -12,8 +12,9 @@ public sealed class LookupEmissionTests
             using ZeroAlloc.Mediator;
 
             [AuthorizationPolicy("AdminOnly")]
-            public sealed class AdminOnlyPolicy
+            public sealed class AdminOnlyPolicy : IAuthorizationPolicy
             {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
             }
 
             [Authorize("AdminOnly")]
@@ -30,10 +31,16 @@ public sealed class LookupEmissionTests
             using ZeroAlloc.Mediator;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class AdminPolicy { }
+            public sealed class AdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [AuthorizationPolicy("Premium")]
-            public sealed class PremiumPolicy { }
+            public sealed class PremiumPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("Admin")]
             [Authorize("Premium")]
@@ -51,7 +58,10 @@ public sealed class LookupEmissionTests
             using ZeroAlloc.Mediator.Authorization;
 
             [AuthorizationPolicy("AdminOnly")]
-            public sealed class AdminOnlyPolicy { }
+            public sealed class AdminOnlyPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("AdminOnly")]
             public sealed record GetOrderById(int Id) : IAuthorizedRequest<int>;
@@ -67,10 +77,16 @@ public sealed class LookupEmissionTests
             using ZeroAlloc.Mediator;
 
             [AuthorizationPolicy("Admin")]
-            public sealed class AdminPolicy { }
+            public sealed class AdminPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [AuthorizationPolicy("Premium")]
-            public sealed class PremiumPolicy { }
+            public sealed class PremiumPolicy : IAuthorizationPolicy
+            {
+                public bool IsAuthorized(ISecurityContext ctx) => false;
+            }
 
             [Authorize("Admin")]
             public sealed record DoStuff(int Id) : IRequest<int>;

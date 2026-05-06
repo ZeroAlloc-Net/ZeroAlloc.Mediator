@@ -16,12 +16,12 @@ namespace ZeroAlloc.Mediator.Authorization
             return EmptyPolicies;
         }
 
-        public static object Resolve(string name, global::System.IServiceProvider sp)
+        public static global::ZeroAlloc.Authorization.IAuthorizationPolicy Resolve(string name, global::System.IServiceProvider sp)
         {
             switch (name)
             {
-                case "Admin": return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::AdminPolicy>(sp);
-                case "Premium": return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::PremiumPolicy>(sp);
+                case "Admin": return (global::ZeroAlloc.Authorization.IAuthorizationPolicy)global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::AdminPolicy>(sp);
+                case "Premium": return (global::ZeroAlloc.Authorization.IAuthorizationPolicy)global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::PremiumPolicy>(sp);
                 default: throw new global::System.InvalidOperationException("Unknown policy '" + name + "'");
             }
         }

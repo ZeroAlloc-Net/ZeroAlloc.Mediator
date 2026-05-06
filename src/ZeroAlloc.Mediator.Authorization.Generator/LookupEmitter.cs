@@ -43,7 +43,10 @@ internal static class LookupEmitter
         sb.AppendLine();
 
         // Resolve(name, sp) — switch on name returning policy instance via sp.GetRequiredService<T>().
-        sb.AppendLine("        public static object Resolve(string name, global::System.IServiceProvider sp)");
+        // The cast to IAuthorizationPolicy is required at the IL level: GetRequiredService<TConcrete>()
+        // returns TConcrete, not the interface. PolicyDiscovery filters out [AuthorizationPolicy]
+        // types that don't implement IAuthorizationPolicy, so the cast is always safe.
+        sb.AppendLine("        public static global::ZeroAlloc.Authorization.IAuthorizationPolicy Resolve(string name, global::System.IServiceProvider sp)");
         sb.AppendLine("        {");
         sb.AppendLine("            switch (name)");
         sb.AppendLine("            {");
@@ -52,7 +55,7 @@ internal static class LookupEmitter
         foreach (var p in policies)
         {
             if (!seen.Add(p.Name)) continue;
-            sb.AppendLine($"                case {EscapeStringLiteral(p.Name)}: return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{p.FullyQualifiedTypeName}>(sp);");
+            sb.AppendLine($"                case {EscapeStringLiteral(p.Name)}: return (global::ZeroAlloc.Authorization.IAuthorizationPolicy)global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{p.FullyQualifiedTypeName}>(sp);");
         }
         sb.AppendLine("                default: throw new global::System.InvalidOperationException(\"Unknown policy '\" + name + \"'\");");
         sb.AppendLine("            }");
