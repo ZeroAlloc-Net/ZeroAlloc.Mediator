@@ -1,10 +1,22 @@
+using Microsoft.CodeAnalysis;
+
 namespace ZeroAlloc.Mediator.Authorization.Generator;
 
-[Microsoft.CodeAnalysis.Generator(Microsoft.CodeAnalysis.LanguageNames.CSharp)]
-public sealed class AuthorizationGenerator : Microsoft.CodeAnalysis.IIncrementalGenerator
+[Generator(LanguageNames.CSharp)]
+public sealed class AuthorizationGenerator : IIncrementalGenerator
 {
-    public void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext context)
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // Emission added in Tasks 7-8.
+        var compProvider = context.CompilationProvider;
+        context.RegisterSourceOutput(compProvider, static (spc, comp) =>
+        {
+            var policies = PolicyDiscovery.Discover(comp);
+            var requests = RequestDiscovery.Discover(comp);
+
+            if (policies.Count == 0 && requests.Count == 0) return;
+
+            var lookupSrc = LookupEmitter.Emit(policies, requests);
+            spc.AddSource("GeneratedAuthorizationLookup.g.cs", lookupSrc);
+        });
     }
 }
