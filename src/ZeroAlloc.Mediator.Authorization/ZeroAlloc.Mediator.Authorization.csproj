@@ -10,9 +10,8 @@
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
     <PackageReference Include="ZeroAlloc.Authorization" Version="1.1.*" />
     <PackageReference Include="ZeroAlloc.Results" Version="1.1.*" />
-    <!-- Re-enable after Task 6 creates the generator project:
     <ProjectReference Include="..\ZeroAlloc.Mediator.Authorization.Generator\ZeroAlloc.Mediator.Authorization.Generator.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" /> -->
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Tests" />
