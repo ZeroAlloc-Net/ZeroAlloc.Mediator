@@ -68,7 +68,7 @@ See [docs/performance.md](docs/performance.md) for the full benchmark table and 
 - **Notifications** — sequential or parallel (`[ParallelNotification]`) dispatch
 - **Streaming** — `IAsyncEnumerable<T>` via `CreateStream`
 - **Pipeline Behaviors** — compile-time inlined middleware chain (logging, validation, etc.)
-- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry spans + metrics on `IRequest<T>.Send`)
+- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry spans + metrics on `IRequest<T>.Send`), `WithAuthorization()` (`[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies)
 - **Polymorphic Notifications** — base interface handlers are automatically included in concrete notification dispatch
 - **Analyzer Diagnostics** — missing handlers, duplicates, and misconfigurations are build errors/warnings
 - **Zero Allocation** — `ValueTask`, `readonly record struct`, static dispatch, no closures
@@ -83,6 +83,7 @@ See [docs/performance.md](docs/performance.md) for the full benchmark table and 
 | [Notifications](docs/notifications.md) | Events: sequential, parallel, polymorphic handlers |
 | [Streaming](docs/streaming.md) | `IAsyncEnumerable<T>` for large result sets |
 | [Pipeline Behaviors](docs/pipeline-behaviors.md) | Compile-time middleware: logging, validation, caching |
+| [Authorization](docs/authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
 | [Dependency Injection](docs/dependency-injection.md) | DI containers, `IMediator`, factory delegates |
 | [Diagnostics](docs/diagnostics.md) | ZAM001–ZAM007 compiler error reference with fixes |
 | [Performance](docs/performance.md) | Zero-alloc internals, benchmark results, Native AOT |
