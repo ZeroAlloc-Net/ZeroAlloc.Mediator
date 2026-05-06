@@ -17,6 +17,12 @@ public sealed class AuthorizationGenerator : IIncrementalGenerator
 
             var lookupSrc = LookupEmitter.Emit(policies, requests);
             spc.AddSource("GeneratedAuthorizationLookup.g.cs", lookupSrc);
+
+            if (policies.Count > 0)
+            {
+                var diSrc = LookupEmitter.EmitDIExtensions(policies);
+                spc.AddSource("GeneratedAuthorizationDIExtensions.g.cs", diSrc);
+            }
         });
     }
 }

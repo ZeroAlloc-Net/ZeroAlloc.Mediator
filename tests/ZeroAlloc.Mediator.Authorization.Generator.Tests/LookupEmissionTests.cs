@@ -60,6 +60,25 @@ public sealed class LookupEmissionTests
     }
 
     [Fact]
+    public Task Emits_DIExtensions_For_DiscoveredPolicies()
+    {
+        var source = """
+            using ZeroAlloc.Authorization;
+            using ZeroAlloc.Mediator;
+
+            [AuthorizationPolicy("Admin")]
+            public sealed class AdminPolicy { }
+
+            [AuthorizationPolicy("Premium")]
+            public sealed class PremiumPolicy { }
+
+            [Authorize("Admin")]
+            public sealed record DoStuff(int Id) : IRequest<int>;
+            """;
+        return Verifier.Verify(TestHarness.RunGenerator(source)).UseDirectory("Snapshots");
+    }
+
+    [Fact]
     public Task Emits_Nothing_For_Compilation_WithoutAnyAuthorize()
     {
         var source = """

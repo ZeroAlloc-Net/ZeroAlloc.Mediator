@@ -12,7 +12,7 @@ namespace ZeroAlloc.Mediator.Authorization
         public static string[] GetPoliciesFor<TRequest>()
         {
             var t = typeof(TRequest);
-            if (t == typeof(global::GetOrderById)) return new string[] { "AdminOnly" };
+            if (t == typeof(global::DoStuff)) return new string[] { "Admin" };
             return EmptyPolicies;
         }
 
@@ -20,14 +20,16 @@ namespace ZeroAlloc.Mediator.Authorization
         {
             switch (name)
             {
-                case "AdminOnly": return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::AdminOnlyPolicy>(sp);
+                case "Admin": return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::AdminPolicy>(sp);
+                case "Premium": return global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<global::PremiumPolicy>(sp);
                 default: throw new global::System.InvalidOperationException("Unknown policy '" + name + "'");
             }
         }
 
         public static global::System.Type[] PolicyTypes { get; } = new global::System.Type[]
         {
-            typeof(global::AdminOnlyPolicy),
+            typeof(global::AdminPolicy),
+            typeof(global::PremiumPolicy),
         };
     }
 }
@@ -43,7 +45,8 @@ namespace ZeroAlloc.Mediator.Authorization
     {
         public static void RegisterDiscoveredPolicies(global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)
         {
-            global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddScoped<global::AdminOnlyPolicy>(services);
+            global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddScoped<global::AdminPolicy>(services);
+            global::Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddScoped<global::PremiumPolicy>(services);
         }
     }
 }
