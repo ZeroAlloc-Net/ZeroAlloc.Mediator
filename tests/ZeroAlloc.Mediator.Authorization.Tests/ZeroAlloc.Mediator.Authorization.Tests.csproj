@@ -3,6 +3,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ZeroAlloc.Mediator.Authorization.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- Force optimizations even in Debug builds so the allocation gate measures the
+         same async-state-machine path AOT will see. Without this the compiler emits a
+         Debug-mode async state machine box that allocates ~248-344 B/call, making
+         AllocationBudgetTests.Behavior_*_ZeroAllocation fail when developers run
+         `dotnet test` without `-c Release`. -->
+    <Optimize>true</Optimize>
     <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long; HLQ005: Assert.Single is an assertion, not LINQ; HLQ001: test stubs intentionally use simple LINQ patterns. -->
     <NoWarn>$(NoWarn);MA0048;MA0051;HLQ005;HLQ001;ZAMED002;MA0004</NoWarn>
   </PropertyGroup>
