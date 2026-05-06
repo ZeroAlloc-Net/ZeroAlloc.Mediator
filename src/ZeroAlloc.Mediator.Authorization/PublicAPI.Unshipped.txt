@@ -1,2 +1,5 @@
 #nullable enable
+ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException
+ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException.AuthorizationDeniedException(ZeroAlloc.Authorization.AuthorizationFailure failure) -> void
+ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException.Failure.get -> ZeroAlloc.Authorization.AuthorizationFailure
 ZeroAlloc.Mediator.Authorization.IAuthorizedRequest<TResponse>
