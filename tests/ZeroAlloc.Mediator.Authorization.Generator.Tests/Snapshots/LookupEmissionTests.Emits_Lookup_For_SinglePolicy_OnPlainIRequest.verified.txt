@@ -67,14 +67,11 @@ namespace ZeroAlloc.Mediator.Authorization
         [ModuleInitializer]
         internal static void Init()
         {
-            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.GetPoliciesForRequestType =
-                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.GetPoliciesForType;
-            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.GetPolicyTypes =
-                static () => global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.PolicyTypes;
-            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.ResolvePolicy =
-                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.Resolve;
-            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.RegisterDiscoveredPolicies =
-                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationDIExtensions.RegisterDiscoveredPolicies;
+            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.Configure(
+                registerDiscoveredPolicies: global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationDIExtensions.RegisterDiscoveredPolicies,
+                getPolicyTypes: static () => global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.PolicyTypes,
+                getPoliciesForRequestType: global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.GetPoliciesForType,
+                resolvePolicy: global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.Resolve);
         }
     }
 }

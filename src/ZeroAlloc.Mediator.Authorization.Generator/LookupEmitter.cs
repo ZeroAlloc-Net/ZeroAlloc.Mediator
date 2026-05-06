@@ -124,9 +124,10 @@ internal static class LookupEmitter
     }
 
     /// <summary>
-    /// Emits a <c>[ModuleInitializer]</c> that wires the runtime's static delegate hooks
-    /// to the generator-emitted lookup/DI methods. Without this, the runtime sub-package
-    /// has no way to reach the user-compilation-local generated code.
+    /// Emits a <c>[ModuleInitializer]</c> that wires the runtime's hook surface to the
+    /// generator-emitted lookup/DI methods via a single first-write-wins
+    /// <c>MediatorAuthorizationGeneratedHooks.Configure(...)</c> call. Without this, the
+    /// runtime sub-package has no way to reach the user-compilation-local generated code.
     /// </summary>
     public static string EmitModuleInitializer(bool emitLookup, bool emitDI)
     {
@@ -142,20 +143,27 @@ internal static class LookupEmitter
         sb.AppendLine("        [ModuleInitializer]");
         sb.AppendLine("        internal static void Init()");
         sb.AppendLine("        {");
-        if (emitLookup)
-        {
-            sb.AppendLine("            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.GetPoliciesForRequestType =");
-            sb.AppendLine("                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.GetPoliciesForType;");
-            sb.AppendLine("            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.GetPolicyTypes =");
-            sb.AppendLine("                static () => global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.PolicyTypes;");
-            sb.AppendLine("            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.ResolvePolicy =");
-            sb.AppendLine("                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.Resolve;");
-        }
-        if (emitDI)
-        {
-            sb.AppendLine("            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.RegisterDiscoveredPolicies =");
-            sb.AppendLine("                global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationDIExtensions.RegisterDiscoveredPolicies;");
-        }
+        // The Configure hook accepts the four delegates as a single atomic call. It is idempotent
+        // (first-write-wins) so multiple compilations each emitting an initializer don't clobber
+        // each other. getPoliciesForRequestType is non-null; the rest are null when nothing was
+        // discovered for that aspect.
+        var registerDI = emitDI
+            ? "global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationDIExtensions.RegisterDiscoveredPolicies"
+            : "null";
+        var getPolicyTypes = emitLookup
+            ? "static () => global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.PolicyTypes"
+            : "null";
+        var getPoliciesForRequestType = emitLookup
+            ? "global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.GetPoliciesForType"
+            : "static _ => global::System.Array.Empty<string>()";
+        var resolvePolicy = emitLookup
+            ? "global::ZeroAlloc.Mediator.Authorization.GeneratedAuthorizationLookup.Resolve"
+            : "null";
+        sb.AppendLine("            global::ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.Configure(");
+        sb.AppendLine($"                registerDiscoveredPolicies: {registerDI},");
+        sb.AppendLine($"                getPolicyTypes: {getPolicyTypes},");
+        sb.AppendLine($"                getPoliciesForRequestType: {getPoliciesForRequestType},");
+        sb.AppendLine($"                resolvePolicy: {resolvePolicy});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");
