@@ -6,10 +6,11 @@ using ZeroAlloc.Authorization;
 namespace ZeroAlloc.Mediator.Authorization;
 
 /// <summary>
-/// Configuration surface passed to the <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/>
-/// builder. The caller MUST pick a security-context source via one of <see cref="UseSecurityContextFactory"/>,
-/// <see cref="UseAnonymousSecurityContext"/>, or <see cref="UseAccessor{TAccessor}"/>; otherwise
-/// <c>WithAuthorization()</c> throws.
+/// Configures the security-context source for <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/>.
+/// Call <b>exactly one</b> of <see cref="UseSecurityContextFactory"/>,
+/// <see cref="UseAnonymousSecurityContext"/>, or <see cref="UseAccessor{TAccessor}"/>.
+/// All three use <c>TryAddScoped</c>/<c>TryAddSingleton</c> internally — registrations made BEFORE
+/// <c>WithAuthorization</c> win, and only the first <c>Use*</c> call's registration takes effect.
 /// </summary>
 public sealed class AuthorizationOptions
 {
@@ -37,9 +38,18 @@ public sealed class AuthorizationOptions
     }
 
     /// <summary>
-    /// Resolve <see cref="ISecurityContext"/> from a host-supplied <typeparamref name="TAccessor"/>
-    /// (e.g. an ASP.NET <c>HttpContextAccessor</c>-backed implementation).
+    /// Resolve <see cref="ISecurityContext"/> through a user-provided accessor.
     /// </summary>
+    /// <remarks>
+    /// <para><b>The accessor type must be registered separately.</b> Example:</para>
+    /// <code>
+    /// services.AddScoped&lt;MyAccessor&gt;();          // user registers the accessor
+    /// services.AddMediator()
+    ///         .WithAuthorization(opts =&gt; opts.UseAccessor&lt;MyAccessor&gt;());
+    /// </code>
+    /// <para>Mediator.Authorization will resolve <see cref="ISecurityContext"/> through it
+    /// per-scope (each request gets a fresh value via <c>accessor.Current</c>).</para>
+    /// </remarks>
     public void UseAccessor<TAccessor>() where TAccessor : ISecurityContextAccessor
     {
         Services.TryAddScoped<ISecurityContext>(sp => sp.GetRequiredService<TAccessor>().Current);

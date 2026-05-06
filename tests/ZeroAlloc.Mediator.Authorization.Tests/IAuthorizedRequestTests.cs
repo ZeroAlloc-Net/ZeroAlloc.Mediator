@@ -17,7 +17,9 @@ public class IAuthorizedRequestTests
             .Any(t => t.IsGenericType
                    && t.GetGenericTypeDefinition() == typeof(IRequest<>)
                    && t.GenericTypeArguments[0].IsGenericType
-                   && t.GenericTypeArguments[0].GetGenericTypeDefinition() == typeof(Result<,>));
+                   && t.GenericTypeArguments[0].GetGenericTypeDefinition() == typeof(Result<,>)
+                   && t.GenericTypeArguments[0].GenericTypeArguments[0] == typeof(int)
+                   && t.GenericTypeArguments[0].GenericTypeArguments[1] == typeof(AuthorizationFailure));
         Assert.True(implementsRequest, "IAuthorizedRequest<T> must extend IRequest<Result<T, AuthorizationFailure>>");
     }
 }

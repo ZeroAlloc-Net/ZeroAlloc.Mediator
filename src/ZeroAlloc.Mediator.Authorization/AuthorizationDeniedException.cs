@@ -11,6 +11,8 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// <see cref="IAuthorizedRequest{TResponse}"/>, the behavior returns a failure
 /// <see cref="ZeroAlloc.Results.Result{T,E}"/> instead of throwing.
 /// </summary>
+// RCS1194: AuthorizationDeniedException intentionally omits parameter-free constructors — an AuthorizationFailure is always required.
+#pragma warning disable RCS1194
 public sealed class AuthorizationDeniedException : Exception
 {
     public AuthorizationFailure Failure { get; }
@@ -21,3 +23,4 @@ public sealed class AuthorizationDeniedException : Exception
         Failure = failure;
     }
 }
+#pragma warning restore RCS1194

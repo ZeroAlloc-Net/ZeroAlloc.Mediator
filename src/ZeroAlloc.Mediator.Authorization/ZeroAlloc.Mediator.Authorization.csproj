@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Tests" />
+    <!-- Generator.Tests is created in Task 7 (Phase B). The friend declaration is benign even if the assembly doesn't yet exist. -->
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Generator.Tests" />
   </ItemGroup>
   <ItemGroup>
