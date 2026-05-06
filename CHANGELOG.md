@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.0.0...v4.1.0) (2026-05-06)
+
+
+### Features
+
+* **mediator.authorization:** new sub-package — request-handler authorization ([#74](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/74)) ([c06a653](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c06a653ddf43c18397b7635b0f44dfe988e56d44))
+
 ## [4.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v3.0.0...v4.0.0) (2026-05-03)
 
 
