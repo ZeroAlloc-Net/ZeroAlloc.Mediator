@@ -14,15 +14,13 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 [AuthorizationPolicy("AdminOnly")]
 public sealed class AdminOnlyPolicy : IAuthorizationPolicy
 {
-    public bool IsAuthorized(ISecurityContext ctx) =>
-        ctx.Roles.Contains("Admin", StringComparer.Ordinal);
+    public bool IsAuthorized(ISecurityContext ctx) => ctx.Roles.Contains("Admin");
 }
 
 [AuthorizationPolicy("Premium")]
 public sealed class PremiumPolicy : IAuthorizationPolicy
 {
-    public bool IsAuthorized(ISecurityContext ctx) =>
-        ctx.Roles.Contains("Premium", StringComparer.Ordinal);
+    public bool IsAuthorized(ISecurityContext ctx) => ctx.Roles.Contains("Premium");
 }
 
 [AuthorizationPolicy("AlwaysAllow")]

@@ -26,6 +26,8 @@ await foreach (var n in Mediator.CreateStream(new CountTo(3), CancellationToken.
 if (total != 6)  // 1+2+3
     return Fail($"CreateStream<CountTo,int> expected total=6, got {total}");
 
+ZeroAlloc.Mediator.AotSmoke.Authorization.AuthorizedScenario.Run();
+
 Console.WriteLine("AOT smoke: PASS");
 return 0;
 

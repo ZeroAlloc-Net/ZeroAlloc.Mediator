@@ -32,4 +32,8 @@
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\samples\ZeroAlloc.Mediator.AotSmoke\Internal\AllocationGate.cs"
+             Link="Internal\AllocationGate.cs" />
+  </ItemGroup>
 </Project>
