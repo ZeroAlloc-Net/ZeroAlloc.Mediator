@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,17 @@ namespace ZeroAlloc.Mediator.Authorization;
 [PipelineBehavior(Order = -1000)]
 public sealed class AuthorizationBehavior : IPipelineBehavior
 {
+    // IL2091: AuthorizationFailureFactory<TResponse> requires TResponse to satisfy
+    // [DynamicallyAccessedMembers(PublicMethods)] so the trimmer preserves Result<,>.Failure(...).
+    // The Handle method's TResponse can't carry that annotation without forcing every consumer of
+    // IPipelineBehavior to declare it too. Safe to suppress because FailureFactory does a runtime
+    // shape check (typeof(TResponse).IsGenericType / GenericTypeDefinition == typeof(Result<,>) /
+    // typeArgs[1] == typeof(AuthorizationFailure)) and only proceeds when TResponse is exactly
+    // Result<T, AuthorizationFailure>; otherwise Create is null and we fall through to the throw
+    // path that doesn't touch TResponse reflectively. Result<,> lives in ZeroAlloc.Results which is
+    // referenced by this assembly, so its public methods are kept by the trimmer regardless.
+    [UnconditionalSuppressMessage("Trimming", "IL2091:Target generic argument does not satisfy DynamicallyAccessedMemberTypes",
+        Justification = "FailureFactory does a runtime shape check; Result<,> is in a referenced assembly and its Failure method is preserved by trimming roots.")]
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
         CancellationToken ct,
