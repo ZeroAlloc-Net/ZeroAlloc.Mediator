@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ZeroAlloc.Mediator.Authorization.Generator.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long; HLQ005: Assert.Single is an assertion, not LINQ; HLQ001: test stubs intentionally use simple LINQ patterns. -->
+    <NoWarn>$(NoWarn);MA0048;MA0051;MA0006;HLQ005;HLQ001;HLQ012</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+    <PackageReference Include="Verify.Xunit" Version="28.*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <!-- Contract + runtime types referenced by the snippets fed to the generator under test.
+         These are needed so the test compilation can semantic-bind [AuthorizationPolicy],
+         [Authorize], IRequest<>, and the IAuthorizedRequest<> marker. -->
+    <PackageReference Include="ZeroAlloc.Authorization" Version="1.1.*" />
+    <PackageReference Include="ZeroAlloc.Results" Version="1.1.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Reference the runtime project's source-only types via ProjectReference set to non-output:
+         we want IAuthorizedRequest<> available in the AppDomain for snapshot test sources, but
+         the generator-tests must not transitively pull the analyzer pipeline of the runtime. -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+    <!-- Runtime sub-package gives access to IAuthorizedRequest<> for snapshot tests covering the
+         Result-path detection. We deliberately use ReferenceOutputAssembly=false on the runtime's
+         own analyzer pipeline (this generator) so the test project doesn't fight itself, but we
+         do want the runtime DLL on the metadata reference path. -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Authorization\ZeroAlloc.Mediator.Authorization.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="VerifyXunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Authorization.Generator\ZeroAlloc.Mediator.Authorization.Generator.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using ZeroAlloc.Results;
 
@@ -5,7 +6,12 @@ namespace ZeroAlloc.Mediator.Validation;
 
 // Per-TResponse static cache. Populated once via reflection when TResponse is
 // Result<TValue, ValidationError> — zero-allocation on subsequent calls.
-internal static class FailureFactory<TResponse>
+//
+// The [DynamicallyAccessedMembers(PublicMethods)] annotation tells the trimmer to preserve TResponse's
+// public methods — specifically Result<,>.Failure(...) which we look up reflectively. Without this
+// annotation, dotnet publish -r <rid> emits IL2090. Same precedent as MediatorBuilderExtensions.cs:77.
+internal static class FailureFactory<
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] TResponse>
 {
     internal static readonly Func<ValidationError, TResponse>? Create = BuildFactory();
 

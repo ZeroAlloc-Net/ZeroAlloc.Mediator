@@ -5,6 +5,8 @@
     <Project Path="samples/ZeroAlloc.Mediator.Sample/ZeroAlloc.Mediator.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj" />
+    <Project Path="src/ZeroAlloc.Mediator.Authorization.Generator/ZeroAlloc.Mediator.Authorization.Generator.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Cache/ZeroAlloc.Mediator.Cache.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj" />
     <Project Path="src/ZeroAlloc.Mediator.Resilience/ZeroAlloc.Mediator.Resilience.csproj" />
@@ -13,6 +15,8 @@
     <Project Path="src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ZeroAlloc.Mediator.Authorization.Generator.Tests/ZeroAlloc.Mediator.Authorization.Generator.Tests.csproj" />
+    <Project Path="tests/ZeroAlloc.Mediator.Authorization.Tests/ZeroAlloc.Mediator.Authorization.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Benchmarks/ZeroAlloc.Mediator.Benchmarks.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Cache.Tests/ZeroAlloc.Mediator.Cache.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Resilience.Tests/ZeroAlloc.Mediator.Resilience.Tests.csproj" />
