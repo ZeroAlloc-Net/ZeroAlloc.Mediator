@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.0...v4.1.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **ci:** include Mediator.Authorization in release publish + add manifest-driven rescue ([#76](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/76)) ([8972fad](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/8972fad8bac74aa43ab2e3cb9d155bf87aebf028))
+
+
+### Documentation
+
+* seed backlog with deferred items from Mediator.Authorization v1 reviews ([#78](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/78)) ([57f2097](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/57f2097b847d90be1a81f3b15c4fec654371abd1))
+
 ## [4.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.0.0...v4.1.0) (2026-05-06)
 
 
