@@ -60,7 +60,7 @@ ZeroAlloc.Mediator is **40–160x faster** than MediatR with **zero heap allocat
 | Publish (multi handler) | 6.6 ns | 332.4 ns | ~51x | 0 B vs 1,032 B |
 | Stream (5 items) | 202.8 ns | 654.4 ns | ~3x | 104 B vs 528 B |
 
-See [docs/performance.md](docs/performance.md) for the full benchmark table and zero-allocation design explanation.
+See [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) for the full benchmark table and zero-allocation design explanation.
 
 ## Features
 
@@ -78,17 +78,17 @@ See [docs/performance.md](docs/performance.md) for the full benchmark table and 
 
 | Page | Description |
 |------|-------------|
-| [Getting Started](docs/getting-started.md) | Install and send your first request in five minutes |
-| [Requests & Handlers](docs/requests.md) | Commands, queries, `Unit` responses, dispatch |
-| [Notifications](docs/notifications.md) | Events: sequential, parallel, polymorphic handlers |
-| [Streaming](docs/streaming.md) | `IAsyncEnumerable<T>` for large result sets |
-| [Pipeline Behaviors](docs/pipeline-behaviors.md) | Compile-time middleware: logging, validation, caching |
-| [Authorization](docs/authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
-| [Dependency Injection](docs/dependency-injection.md) | DI containers, `IMediator`, factory delegates |
-| [Diagnostics](docs/diagnostics.md) | ZAM001–ZAM007 compiler error reference with fixes |
-| [Performance](docs/performance.md) | Zero-alloc internals, benchmark results, Native AOT |
-| [Advanced Patterns](docs/advanced.md) | Error handling, cancellation, scoped behaviors |
-| [Testing](docs/testing.md) | Unit-test handlers, behaviors, and notifications |
+| [Getting Started](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/getting-started.md) | Install and send your first request in five minutes |
+| [Requests & Handlers](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/requests.md) | Commands, queries, `Unit` responses, dispatch |
+| [Notifications](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/notifications.md) | Events: sequential, parallel, polymorphic handlers |
+| [Streaming](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/streaming.md) | `IAsyncEnumerable<T>` for large result sets |
+| [Pipeline Behaviors](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/pipeline-behaviors.md) | Compile-time middleware: logging, validation, caching |
+| [Authorization](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
+| [Dependency Injection](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md) | DI containers, `IMediator`, factory delegates |
+| [Diagnostics](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/diagnostics.md) | ZAM001–ZAM007 compiler error reference with fixes |
+| [Performance](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) | Zero-alloc internals, benchmark results, Native AOT |
+| [Advanced Patterns](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/advanced.md) | Error handling, cancellation, scoped behaviors |
+| [Testing](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/testing.md) | Unit-test handlers, behaviors, and notifications |
 
 ## License
 
