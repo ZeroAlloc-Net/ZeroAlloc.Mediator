@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.2...v4.1.3) (2026-05-12)
+
+
+### Documentation
+
+* **performance:** add BENCH sentinels for template aggregator import ([#82](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/82)) ([a3980e8](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a3980e80d511adae5788a9fe9000310976a25950))
+
 ## [4.1.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.1...v4.1.2) (2026-05-12)
 
 
