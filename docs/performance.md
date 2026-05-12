@@ -78,6 +78,7 @@ For I/O-bound handlers that do suspend, `ValueTask` still reduces overhead compa
 
 Benchmarks run with BenchmarkDotNet on .NET 10, Release build, 12th Gen Intel Core i9-12900HK. Full benchmark source in `tests/ZeroAlloc.Mediator.Benchmarks/`.
 
+<!-- BENCH:START -->
 | Method | ZeroAlloc.Mediator | MediatR | Ratio | ZA Alloc | MediatR Alloc |
 |---|---:|---:|---:|---:|---:|
 | Send | 0.5 ns | 78.3 ns | **~160×** | 0 B | 224 B |
@@ -89,6 +90,7 @@ Benchmarks run with BenchmarkDotNet on .NET 10, Release build, 12th Gen Intel Co
 | Stream (5 items) | 202.8 ns | 654.4 ns | **~3×** | 104 B | 528 B |
 
 ZeroAlloc.Mediator is **40–160× faster** than MediatR across all measured paths, with zero heap allocations on every non-streaming path.
+<!-- BENCH:END -->
 
 ## Dispatch Comparison
 
