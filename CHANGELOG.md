@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.1...v4.1.2) (2026-05-12)
+
+
+### Bug Fixes
+
+* **readme:** absolute GitHub URLs so nuget.org links resolve ([#80](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/80)) ([145e247](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/145e247298063d28b7eb5761338a29b35f273d14))
+
 ## [4.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.0...v4.1.1) (2026-05-07)
 
 
