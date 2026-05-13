@@ -4,11 +4,22 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>ZeroAlloc.Mediator.Authorization.Generator</RootNamespace>
-    <IsPackable>false</IsPackable>
+    <PackageId>ZeroAlloc.Mediator.Authorization.Generator</PackageId>
+    <Description>Roslyn source generator for ZeroAlloc.Mediator.Authorization. Discovers [AuthorizationPolicy]-decorated types in the consumer's compilation and emits the per-request policy lookup table the authorization behavior uses at runtime.</Description>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <!-- RS2008: analyzer release tracking is opt-in; we don't ship a public AnalyzerReleases.* manifest. -->
     <NoWarn>$(NoWarn);RS2008</NoWarn>
+
+    <!--
+      Source-generator packaging: ship the generator DLL under analyzers/dotnet/cs so
+      Roslyn loads it as an analyzer in consumer projects. Without IncludeBuildOutput=false
+      the build output ends up under lib/ and consumers silently get no source generator.
+      Mirrors the pattern in ZeroAlloc.Mediator.Generator and ZeroAlloc.Validation.Generator.
+    -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
@@ -16,5 +27,23 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Generator.Tests" />
+  </ItemGroup>
+
+  <!--
+    Pack the generator DLL under analyzers/dotnet/cs. Without this block, dotnet pack
+    falls back to the default lib/<tfm>/ layout and consumers do not pick up the
+    generator at all (the symptom: [AuthorizationPolicy] types compile but the policy
+    lookup is never populated, so every request denies with "no policy registered for X").
+  -->
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <None Include="$(OutputPath)\$(AssemblyName).pdb"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false"
+          Condition="Exists('$(OutputPath)\$(AssemblyName).pdb')" />
   </ItemGroup>
 </Project>
