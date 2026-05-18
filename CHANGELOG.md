@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.3...v4.1.4) (2026-05-18)
+
+
+### Documentation
+
+* **perf:** clarify Stream 104 B is compiler state machine, not ZA overhead ([#85](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/85)) ([fff0ec0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fff0ec0b3f23d6294569bff255fbb88f7bcb126d))
+
 ## [4.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.2...v4.1.3) (2026-05-12)
 
 
