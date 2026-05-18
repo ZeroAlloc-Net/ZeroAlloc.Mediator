@@ -60,7 +60,7 @@ ZeroAlloc.Mediator is **40–160x faster** than MediatR with **zero heap allocat
 | Publish (multi handler) | 6.6 ns | 332.4 ns | ~51x | 0 B vs 1,032 B |
 | Stream (5 items) | 202.8 ns | 654.4 ns | ~3x | 104 B vs 528 B |
 
-See [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) for the full benchmark table and zero-allocation design explanation.
+The 104 B on the Stream row is the C# compiler's `async IAsyncEnumerable<T>` state machine for your handler method — every mediator dispatching to such handlers pays this; ZA.Mediator's own stream-dispatch contribution is 0 B. See [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) for the full benchmark table and zero-allocation design explanation.
 
 ## Features
 
