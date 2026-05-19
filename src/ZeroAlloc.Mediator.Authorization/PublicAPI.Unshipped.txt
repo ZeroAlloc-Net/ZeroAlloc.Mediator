@@ -5,8 +5,6 @@ ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException
 ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException.AuthorizationDeniedException(ZeroAlloc.Authorization.AuthorizationFailure failure) -> void
 ZeroAlloc.Mediator.Authorization.AuthorizationDeniedException.Failure.get -> ZeroAlloc.Authorization.AuthorizationFailure
 ZeroAlloc.Mediator.Authorization.AuthorizationOptions
-ZeroAlloc.Mediator.Authorization.AuthorizationOptions.AutoRegisterDiscoveredPolicies.get -> bool
-ZeroAlloc.Mediator.Authorization.AuthorizationOptions.AutoRegisterDiscoveredPolicies.set -> void
 ZeroAlloc.Mediator.Authorization.AuthorizationOptions.UseAccessor<TAccessor>() -> void
 ZeroAlloc.Mediator.Authorization.AuthorizationOptions.UseAnonymousSecurityContext() -> void
 ZeroAlloc.Mediator.Authorization.AuthorizationOptions.UseSecurityContextFactory(System.Func<System.IServiceProvider!, ZeroAlloc.Authorization.ISecurityContext!>! factory) -> void
