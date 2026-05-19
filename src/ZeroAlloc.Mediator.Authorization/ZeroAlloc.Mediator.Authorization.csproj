@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
-    <PackageReference Include="ZeroAlloc.Authorization" Version="1.1.*" />
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
     <PackageReference Include="ZeroAlloc.Results" Version="1.1.*" />
     <ProjectReference Include="..\ZeroAlloc.Mediator.Authorization.Generator\ZeroAlloc.Mediator.Authorization.Generator.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
