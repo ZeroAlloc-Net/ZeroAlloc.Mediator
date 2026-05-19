@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Authorization;
+using ZeroAlloc.Authorization.Generated;
 using ZeroAlloc.Mediator;
 using ZeroAlloc.Mediator.AotSmoke.Internal;
 using ZeroAlloc.Mediator.Authorization;
@@ -8,37 +13,56 @@ using ZeroAlloc.Results;
 namespace ZeroAlloc.Mediator.AotSmoke.Authorization;
 
 #pragma warning disable MA0048
-[AuthorizationPolicy("AotAdmin")]
+[Policy("AotAdmin")]
 public sealed class AotAdminPolicy : IAuthorizationPolicy
 {
-    public bool IsAuthorized(ISecurityContext ctx) =>
-        ctx.Roles.Contains("Admin");
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx.Roles.Contains("Admin")
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure(AuthorizationFailure.DefaultDenyCode, "Admin role required"));
 }
 
-[Authorize("AotAdmin")]
+[RequirePolicy("AotAdmin")]
 public sealed record AotThrowAllow(int Id) : IRequest<int>;
 
-[Authorize("AotAdmin")]
+[RequirePolicy("AotAdmin")]
 public sealed record AotThrowDeny(int Id) : IRequest<int>;
 
-[Authorize("AotAdmin")]
+[RequirePolicy("AotAdmin")]
 public sealed record AotResultAllow(int Id) : IAuthorizedRequest<int>;
 
+[RequirePolicy("AotAdmin")]
+public sealed record AotResultDeny(int Id) : IAuthorizedRequest<int>;
+
+// Stub handlers — required by ZAM001 (every IRequest<T> needs a registered handler in the
+// compilation). The scenario drives AuthorizationBehavior.Handle directly, so these are never
+// invoked, but their presence keeps the source generator quiet.
 public sealed class AotThrowAllowHandler : IRequestHandler<AotThrowAllow, int>
 {
     public ValueTask<int> Handle(AotThrowAllow r, CancellationToken ct) => ValueTask.FromResult(r.Id * 2);
 }
 public sealed class AotThrowDenyHandler : IRequestHandler<AotThrowDeny, int>
 {
-    public ValueTask<int> Handle(AotThrowDeny r, CancellationToken ct) => ValueTask.FromResult(r.Id * 2);
+    public ValueTask<int> Handle(AotThrowDeny r, CancellationToken ct) => ValueTask.FromResult(r.Id);
 }
 public sealed class AotResultAllowHandler : IRequestHandler<AotResultAllow, Result<int, AuthorizationFailure>>
 {
     public ValueTask<Result<int, AuthorizationFailure>> Handle(AotResultAllow r, CancellationToken ct)
         => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2);
 }
+public sealed class AotResultDenyHandler : IRequestHandler<AotResultDeny, Result<int, AuthorizationFailure>>
+{
+    public ValueTask<Result<int, AuthorizationFailure>> Handle(AotResultDeny r, CancellationToken ct)
+        => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id);
+}
 
 internal sealed record AotCtx(string Id, IReadOnlySet<string> Roles, IReadOnlyDictionary<string, string> Claims) : ISecurityContext;
+
+internal sealed class AotCtxAccessor(ISecurityContext current) : ISecurityContextAccessor
+{
+    public ISecurityContext Current { get; } = current;
+}
 #pragma warning restore MA0048
 
 internal static class AuthorizedScenario
@@ -52,73 +76,106 @@ internal static class AuthorizedScenario
             new HashSet<string>(StringComparer.Ordinal),
             new Dictionary<string, string>(StringComparer.Ordinal));
 
-        VerifyBehavior(adminCtx, anonCtx);
-        Console.WriteLine("Mediator.Authorization: throw + Result path OK");
+        VerifyThrowPath(adminCtx, anonCtx);
+        Console.WriteLine("Mediator.Authorization: throw path (IRequest<T>) OK");
 
-        VerifyAllocationBudget(adminCtx, anonCtx);
-        Console.WriteLine("AllocationGate OK");
+        VerifyResultPath(adminCtx, anonCtx);
+        Console.WriteLine("Mediator.Authorization: Result path (IAuthorizedRequest<T>) OK");
+
+        VerifyAllocationBudget(adminCtx);
+        Console.WriteLine("Mediator.Authorization: AllocationGate OK");
+
+        Console.WriteLine("[Authorization AotSmoke] OK");
     }
 
-    private static void VerifyBehavior(AotCtx adminCtx, AotCtx anonCtx)
+    private static void VerifyThrowPath(AotCtx adminCtx, AotCtx anonCtx)
     {
-        // Drive AuthorizationBehavior.Handle directly — bypass the dispatcher to keep the
-        // smoke test minimal and AOT-deterministic. The pipeline integration is exercised
-        // by the JIT-side AllocationBudgetTests.
-        var allowSp = new ServiceCollection();
-        allowSp.AddScoped<AotAdminPolicy>();
-        allowSp.AddScoped<ISecurityContext>(_ => adminCtx);
-        AuthorizationBehaviorState.ServiceProvider = allowSp.BuildServiceProvider();
-
-        var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
-            new AotThrowAllow(7), CancellationToken.None,
-            static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
-        if (allowResult != 14) throw new InvalidOperationException("throw-allow regressed");
-
-        // Throw deny via anonymous context.
-        var denySp = new ServiceCollection();
-        denySp.AddScoped<AotAdminPolicy>();
-        denySp.AddScoped<ISecurityContext>(_ => anonCtx);
-        AuthorizationBehaviorState.ServiceProvider = denySp.BuildServiceProvider();
-        try
+        // Allow — handler runs.
+        using (var sp = BuildProvider(adminCtx))
+        using (var scope = sp.CreateScope())
         {
-            _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
-                new AotThrowDeny(7), CancellationToken.None,
+            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
+                new AotThrowAllow(7), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
-            throw new InvalidOperationException("throw-deny did not throw");
+            if (allowResult != 14) throw new InvalidOperationException("throw-allow regressed");
         }
-        catch (AuthorizationDeniedException) { /* expected */ }
 
-        // Result path — allow.
-        AuthorizationBehaviorState.ServiceProvider = allowSp.BuildServiceProvider();
-        var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
-            new AotResultAllow(5), CancellationToken.None,
-            static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
-            .GetAwaiter().GetResult();
-        if (!resultAllow.IsSuccess || resultAllow.Value != 10)
-            throw new InvalidOperationException("result-allow regressed");
+        // Deny — anonymous context → AuthorizationDeniedException.
+        using (var sp = BuildProvider(anonCtx))
+        using (var scope = sp.CreateScope())
+        {
+            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            try
+            {
+                _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
+                    new AotThrowDeny(7), CancellationToken.None,
+                    static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
+                throw new InvalidOperationException("throw-deny did not throw");
+            }
+            catch (AuthorizationDeniedException) { /* expected */ }
+        }
     }
 
-    private static void VerifyAllocationBudget(AotCtx adminCtx, AotCtx anonCtx)
+    private static void VerifyResultPath(AotCtx adminCtx, AotCtx anonCtx)
     {
-        // Budgets reflect the expected per-call overhead of the behavior on the
-        // happy path: ValueTask<T> wrapping incurs a small completion-record
-        // allocation per await. Adjust upward only on documented evidence.
-        var policy = new AotAdminPolicy();
+        // Allow — Result<T,AuthorizationFailure>.Success.
+        using (var sp = BuildProvider(adminCtx))
+        using (var scope = sp.CreateScope())
+        {
+            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
+                new AotResultAllow(5), CancellationToken.None,
+                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
+                .GetAwaiter().GetResult();
+            if (!resultAllow.IsSuccess || resultAllow.Value != 10)
+                throw new InvalidOperationException("result-allow regressed");
+        }
 
-        AllocationGate.AssertBudget(0, 1000,
-            () => _ = policy.IsAuthorized(adminCtx),
-            "Policy.IsAuthorized (allow)");
+        // Deny — Result<T,AuthorizationFailure>.Failure.
+        using (var sp = BuildProvider(anonCtx))
+        using (var scope = sp.CreateScope())
+        {
+            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            var resultDeny = AuthorizationBehavior.Handle<AotResultDeny, Result<int, AuthorizationFailure>>(
+                new AotResultDeny(5), CancellationToken.None,
+                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id))
+                .GetAwaiter().GetResult();
+            if (resultDeny.IsSuccess)
+                throw new InvalidOperationException("result-deny did not return Failure");
+            if (!string.Equals(resultDeny.Error.Code, AuthorizationFailure.DefaultDenyCode, StringComparison.Ordinal))
+                throw new InvalidOperationException("result-deny code regressed");
+        }
+    }
 
-        AllocationGate.AssertBudget(0, 1000,
-            () => _ = policy.IsAuthorized(anonCtx),
-            "Policy.IsAuthorized (deny anonymous)");
+    private static void VerifyAllocationBudget(AotCtx adminCtx)
+    {
+        // Allow happy path through the full AuthorizationBehavior.Handle pipeline. 512 B budget
+        // absorbs the Debug-mode async state machine box; Release/AOT path is 0 B/call.
+        using var sp = BuildProvider(adminCtx);
+        using var scope = sp.CreateScope();
+        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+        var req = new AotThrowAllow(7);
 
-        AllocationGate.AssertBudget(0, 1000,
-            () => _ = ((IAuthorizationPolicy)policy).Evaluate(adminCtx),
-            "Policy.Evaluate (allow)");
+        AllocationGate.AssertBudgetValueTask(512, 1000,
+            () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, CancellationToken.None,
+                static (r, _) => ValueTask.FromResult(r.Id * 2)),
+            "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
 
+        // Direct policy invocation — tightest budget (0 B/call) on v2's single-method
+        // IAuthorizationPolicy.EvaluateAsync returning UnitResult<AuthorizationFailure>.
+        IAuthorizationPolicy policy = new AotAdminPolicy();
         AllocationGate.AssertBudgetValueTask(0, 1000,
-            () => ((IAuthorizationPolicy)policy).IsAuthorizedAsync(adminCtx),
-            "Policy.IsAuthorizedAsync (allow)");
+            () => policy.EvaluateAsync(adminCtx),
+            "Policy.EvaluateAsync (AOT smoke allow)");
+    }
+
+    private static ServiceProvider BuildProvider(AotCtx ctx)
+    {
+        var services = new ServiceCollection();
+        services.AddZeroAllocAuthorization();
+        services.AddScoped<ISecurityContextAccessor>(_ => new AotCtxAccessor(ctx));
+        services.AddMediator().WithAuthorization(o => o.UseAccessor<ISecurityContextAccessor>());
+        return services.BuildServiceProvider();
     }
 }

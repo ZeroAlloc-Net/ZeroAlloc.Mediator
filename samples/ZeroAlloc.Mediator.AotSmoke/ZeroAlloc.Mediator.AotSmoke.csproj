@@ -19,5 +19,10 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" UndefineProperties="PublishAot" />
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
+    <!-- Direct (non-transitive) reference so the bundled ZeroAlloc.Authorization v2 generator
+         analyzer DLL flows into this compilation, emitting AddZeroAllocAuthorization() +
+         AuthorizerFor<TRequest> dispatchers for the AOT scenario's [Policy]/[RequirePolicy]
+         types. -->
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
   </ItemGroup>
 </Project>
