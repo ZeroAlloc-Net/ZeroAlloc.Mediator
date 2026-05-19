@@ -11,8 +11,6 @@ ZeroAlloc.Mediator.Authorization.AuthorizationOptions.UseSecurityContextFactory(
 ZeroAlloc.Mediator.Authorization.IAuthorizedRequest<TResponse>
 ZeroAlloc.Mediator.Authorization.ISecurityContextAccessor
 ZeroAlloc.Mediator.Authorization.ISecurityContextAccessor.Current.get -> ZeroAlloc.Authorization.ISecurityContext!
-ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks
 ZeroAlloc.Mediator.Authorization.MediatorAuthorizationServiceCollectionExtensions
-static ZeroAlloc.Mediator.Authorization.MediatorAuthorizationGeneratedHooks.Configure(System.Action<Microsoft.Extensions.DependencyInjection.IServiceCollection!>? registerDiscoveredPolicies, System.Func<System.Type![]!>? getPolicyTypes, System.Func<System.Type!, string![]!>! getPoliciesForRequestType, System.Func<string!, System.IServiceProvider!, ZeroAlloc.Authorization.IAuthorizationPolicy!>? resolvePolicy) -> void
 static ZeroAlloc.Mediator.Authorization.AuthorizationBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
 static ZeroAlloc.Mediator.Authorization.MediatorAuthorizationServiceCollectionExtensions.WithAuthorization(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Action<ZeroAlloc.Mediator.Authorization.AuthorizationOptions!>? configure = null) -> ZeroAlloc.Mediator.IMediatorBuilder!
