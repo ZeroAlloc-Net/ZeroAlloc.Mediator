@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +68,16 @@ internal sealed class AotCtxAccessor(ISecurityContext current) : ISecurityContex
 
 internal static class AuthorizedScenario
 {
+    // AOT trim preservation: AuthorizationFailureFactory<Result<int, AuthorizationFailure>> reflects on
+    // Result<int, AuthorizationFailure>.Failure(AuthorizationFailure) at runtime. Without an explicit
+    // static reference the trimmer strips the closed-type method (the handlers only use the implicit
+    // int → Result<int,_> Success conversion). [DynamicDependency] forces preservation.
+    //
+    // Consumers using IAuthorizedRequest<TPayload> in AOT publish must apply the same pattern for their
+    // own TPayload — see docs/authorization.md "AOT publish" section. Tracking a library-side fix as
+    // a v2.1 enhancement (would require a generator-emitted registration of the closed-type Failure
+    // delegate per [RequirePolicy]-decorated IAuthorizedRequest type).
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Result<int, AuthorizationFailure>))]
     public static void Run()
     {
         var adminCtx = new AotCtx("alice",
