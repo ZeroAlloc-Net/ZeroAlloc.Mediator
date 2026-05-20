@@ -8,15 +8,11 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
-    <PackageReference Include="ZeroAlloc.Authorization" Version="1.1.*" />
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
     <PackageReference Include="ZeroAlloc.Results" Version="1.1.*" />
-    <ProjectReference Include="..\ZeroAlloc.Mediator.Authorization.Generator\ZeroAlloc.Mediator.Authorization.Generator.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Tests" />
-    <!-- Generator.Tests is created in Task 7 (Phase B). The friend declaration is benign even if the assembly doesn't yet exist. -->
-    <InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Generator.Tests" />
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.AotSmoke" />
   </ItemGroup>
   <ItemGroup>

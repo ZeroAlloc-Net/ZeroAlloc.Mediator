@@ -1,23 +1,30 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Authorization;
-using ZeroAlloc.Mediator;
+using ZeroAlloc.Authorization.Generated;
 using ZeroAlloc.Mediator.AotSmoke.Internal;
 using ZeroAlloc.Mediator.Authorization;
 using ZeroAlloc.Results;
 
 namespace ZeroAlloc.Mediator.Authorization.Tests;
 
-// Lifted from ZeroAlloc.Authorization (PR #11). Validates the AllocationGate helper itself
-// (3 self-tests) plus four budget tests covering the documented zero-allocation hot paths
-// of an AuthorizationBehavior.Handle invocation: throw allow, throw deny via anonymous,
-// Result allow, IsAuthorizedAsync allow.
+// Allocation budgets for the documented hot paths of AuthorizationBehavior in v2. Each
+// budgeted test wires the DI container the production way (services.AddZeroAllocAuthorization()
+// + services.AddMediator().WithAuthorization(...)) and drives AuthorizationBehavior.Handle
+// directly — the cross-assembly behavior is not auto-wired into MediatorService by the
+// Mediator generator, so a direct call is required to measure the v2 path. Allocation profile
+// is identical either way (the dispatcher would inline a static lambda chain around the same
+// Handle call).
+//
+// Throw-path deny intentionally is NOT budgeted: throwing an exception allocates the
+// Exception object + stack trace, which is unavoidable and dwarfs any pipeline overhead.
 [Collection("non-parallel-authorization")]
 public sealed class AllocationBudgetTests
 {
+    // ---- AllocationGate self-tests ----
+
     [Fact]
     public void Gate_DetectsAllocation_WhenActionAllocates()
     {
@@ -56,98 +63,65 @@ public sealed class AllocationBudgetTests
         }, "warmup-only-allocator");
     }
 
+    // ---- v2 behavior allocation budgets ----
+
     [Fact]
-    public void Behavior_ThrowAllow_ZeroAllocation()
+    public void Allow_HappyPath_ZeroAlloc()
     {
-        SetupSp(NewCtx("Admin"));
+        // [RequirePolicy("AlwaysAllow")] GetThingThrowAllow + policy returning Success. End-to-end
+        // happy-path through AuthorizationBehavior.Handle. Budget rationale:
+        //   Release / AOT:  0 B/call (async state machine elided by the JIT optimizer).
+        //   Debug path:     ~248 B/call (Debug-mode async state machine box). 512 B absorbs the
+        //                   Debug box without masking real regressions.
+        using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
+        using var scope = sp.CreateScope();
+        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
         var req = new GetThingThrowAllow(7);
 
-        // Budget rationale:
-        //   Release / AOT path:  0 B/call (async state machine fully elided by JIT optimizer).
-        //   Debug path:          ~248 B/call (compiler-emitted async state machine box; the
-        //                                    referenced AuthorizationBehavior assembly is
-        //                                    built without Optimize in Debug, so even with
-        //                                    <Optimize>true</Optimize> on this test project
-        //                                    the boxing still happens at the call site).
-        // 512 B absorbs the Debug-mode box without masking real regressions (which would be
-        // an order of magnitude larger). The test still proves the hot path is allocation-free
-        // on the path that ships (Release / AOT).
         AllocationGate.AssertBudgetValueTask(512, 1000,
             () => AuthorizationBehavior.Handle<GetThingThrowAllow, int>(req, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
-            "AuthorizationBehavior.Handle (throw allow)");
+            "AuthorizationBehavior.Handle (allow happy path)");
     }
 
     [Fact]
-    public void Behavior_ThrowDeny_AnonymousContext_AllocationBudget()
+    public void IAuthorizedRequest_DenyPath_ZeroAlloc()
     {
-        SetupSp(NewCtx());
-        var req = new GetThingThrowDeny(7);
+        // IAuthorizedRequest deny path returns Result<T, AuthorizationFailure>.Failure(...) via
+        // the AuthorizationFailureFactory<TResponse> shape detector — no exception, no throw,
+        // no allocation. Budget rationale identical to Allow_HappyPath_ZeroAlloc.
+        using var sp = BuildProvider(TestSecurityContexts.With());
+        using var scope = sp.CreateScope();
+        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+        var req = new GetThingResultDeny(1);
 
-        // Deny path throws an exception per call — the exception object itself is an
-        // unavoidable allocation. Budget reflects an Exception + stack trace + interpolated
-        // Message string; observed ~1256 B/call on net10. Set generously (2 KB) to avoid
-        // flakiness across runtimes; the gate still catches order-of-magnitude regressions.
-        AllocationGate.AssertBudget(2048, 100, () =>
-        {
-            try
-            {
-                _ = AuthorizationBehavior.Handle<GetThingThrowDeny, int>(req, CancellationToken.None,
-                    static (r, _) => ValueTask.FromResult(r.Id))
-                    .GetAwaiter().GetResult();
-            }
-            catch (AuthorizationDeniedException)
-            {
-                /* expected */
-            }
-        }, "AuthorizationBehavior.Handle (throw deny anonymous)");
-    }
-
-    [Fact]
-    public void Behavior_ResultAllow_ZeroAllocation()
-    {
-        SetupSp(NewCtx("Admin"));
-        var req = new GetThingResultAllow(5);
-
-        // See Behavior_ThrowAllow_ZeroAllocation for budget rationale: Debug-mode async state
-        // machine boxing is unavoidable when the AuthorizationBehavior assembly is built without
-        // optimizations; 512 B absorbs the box without masking regressions. Release/AOT path
-        // is 0 B/call.
         AllocationGate.AssertBudgetValueTask(512, 1000,
-            () => AuthorizationBehavior.Handle<GetThingResultAllow, Result<int, AuthorizationFailure>>(
+            () => AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
                 req, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2)),
-            "AuthorizationBehavior.Handle (result allow)");
+                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id)),
+            "AuthorizationBehavior.Handle (IAuthorizedRequest deny path)");
     }
 
     [Fact]
-    public void Policy_IsAuthorizedAsync_AllowPath_ZeroAllocation()
+    public void Policy_EvaluateAsync_AllowPath_ZeroAllocation()
     {
+        // Direct policy evaluation — no behavior, no DI. Confirms v2's single-method
+        // IAuthorizationPolicy.EvaluateAsync returning UnitResult<AuthorizationFailure> is
+        // zero-allocation on the sync-completing happy path. Tightest budget (0 B).
         IAuthorizationPolicy policy = new AdminOnlyPolicy();
-        var ctx = NewCtx("Admin");
+        var ctx = TestSecurityContexts.With("Admin");
 
         AllocationGate.AssertBudgetValueTask(0, 1000,
-            () => policy.IsAuthorizedAsync(ctx),
-            "Policy.IsAuthorizedAsync (allow)");
+            () => policy.EvaluateAsync(ctx),
+            "Policy.EvaluateAsync (allow)");
     }
 
-    private static void SetupSp(ISecurityContext ctx)
+    private static ServiceProvider BuildProvider(ISecurityContext ctx)
     {
         var services = new ServiceCollection();
-        services.AddScoped<AdminOnlyPolicy>();
-        services.AddScoped<PremiumPolicy>();
-        services.AddScoped<AlwaysAllowPolicy>();
-        services.AddScoped<AlwaysDenyPolicy>();
-        services.AddScoped<CancellablePolicy>();
-        services.AddScoped<ISecurityContext>(_ => ctx);
-        AuthorizationBehaviorState.ServiceProvider = services.BuildServiceProvider();
+        services.AddZeroAllocAuthorization();
+        services.AddScoped<ISecurityContextAccessor>(_ => new TestSecurityContextAccessor { Current = ctx });
+        services.AddMediator().WithAuthorization(o => o.UseAccessor<ISecurityContextAccessor>());
+        return services.BuildServiceProvider();
     }
-
-    private static ISecurityContext NewCtx(params string[] roles) =>
-        new TestCtx("user-1", new HashSet<string>(roles, StringComparer.Ordinal),
-            new Dictionary<string, string>(StringComparer.Ordinal));
-
-    private sealed record TestCtx(string Id,
-                                  IReadOnlySet<string> Roles,
-                                  IReadOnlyDictionary<string, string> Claims) : ISecurityContext;
 }

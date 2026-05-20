@@ -27,19 +27,18 @@
          letting tests exercise the canonical services.AddMediator().WithAuthorization() form.
          The generator depends on ZeroAlloc.Pipeline.Generators being loaded in the same
          analyzer load context, so both must be referenced as analyzers. -->
-    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
-    <!-- Authorization generator emits GeneratedAuthorizationLookup + ModuleInitializer into this
-         test compilation so the runtime hooks are wired up at test-assembly load time. -->
-    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Authorization.Generator\ZeroAlloc.Mediator.Authorization.Generator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- ZeroAlloc.Pipeline source generator runs on the test compilation so pipeline behaviors
+         declared in ZeroAlloc.Mediator.Authorization are wired up at test-assembly load time. -->
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
+    <!-- ZeroAlloc.Authorization v2 bundles a source generator that emits
+         services.AddZeroAllocAuthorization() + AuthorizerFor<TRequest> dispatchers for every
+         [Policy]/[RequirePolicy]-decorated type in this compilation. A direct (non-transitive)
+         package reference is required so the bundled analyzer DLL flows into this project. -->
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\samples\ZeroAlloc.Mediator.AotSmoke\Internal\AllocationGate.cs"
-             Link="Internal\AllocationGate.cs" />
+    <Compile Include="..\..\samples\ZeroAlloc.Mediator.AotSmoke\Internal\AllocationGate.cs" Link="Internal\AllocationGate.cs" />
   </ItemGroup>
 </Project>
