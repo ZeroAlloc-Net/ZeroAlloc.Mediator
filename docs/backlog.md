@@ -6,63 +6,23 @@ Items here are sub-package-scoped where applicable; the sub-package is named in 
 
 ---
 
-## 1. Generator: migrate to `ForAttributeWithMetadataName` incremental pipeline (`Mediator.Authorization`)
+## 1. ✅ Generator: migrate to `ForAttributeWithMetadataName` incremental pipeline (`Mediator.Authorization`) — **shipped (moved upstream)**
 
-**What:** the current `AuthorizationGenerator` uses `context.RegisterSourceOutput(context.CompilationProvider, ...)` which re-runs the full discovery + emission on every compilation change — every keystroke in the IDE walks the global namespace end-to-end. The point of `IIncrementalGenerator` is `ForAttributeWithMetadataName`-based pipelines so the generator only re-runs when relevant syntax changes.
+**Shipped:** 2026-05-19 via PR #87 (`Mediator.Authorization` v2.0.0). The source generator no longer lives in this repo — it consolidated into `ZeroAlloc.Authorization` v2, which uses the `ForAttributeWithMetadataName` pipeline against the new `[Policy]` / `[RequirePolicy]` contract attributes. This host now ships only the pipeline behavior + builder.
 
-**Why:** for a small project this is invisible; for a large solution with hundreds of types the cost compounds — measurable IDE lag.
-
-**Work:** rewrite `Initialize` to use:
-```csharp
-var policies = context.SyntaxProvider.ForAttributeWithMetadataName(
-    "ZeroAlloc.Authorization.AuthorizationPolicyAttribute",
-    static (node, _) => node is ClassDeclarationSyntax,
-    static (ctx, _) => ExtractPolicy(ctx))
-    .Where(static p => p is not null)
-    .Collect();
-
-var requests = context.SyntaxProvider.ForAttributeWithMetadataName(
-    "ZeroAlloc.Authorization.AuthorizeAttribute",
-    static (node, _) => node is TypeDeclarationSyntax,
-    static (ctx, _) => ExtractRequest(ctx))
-    .Collect();
-
-context.RegisterSourceOutput(policies.Combine(requests), Emit);
-```
-
-Also requires extracting models that are properly value-equatable (currently `PolicyModel`/`RequestModel` carry `Microsoft.CodeAnalysis.Location`, which uses reference equality — defeats the cache between pipeline runs). Replace with `LinePositionSpan` + file path; rebuild `Location` at diagnostic-report time.
-
-**Risk:** medium — model serialization across pipeline stages is a known-tricky area. Test by enabling generator-cache verification and rebuilding incrementally.
-
-**Graduation signal:** a user reports IDE lag in a real project, OR the org standardizes on this pattern across all generators (Mediator.Generator, Saga.Generator, etc.).
+Original motivation: the v1 `AuthorizationGenerator` re-ran full discovery on every compilation change. The upstream rewrite both fixes that and removes duplication across hosts (Mediator.Authorization + AI.Sentinel).
 
 ---
 
-## 2. Generator: switch FQN-string symbol comparisons to `SymbolEqualityComparer` lookups (`Mediator.Authorization`)
+## 2. ✅ Generator: switch FQN-string symbol comparisons to `SymbolEqualityComparer` lookups (`Mediator.Authorization`) — **shipped (moved upstream)**
 
-**What:** `PolicyDiscovery` and `RequestDiscovery` compare types by FQN strings (e.g. `"ZeroAlloc.Mediator.IRequest<TResponse>"`). This works but is fragile — if the contract package ever renames a type parameter (e.g. `IRequest<TResp>`), the string match silently fails and the generator emits nothing. Same risk applies to the `INotification`, `IAuthorizationPolicy`, `[Authorize]`, `[AuthorizationPolicy]` lookups.
-
-**Why:** symbol comparison via `compilation.GetTypeByMetadataName(...)` + `SymbolEqualityComparer.Default` is robust against rename, refactoring, and namespace changes.
-
-**Work:** cache the contract symbols once per `Discover` invocation; replace string comparisons with `SymbolEqualityComparer.Default.Equals(symbol, contractSymbol)`.
-
-**Risk:** low — mechanical refactor with existing snapshot tests verifying behavior.
-
-**Graduation signal:** any contract type-parameter rename, OR opportunistically alongside item #1.
+**Shipped:** 2026-05-19 via PR #87. Same disposition as item #1 — the upstream generator in `ZeroAlloc.Authorization` v2 uses `compilation.GetTypeByMetadataName(...)` + `SymbolEqualityComparer.Default` throughout, so contract type-parameter renames are safe.
 
 ---
 
-## 3. Generator: `[Authorize]` discovery should reject non-public/non-internal policy classes (`Mediator.Authorization`)
+## 3. ✅ Generator: `[RequirePolicy]` discovery should reject non-public/non-internal policy classes (`Mediator.Authorization`) — **shipped (moved upstream)**
 
-**What:** today `PolicyDiscovery` walks nested types but doesn't check `INamedTypeSymbol.DeclaredAccessibility`. A `private` policy class nested inside a public class would be discovered, but `services.AddScoped<global::Outer.FooPolicy>()` won't compile from the generator-emitted DI extensions (private accessibility violation).
-
-**Why:** discovered policies must be referenceable from the generated code. Anything below `internal` in an assembly the user's code consumes is unreachable.
-
-**Work:** filter `type.DeclaredAccessibility ∈ { Public, Internal }` in the discovery walk. Emit a new `ZAMA007` warning when a `[AuthorizationPolicy]`-decorated type is below internal — guides the user to `internal sealed` at minimum.
-
-**Risk:** low — additive filter + new diagnostic.
-
-**Graduation signal:** a user reports a confusing build error from generated code referencing a private nested policy class.
+**Shipped:** 2026-05-19 via PR #87. Handled by the upstream generator in `ZeroAlloc.Authorization` v2; a `[Policy]`-decorated class below `internal` raises a diagnostic in the contract package's `ZAUTH`-prefixed diagnostic set.
 
 ---
 
@@ -96,7 +56,7 @@ Also requires extracting models that are properly value-equatable (currently `Po
 
 ## 6. Sample: AOT smoke binary should measure `Handle` allocation, not just policy library (`Mediator.Authorization`)
 
-**What:** the `samples/.../AuthorizedScenario.cs` allocation-gate calls measure `policy.IsAuthorized(ctx)` and `Evaluate(ctx)` — those are calls into the `ZeroAlloc.Authorization` library, NOT into Mediator.Authorization's wiring. The Tests-side `Behavior_*Allow_ZeroAllocation` tests do measure `Handle` correctly.
+**What:** the `samples/.../AuthorizedScenario.cs` allocation-gate calls measure `policy.EvaluateAsync(ctx)` directly — that's a call into the `ZeroAlloc.Authorization` library, NOT into Mediator.Authorization's wiring. The Tests-side `Behavior_*Allow_ZeroAllocation` tests do measure `Handle` correctly.
 
 **Why:** the AOT-side gate's job is to certify Mediator.Authorization's runtime under the AOT runtime. Today's gate certifies the underlying policy library (already certified in `ZeroAlloc.Authorization`). The handler's allocation profile under AOT is unverified.
 
@@ -122,38 +82,15 @@ Also requires extracting models that are properly value-equatable (currently `Po
 
 ---
 
-## 8. Generator: edge-case snapshot tests (`Mediator.Authorization`)
+## 8. ✅ Generator: edge-case snapshot tests (`Mediator.Authorization`) — **shipped (moved upstream)**
 
-**What:** the v1 snapshot tests cover top-level types in the global namespace. Real-world generator emissions need to handle:
-
-- Request types with generic responses (`IRequest<List<int>>`, `IRequest<Result<int, MyError>>`).
-- Request types with nullable responses (`IRequest<int?>`).
-- Request types in nested namespaces (`MyApp.Domain.Orders.GetOrderById`).
-- Request types that are nested classes (`Outer.GetOrderById`).
-- Policy classes in nested namespaces.
-- Policy names containing characters that need C# string escaping (quotes, backslashes — `LookupEmitter.EscapeStringLiteral` exists but is never exercised by a test).
-
-**Why:** string-based emission is exactly where these edge cases blow up. Each missing case is a latent build error in someone's compilation.
-
-**Work:** add ~6 snapshot tests, one per case above.
-
-**Risk:** low — pure tests; the emitter may need small tweaks if a case isn't already handled.
-
-**Graduation signal:** any user-reported "compile error from generated code in my project that doesn't reproduce in the test project."
+**Shipped:** 2026-05-19 via PR #87. The snapshot-test suite for the generator now lives in `ZeroAlloc.Authorization` v2 alongside the generator itself. Covers nested namespaces, nested types, generic/nullable responses, and policy-name escaping.
 
 ---
 
-## 9. Test: negative-diagnostic test (`Mediator.Authorization`)
+## 9. ✅ Test: negative-diagnostic (no-noise) test (`Mediator.Authorization`) — **shipped (moved upstream)**
 
-**What:** today's `DiagnosticTests` assert each of `ZAMA001`–`ZAMA006` *fires* on triggering source. None assert that a clean source produces *zero* diagnostics.
-
-**Why:** a regression where ZAMA001 starts firing on legitimate `[Authorize("RealPolicy")]` declarations would not be caught. The 5 snapshot tests don't fail on diagnostic-noise (they only check emitted code).
-
-**Work:** add a single `Clean_Source_Emits_No_Diagnostics` test that compiles a known-good source (e.g. one of the snapshot test fixtures) and asserts `diagnostics.Length == 0`.
-
-**Risk:** trivial — single test.
-
-**Graduation signal:** ship alongside item #4 / #5.
+**Shipped:** 2026-05-19 via PR #87. The upstream `ZeroAlloc.Authorization` v2 test suite asserts that clean sources produce zero `ZAUTH001`–`ZAUTH005` diagnostics. The five compile-time diagnostics also moved upstream with the generator.
 
 ---
 
