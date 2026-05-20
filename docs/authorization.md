@@ -155,6 +155,37 @@ See [`docs/plans/2026-05-06-mediator-authorization-design.md`](plans/2026-05-06-
 
 > **Migrating from v1.x?** v1 used `[AuthorizationPolicy]` + `[Authorize]` and a 4-method synchronous `IAuthorizationPolicy`; v2 uses `[Policy]` + `[RequirePolicy]` and a single async `EvaluateAsync` method. v1 also lockstepped with Mediator core. See the [Authorization v2 migration notes](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization/blob/main/MIGRATION-v2.md).
 
+## AOT publish
+
+`AuthorizationBehavior` resolves the deny-path `Result<TPayload, AuthorizationFailure>.Failure(...)` constructor reflectively via a per-`TResponse` cache (`AuthorizationFailureFactory<TResponse>`). The reflection is **trim-fragile**: under `PublishAot=true`, the .NET trimmer strips closed-generic methods that aren't statically referenced from anywhere in your code. Handlers typically use the implicit `TPayload → Result<TPayload, AuthorizationFailure>` conversion for the success path and never call `.Failure(...)` directly, so the trimmer removes `Result<TPayload, AuthorizationFailure>.Failure(AuthorizationFailure)` from your published binary. At runtime the factory's `GetMethod` lookup returns `null`, the dispatcher falls through to the throw path, and your `IAuthorizedRequest<TPayload>` request that should have returned `Result.Failure` instead throws `AuthorizationDeniedException`.
+
+**Symptom under AOT:** `IAuthorizedRequest<T>` deny throws `AuthorizationDeniedException` (the `IRequest<T>` throw-path shape) instead of returning `Result<T, AuthorizationFailure>.Failure(...)`. The non-AOT (JIT) build returns the correct shape because the JIT loads methods lazily and the reflection lookup succeeds.
+
+**Fix:** annotate a reachable method in your assembly with `[DynamicDependency]` so the trimmer preserves the closed-type method for each `TPayload` you use with `IAuthorizedRequest<TPayload>`. A `[ModuleInitializer]` carrier method is the cleanest spot — it runs once at module load (no runtime cost) and the attributes are reachable from the entry point:
+
+```csharp
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using ZeroAlloc.Authorization;
+using ZeroAlloc.Results;
+
+internal static class AotTrimPreservation
+{
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Result<int, AuthorizationFailure>))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Result<string, AuthorizationFailure>))]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Result<MyDto, AuthorizationFailure>))]
+    // ...one [DynamicDependency] per closed Result<TPayload, AuthorizationFailure> you use
+    [ModuleInitializer]
+    internal static void PreserveAuthorizationFailureFactories() { }
+}
+```
+
+You only need entries for `TPayload`s actually used with `IAuthorizedRequest<TPayload>` in your app. Plain `IRequest<T>` requests (throw path) don't need this annotation — the throw path never touches the `Result<,>` reflection.
+
+**Why this isn't generator-emitted:** the v2.0 architecture deliberately deletes the in-package generator and consolidates code generation into `ZeroAlloc.Authorization`. Adding a Mediator-specific trim-hint generator here would reintroduce the generator project we just removed and couple `ZeroAlloc.Authorization`'s generator to a Mediator-shaped contract. Documented consumer-side annotation is the same pattern Microsoft uses for `Microsoft.Extensions.DependencyInjection`'s open-generic registration paths under AOT — it keeps the library trim-honest and the layering clean.
+
+If `Result<TPayload, AuthorizationFailure>`-shaped responses become a primary v3 use case, a self-referential static-virtual interface (`IAuthorizedRequest<TSelf, TPayload>` with a `static abstract CreateFailure`) eliminates the reflection entirely and removes the need for these annotations. Tracked as a v3 design consideration.
+
 ## See also
 
 - [`ZeroAlloc.Authorization`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization) — the contract package this host adapts (also ships the source generator).
