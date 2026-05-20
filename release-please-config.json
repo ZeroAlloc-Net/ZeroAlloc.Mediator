@@ -5,14 +5,16 @@
       "release-type": "simple",
       "package-name": "ZeroAlloc.Mediator",
       "component": "mediator",
-      "include-component-in-tag": false
+      "include-component-in-tag": false,
+      "release-as": "4.1.4"
     },
     "src/ZeroAlloc.Mediator.Authorization": {
       "release-type": "simple",
       "package-name": "ZeroAlloc.Mediator.Authorization",
       "component": "authorization",
       "include-component-in-tag": true,
-      "initial-version": "2.0.0"
+      "initial-version": "2.0.0",
+      "release-as": "2.0.0"
     }
   },
   "changelog-sections": [
