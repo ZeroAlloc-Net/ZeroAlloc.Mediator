@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.4...v4.1.4) (2026-05-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **authorization:** AuthorizationBehavior no longer reads policies via the static MediatorAuthorizationGeneratedHooks delegate plumbing. It now resolves AuthorizerFor<TRequest> from the IServiceProvider — the source generator in ZeroAlloc.Authorization v2.0.0 emits one per [RequirePolicy]-decorated request type.
+
+### Features
+
+* **authorization:** v2.0.0 - split versioning + consume AuthorizerFor&lt;T&gt; via DI ([#87](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/87)) ([a5a50f6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a5a50f6fc4fe85111a2bfa3a9c0b6de6051f284e))
+
 ## [4.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.3...v4.1.4) (2026-05-18)
 
 
