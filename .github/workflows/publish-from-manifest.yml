@@ -6,8 +6,12 @@ name: Publish from manifest
 # missed a sub-package (e.g. the hardcoded pack list in release-please.yml is
 # stale and a new sub-package is missing). --skip-duplicate makes re-runs safe.
 #
-# Walks ZeroAlloc.Mediator.slnx for every src/* csproj — no hardcoded list,
-# survives sub-package additions automatically.
+# Per-component versioning: each src/*/*.csproj is packed at the version
+# from the LONGEST matching manifest key prefix. Example:
+#   src/ZeroAlloc.Mediator.Authorization/X.csproj  -> uses key "src/ZeroAlloc.Mediator.Authorization"
+#   src/ZeroAlloc.Mediator/X.csproj                -> falls back to key "."
+# This survives release-please's multi-package manifest split (where the
+# Authorization extension versions independently from Mediator core).
 #
 # Usage:  gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Mediator
 
@@ -29,13 +33,6 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Read manifest version
-        id: version
-        run: |
-          version=$(jq -r '.["."]' .release-please-manifest.json)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Manifest version: $version"
-
       - name: Restore
         run: dotnet restore ZeroAlloc.Mediator.slnx
 
@@ -45,19 +42,33 @@ jobs:
       - name: Test
         run: dotnet test ZeroAlloc.Mediator.slnx --configuration Release --no-build
 
-      - name: Pack every src/* csproj
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+      - name: Pack every src/* csproj at its per-component manifest version
         run: |
           mkdir -p ./nupkg
-          # Walk src/*/*.csproj — pack every project, NuGet's --skip-duplicate
-          # makes the push idempotent so already-published versions are no-ops.
-          # Test/sample/benchmark projects don't live under src/ so they're
-          # naturally excluded.
+          # For each src/*/*.csproj, resolve its version from the manifest by
+          # finding the longest manifest key that is a prefix of the project's
+          # directory. Falls back to the root "." key when no sub-component
+          # matches. --skip-duplicate at push time makes the workflow idempotent.
           for csproj in src/*/*.csproj; do
-            echo "Packing $csproj at version $VERSION"
+            proj_dir=$(dirname "$csproj")
+            best_match="."
+            for key in $(jq -r 'keys[]' .release-please-manifest.json); do
+              if [ "$key" = "." ]; then
+                continue
+              fi
+              # Match if proj_dir starts with key followed by / or end of string
+              case "$proj_dir" in
+                "$key"|"$key"/*)
+                  if [ "${#key}" -gt "${#best_match}" ] || [ "$best_match" = "." ]; then
+                    best_match="$key"
+                  fi
+                  ;;
+              esac
+            done
+            version=$(jq -r --arg k "$best_match" '.[$k]' .release-please-manifest.json)
+            echo "Packing $csproj at version $version (manifest key: '$best_match')"
             dotnet pack "$csproj" -c Release --no-build \
-              -p:PackageVersion="$VERSION" -o ./nupkg
+              -p:PackageVersion="$version" -o ./nupkg
           done
           ls -la ./nupkg
 
