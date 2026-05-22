@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Authorization;
 using ZeroAlloc.Authorization.Generated;
-using ZeroAlloc.Mediator.AotSmoke.Internal;
+using ZeroAlloc.TestHelpers;
 using ZeroAlloc.Mediator.Authorization;
 using ZeroAlloc.Results;
 

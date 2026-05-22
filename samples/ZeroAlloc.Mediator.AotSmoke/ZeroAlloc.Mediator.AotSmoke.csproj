@@ -24,5 +24,9 @@
          AuthorizerFor<TRequest> dispatchers for the AOT scenario's [Policy]/[RequirePolicy]
          types. -->
     <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>contentfiles;build</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>
