@@ -26,59 +26,31 @@ Original motivation: the v1 `AuthorizationGenerator` re-ran full discovery on ev
 
 ---
 
-## 4. Test: pipeline-ordering integration test (`Mediator.Authorization`)
+## 4. ✅ Test: pipeline-ordering integration test (`Mediator.Authorization`) — **shipped**
 
-**What:** the design specifies `[PipelineBehavior(Order = -1000)]` so authorization runs before validation/cache/logging. The constant is asserted in source code, but no test proves the order actually takes effect end-to-end.
+**Shipped:** 2026-05-22 via PR #93. `IntegrationTests.Pipeline_ordering_authorization_runs_before_later_behaviors` proves `AuthorizationBehavior`'s `Order=-1000` short-circuits before any later behavior fires. Swap-test (documented inline in the test file) confirms the assertion catches an inverted-Order regression.
 
-**Why:** an attribute constant is documentation, not enforcement. A future refactor of Mediator's pipeline-ordering algorithm could break the assumed ordering invisibly.
-
-**Work:** add a test that registers both `WithAuthorization()` and `WithValidation()`, sends a request whose validator would throw if reached, and asserts the auth-deny path short-circuits before validation. Drive the full pipeline via `IMediator.Send(...)` rather than calling `Handle` directly.
-
-**Risk:** low — single new test in `tests/ZeroAlloc.Mediator.Authorization.Tests/`.
-
-**Graduation signal:** trivial — should ship before v1 ships externally to consumers. Or: any incident where ordering surprised the user.
+Implementation needed a local pipeline-behavior shim (`AuthorizationBehaviorShim`) in the test assembly because Mediator's source generator only sees `[PipelineBehavior]`-decorated types in the current compilation; the real cross-assembly `AuthorizationBehavior` is invisible to it. The shim forwards to the real `Handle` and lets `IMediator.Send` exercise the full chain.
 
 ---
 
-## 5. Test: end-to-end behavior test through `IMediator.Send` (`Mediator.Authorization`)
+## 5. ✅ Test: end-to-end behavior test through `IMediator.Send` (`Mediator.Authorization`) — **shipped**
 
-**What:** today's `AuthorizationBehaviorTests` invoke the static `Handle<TRequest, TResponse>` directly with a mocked `next`. The smoke binary does the same. **No test in the v1 PR exercises the generator-emitted `[ModuleInitializer]` wiring through the real `IMediator` dispatcher.**
+**Shipped:** 2026-05-22 via PR #93. `IntegrationTests.End_to_end_through_IMediator_Send_allow_path` and `..._deny_path` exercise the DI container build → `AuthorizationBehaviorAccessor` static-init → `IMediator.Send` → shim → real `AuthorizationBehavior.Handle` → `AuthorizerFor` → policy → handler chain end-to-end.
 
-**Why:** the unit-level tests cover the behavior's logic, but they don't prove the full chain (hooks Configure → behavior receives lookups → handler invoked) works under DI/dispatcher routing. Combined with item #4, this is the gap between "the unit works" and "the integration works."
-
-**Work:** add at least one test using `services.BuildServiceProvider().GetRequiredService<IMediator>().Send(...)` so the wiring is exercised end-to-end. Allow path + deny path.
-
-**Risk:** low — single test pair.
-
-**Graduation signal:** trivial — same as item #4.
+The shim trick from item #4 is what makes this possible; the same fixture supports both #4 and #5 (declared in `TestFixtures.cs`).
 
 ---
 
-## 6. Sample: AOT smoke binary should measure `Handle` allocation, not just policy library (`Mediator.Authorization`)
+## 6. ✅ Sample: AOT smoke binary should measure `Handle` allocation, not just policy library (`Mediator.Authorization`) — **shipped**
 
-**What:** the `samples/.../AuthorizedScenario.cs` allocation-gate calls measure `policy.EvaluateAsync(ctx)` directly — that's a call into the `ZeroAlloc.Authorization` library, NOT into Mediator.Authorization's wiring. The Tests-side `Behavior_*Allow_ZeroAllocation` tests do measure `Handle` correctly.
-
-**Why:** the AOT-side gate's job is to certify Mediator.Authorization's runtime under the AOT runtime. Today's gate certifies the underlying policy library (already certified in `ZeroAlloc.Authorization`). The handler's allocation profile under AOT is unverified.
-
-**Work:** restructure the smoke binary's gate calls to invoke `AuthorizationBehavior.Handle<TRequest, TResponse>(...)` directly (or via the dispatcher) instead of the policy method. Need to set up a real `ServiceProvider` + `ISecurityContext` inside the smoke; the existing `InternalsVisibleTo` to the smoke binary already gives access to `AuthorizationBehaviorState`.
-
-**Risk:** low — refactor of one file; no behavior changes.
-
-**Graduation signal:** ship alongside item #5 (both are about exercising the real wiring rather than mocked-out paths).
+**Shipped:** 2026-05-22 via PR #93. The `AuthorizationBehavior.Handle` allocation gate (512 B / 1000-iter envelope) had landed earlier; PR #93 completed the work by deleting the redundant `policy.EvaluateAsync` gate that was certifying `ZeroAlloc.Authorization` (already certified upstream) rather than `Mediator.Authorization`. The smoke's AllocationGate output is now scoped to this package's runtime.
 
 ---
 
-## 7. Cleanup: remove `InternalsVisibleTo "ZeroAlloc.Mediator.AotSmoke"` once item #6 ships (`Mediator.Authorization`)
+## 7. ✅ Cleanup: remove `InternalsVisibleTo "ZeroAlloc.Mediator.AotSmoke"` (`Mediator.Authorization`) — **shipped**
 
-**What:** `src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj` declares `<InternalsVisibleTo Include="ZeroAlloc.Mediator.AotSmoke" />`. The smoke binary uses it to poke `AuthorizationBehaviorState.ServiceProvider` directly, bypassing the full DI roundtrip.
-
-**Why:** `InternalsVisibleTo` to a sample is a leak — production code shouldn't be aware of a sample's internals. Once item #6 routes through DI properly, this entry can go.
-
-**Work:** trivially remove the line + update PublicAPI.Unshipped.txt if needed.
-
-**Risk:** low — depends on item #6 first.
-
-**Graduation signal:** item #6 lands.
+**Shipped:** 2026-05-22 via PR #93. Prerequisite: `AuthorizationBehaviorAccessor` + `AuthorizationBehaviorState` promoted from `internal` to `public` (additive PublicAPI change, also part of PR #93). The smoke now resolves `AuthorizationBehaviorAccessor` from DI to trigger its constructor side-effect, instead of writing `AuthorizationBehaviorState.ServiceProvider` via internals. The `InternalsVisibleTo` to `ZeroAlloc.Mediator.Authorization.Tests` was also dropped as a followup once the now-public types covered the test fixture's needs.
 
 ---
 
