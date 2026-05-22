@@ -46,45 +46,75 @@ should disappear once the smoke uses the public surface only (backlog #7).
 
 ### Test fixture (`tests/ZeroAlloc.Mediator.Authorization.Tests/IntegrationTests.cs`)
 
+**Critical constraint — cross-assembly pipeline-behavior wiring.** The Mediator source generator discovers pipeline behaviors by scanning `[PipelineBehavior]`-decorated types in the **current compilation only**. `AuthorizationBehavior` lives in `ZeroAlloc.Mediator.Authorization` (a separate assembly) and therefore is invisible to the generator running in the test assembly. The existing `AuthorizationBehaviorTests.cs` calls `AuthorizationBehavior.Handle` directly and explicitly opts out of `IMediator`-driven integration for this reason.
+
+To run an `IMediator.Send` integration test, the test assembly needs a **local shim behavior** that the generator can see. The shim implements the marker `IPipelineBehavior` interface, carries the `[PipelineBehavior(Order = -1000)]` attribute, and its static `Handle<TRequest, TResponse>` method just forwards to `AuthorizationBehavior.Handle`. The pipeline-ordering counter behavior follows the same pattern (local class, `[PipelineBehavior(Order = -500)]`, static `Handle`).
+
+`ZeroAlloc.Mediator` pipeline behaviors are NOT a generic-class shape (`IPipelineBehavior<TReq, TResp>`). The interface is a non-generic marker; behaviors are sealed classes with a STATIC `Handle<TRequest, TResponse>` generic method, decorated at class-level with `[PipelineBehavior(Order = N)]`.
+
 Single new file. Shared types used by all three new tests:
 
 ```csharp
-[Policy("TestPolicy")]
-public sealed class TestPolicy : IAuthorizationPolicy { ... }
-
-[RequirePolicy("TestPolicy")]
-public sealed record TestRequest(int Value) : IRequest<TestResponse>;
-public sealed record TestResponse(int Echo);
-
-internal sealed class TestHandler : IRequestHandler<TestRequest, TestResponse>
+[Policy("IntegrationTestPolicy")]
+public sealed class IntegrationTestPolicy : IAuthorizationPolicy
 {
-    public Task<TestResponse> Handle(TestRequest req, CancellationToken ct)
-        => Task.FromResult(new TestResponse(req.Value));
+    // Allow when the security context carries the "Admin" role; deny otherwise.
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx.Roles.Contains("Admin")
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure(AuthorizationFailure.DefaultDenyCode, "needs Admin"));
 }
 
-internal sealed class FakeSecurityContextAccessor : ISecurityContextAccessor
+[RequirePolicy("IntegrationTestPolicy")]
+public sealed record IntegrationTestRequest(int Value) : IRequest<int>;
+
+internal sealed class IntegrationTestHandler : IRequestHandler<IntegrationTestRequest, int>
 {
-    // AsyncLocal so future xUnit collection-level parallelism doesn't bleed
-    // claims across tests. Set per-test via SetClaims(...).
-    private static readonly AsyncLocal<IReadOnlyDictionary<string, string>?> _current = new();
-    public ISecurityContext GetCurrent() => new TestSecurityContext(_current.Value ?? EmptyDict);
-    public static void SetClaims(IReadOnlyDictionary<string, string> claims) => _current.Value = claims;
+    public ValueTask<int> Handle(IntegrationTestRequest r, CancellationToken ct)
+        => ValueTask.FromResult(r.Value * 2);
 }
 
+// Local shim — the test-assembly's generator picks this up; the real
+// AuthorizationBehavior is invisible to it because it lives in a referenced
+// assembly. Same Order, identical contract, just forwards.
+[PipelineBehavior(Order = -1000)]
+public sealed class AuthorizationBehaviorShim : IPipelineBehavior
+{
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => AuthorizationBehavior.Handle<TRequest, TResponse>(request, ct, next);
+}
+
+// Ordering stub: numerically AFTER Authorization (-1000 < -500). Counter
+// only ticks if this behavior actually runs in a given Send call.
 internal sealed class InvocationCounter { public int Count; }
 
-[PipelineBehavior(Order = -500)] // numerically AFTER Authorization (-1000)
-internal sealed class CountingDownstreamBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+[PipelineBehavior(Order = -500)]
+public sealed class CountingDownstreamBehavior : IPipelineBehavior
 {
-    private readonly InvocationCounter _counter;
-    public CountingDownstreamBehavior(InvocationCounter counter) => _counter = counter;
-    public Task<TResponse> Handle(TRequest req, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
     {
-        _counter.Count++;
-        return next();
+        AuthorizationBehaviorState.ServiceProvider!
+            .GetRequiredService<InvocationCounter>().Count++;
+        return next(request, ct);
     }
 }
+
+internal sealed class TestSecurityContextAccessor : ISecurityContextAccessor
+{
+    public ISecurityContext Current { get; set; } = AnonymousSecurityContext.Instance;
+}
 ```
+
+The `ISecurityContextAccessor` shape matches the existing test fixture (`TestFixtures.cs`); each test scopes its own provider with the accessor's `Current` set to the desired security context.
+
+The `CountingDownstreamBehavior` reads `AuthorizationBehaviorState.ServiceProvider` to resolve the counter — same trick as the existing tests (the test assembly has `InternalsVisibleTo`). This is acceptable in the test fixture; the IVT removal in #7 targets the smoke binary only.
 
 ### Test 1 — pipeline ordering (#4)
 
@@ -93,18 +123,17 @@ internal sealed class CountingDownstreamBehavior<TRequest, TResponse> : IPipelin
 public async Task Pipeline_ordering_authorization_runs_before_later_behaviors()
 {
     var counter = new InvocationCounter();
-    var sp = BuildContainer(services =>
-    {
-        services.AddSingleton(counter);
-        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CountingDownstreamBehavior<,>));
-    });
-
-    FakeSecurityContextAccessor.SetClaims(EmptyDict); // no claims → TestPolicy denies
+    using var sp = BuildContainer(counter, AnonymousSecurityContext.Instance);
     var mediator = sp.GetRequiredService<IMediator>();
-    var result = await mediator.Send(new TestRequest(42));
 
-    Assert.Equal(0, counter.Count);  // proves ordering: downstream stub never ran
-    Assert.True(IsAuthDenial(result));
+    // IntegrationTestRequest's policy needs the Admin role; anonymous denies →
+    // AuthorizationDeniedException is thrown by the shim (forwards to real behavior).
+    await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
+        await mediator.Send(new IntegrationTestRequest(42)));
+
+    // Proves ordering: downstream stub never ran because authorization
+    // short-circuited at Order -1000 before -500 fired.
+    Assert.Equal(0, counter.Count);
 }
 ```
 
@@ -113,10 +142,12 @@ Authorization runs first AND short-circuits on deny, the stub never fires
 → `counter.Count == 0`. If a future change inverts the ordering, the stub
 fires → assertion catches it.
 
-**Swap-test for the assertion's meaningfulness:** changing the stub's Order
-to `-2000` (numerically before Authorization) must make this test FAIL with
+**Swap-test for the assertion's meaningfulness:** temporarily changing
+`CountingDownstreamBehavior`'s attribute to `[PipelineBehavior(Order = -2000)]`
+(numerically before Authorization) must make this test FAIL with
 `counter.Count == 1`. Verified manually pre-merge and documented as a
-comment above the test.
+comment above the test class so a future maintainer can re-verify the
+assertion is meaningful.
 
 ### Test 2 — end-to-end allow path (#5)
 
@@ -124,14 +155,14 @@ comment above the test.
 [Fact]
 public async Task End_to_end_through_IMediator_Send_allow_path()
 {
-    var sp = BuildContainer(_ => { });
-    FakeSecurityContextAccessor.SetClaims(new Dictionary<string, string> { ["sub"] = "test-user" });
-
+    var counter = new InvocationCounter();
+    using var sp = BuildContainer(counter, TestSecurityContexts.With("Admin"));
     var mediator = sp.GetRequiredService<IMediator>();
-    var result = await mediator.Send(new TestRequest(42));
 
-    Assert.True(IsAllowedResult(result));
-    Assert.Equal(42, ExtractValue(result));  // handler actually invoked
+    var result = await mediator.Send(new IntegrationTestRequest(7));
+
+    Assert.Equal(14, result);    // handler invoked: 7 * 2
+    Assert.Equal(1, counter.Count);  // downstream stub also ran (allow path passes through)
 }
 ```
 
@@ -141,98 +172,164 @@ public async Task End_to_end_through_IMediator_Send_allow_path()
 [Fact]
 public async Task End_to_end_through_IMediator_Send_deny_path()
 {
-    var sp = BuildContainer(_ => { });
-    FakeSecurityContextAccessor.SetClaims(EmptyDict);
-
+    var counter = new InvocationCounter();
+    using var sp = BuildContainer(counter, AnonymousSecurityContext.Instance);
     var mediator = sp.GetRequiredService<IMediator>();
-    var result = await mediator.Send(new TestRequest(42));
 
-    Assert.True(IsAuthDenial(result));  // handler must NOT have run
+    await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
+        await mediator.Send(new IntegrationTestRequest(7)));
+
+    Assert.Equal(0, counter.Count);  // handler must NOT have run
 }
 ```
+
+(Test 3 is structurally similar to Test 1 — the difference is that Test 1's
+purpose is to assert ordering; Test 3's purpose is to prove the full
+dispatcher chain handles deny semantics. Keeping both makes each test's
+intent explicit.)
 
 ### Shared container builder
 
 ```csharp
-private static ServiceProvider BuildContainer(Action<IServiceCollection> extra)
+private static ServiceProvider BuildContainer(InvocationCounter counter, ISecurityContext ctx)
 {
     var services = new ServiceCollection();
-    services.AddScoped<ISecurityContextAccessor, FakeSecurityContextAccessor>();
-    services.AddSingleton<IRequestHandler<TestRequest, TestResponse>, TestHandler>();
-    services.AddMediator().WithAuthorization(o => o.UseAccessor<FakeSecurityContextAccessor>());
-    extra(services);
+    services.AddZeroAllocAuthorization();
+    services.AddSingleton(counter);
+    services.AddScoped<ISecurityContextAccessor>(_ =>
+        new TestSecurityContextAccessor { Current = ctx });
+    services.AddMediator().WithAuthorization(o => o.UseAccessor<ISecurityContextAccessor>());
     return services.BuildServiceProvider();
 }
 ```
 
-The exact `IsAllowedResult` / `IsAuthDenial` / `ExtractValue` helpers mirror
-the shape the existing `AuthorizationBehaviorTests` use (typed-failure
-`Result<TResponse, AuthorizationFailure>` vs thrown denial), determined at
-coding time so the new tests read consistently with the existing suite.
+The shim's static `Handle` reads `AuthorizationBehaviorState.ServiceProvider`,
+which is set by `AuthorizationBehaviorAccessor` on first IServiceProvider
+build — same production path the existing tests rely on. The test fixture
+DOES use `InternalsVisibleTo` to access `AuthorizationBehaviorState` for
+the `CountingDownstreamBehavior` (to resolve the counter); this is
+acceptable in the test assembly. The IVT removal in item #7 targets the
+sample binary only.
 
 ### AOT smoke restructure (#6)
 
-`samples/ZeroAlloc.Mediator.AotSmoke/AuthorizedScenario.cs`:
+**Current state.** `samples/ZeroAlloc.Mediator.AotSmoke/Authorization/AuthorizedScenario.cs`
+already calls `AuthorizationBehavior.Handle<TRequest, TResponse>(...)` as a
+static (the behavior IS a sealed class with static `Handle`; there is no
+instance to construct). The `VerifyAllocationBudget` step measures
+`AuthorizationBehavior.Handle` at line 171-174 with a 512 B budget. That
+part of item #6 has already been completed during ongoing development.
+
+What remains is the redundant **second** allocation gate at lines 176-181
+that measures `policy.EvaluateAsync` directly:
 
 ```csharp
-// Setup (outside any gate; setup cost is irrelevant to allocation budgets):
-private readonly AuthorizationBehavior<TestRequest, TestResponse> _behavior;
-private readonly TestRequest _allowRequest = new(1);
-private readonly TestRequest _denyRequest = new(2);
-private readonly TestResponse _okResponse = new(99);
-private readonly RequestHandlerDelegate<TestResponse> _next;
-
-ctor:
-    _behavior = new AuthorizationBehavior<TestRequest, TestResponse>(/* policy registry, accessor */);
-    _next = () => Task.FromResult(_okResponse);
-    // Pre-build allow / deny security contexts so the gate measures Handle only.
-
-// Inside the allocation gate (replaces today's policy.EvaluateAsync gate):
-gate.Measure("authorized-allow-handle", () =>
-    _behavior.Handle(_allowRequest, _next, ct: default).GetAwaiter().GetResult());
-gate.Measure("authorized-deny-handle", () =>
-    _behavior.Handle(_denyRequest, _next, ct: default).GetAwaiter().GetResult());
+// Direct policy invocation — tightest budget (0 B/call) on v2's single-method
+// IAuthorizationPolicy.EvaluateAsync returning UnitResult<AuthorizationFailure>.
+IAuthorizationPolicy policy = new AotAdminPolicy();
+AllocationGate.AssertBudgetValueTask(0, 1000,
+    () => policy.EvaluateAsync(adminCtx),
+    "Policy.EvaluateAsync (AOT smoke allow)");
 ```
 
-No DI container, no dispatcher, no `AuthorizationBehaviorState` access. Just
-the behavior, the `RequestHandlerDelegate next`, and the security context.
+This certifies `ZeroAlloc.Authorization` (already certified in that repo's
+own AOT smoke), not Mediator.Authorization. Per backlog item #6's stated
+purpose ("the AOT-side gate's job is to certify Mediator.Authorization's
+runtime under the AOT runtime"), the policy gate is out of scope here and
+should be removed.
 
-**Allocation budgets:** start at the values used by the corresponding JIT
-unit tests (`Behavior_*Allow_ZeroAllocation` / `Behavior_*Deny_ZeroAllocation`,
-already passing). If the AOT runtime shows higher allocation than JIT, bump
-the AOT budget with an inline comment noting the AOT-vs-JIT delta.
+**Change.** Delete lines 176-181 from `AuthorizedScenario.VerifyAllocationBudget`.
+The Handle gate above stays unchanged.
+
+**Allocation budget for the kept Handle gate.** Already at 512 B / 1000
+iterations — set during the original gate addition; left alone unless the
+post-IVT-removal change (next subsection) shifts the path.
 
 ### `InternalsVisibleTo` removal (#7)
 
-After the smoke refactor, delete from
+**Why the IVT exists today.** `AuthorizedScenario.cs` sets
+`AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider` directly
+six times (lines 108, 119, 137, 150, 168). `AuthorizationBehaviorState` is
+`internal`; access only works via the IVT.
+
+**Why the static gets set in production.** `WithAuthorization()` registers
+`AddSingleton(sp => new AuthorizationBehaviorAccessor(sp))`. The accessor's
+constructor sets `AuthorizationBehaviorState.ServiceProvider = sp` as a
+side effect. The singleton is lazy — nothing resolves it eagerly — so the
+static stays null until some code path resolves `AuthorizationBehaviorAccessor`.
+The AotSmoke (and the existing test suite) bypass this by setting the
+static directly through the IVT.
+
+For the smoke to drop the IVT cleanly, it needs to resolve the accessor
+itself. The accessor is `internal`, so it must be promoted to `public`.
+
+**Public API change.** Promote both:
+
+```csharp
+namespace ZeroAlloc.Mediator.Authorization;
+
+// was: internal static class
+public static class AuthorizationBehaviorState
+{
+    // was: internal static
+    public static volatile IServiceProvider? ServiceProvider;
+}
+
+// was: internal sealed class
+public sealed class AuthorizationBehaviorAccessor
+{
+    // was: internal
+    public AuthorizationBehaviorAccessor(IServiceProvider serviceProvider) =>
+        AuthorizationBehaviorState.ServiceProvider = serviceProvider;
+}
+```
+
+Strictly additive PublicAPI change (no signature changes, no removals).
+Update `src/ZeroAlloc.Mediator.Authorization/PublicAPI.Unshipped.txt`:
+
+```
+ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorAccessor
+ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorAccessor.AuthorizationBehaviorAccessor(System.IServiceProvider! serviceProvider) -> void
+ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorState
+static ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorState.ServiceProvider -> System.IServiceProvider?
+static ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorState.ServiceProvider.set -> void
+```
+
+(Exact lines mirror Roslyn's PublicApiAnalyzer-generated format.)
+
+**Smoke refactor — replace the six direct assignments.** Each
+`AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider` line
+becomes:
+
+```csharp
+// Triggers AuthorizationBehaviorAccessor's ctor side-effect:
+// sets AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider.
+_ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+```
+
+The accessor is registered as `AddSingleton` against the root provider, so
+the first resolution caches it; subsequent scopes get the same instance.
+The static reflects whichever provider was passed into the first ctor call
+— for the smoke's use (one fresh `BuildProvider` per scenario), that's the
+correct per-scenario provider.
+
+**Then drop the IVT.** Delete from
 `src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj`:
 
 ```xml
 <InternalsVisibleTo Include="ZeroAlloc.Mediator.AotSmoke" />
 ```
 
-Validation: `dotnet build samples/ZeroAlloc.Mediator.AotSmoke/...` must
-succeed cleanly. If it fails, the smoke still touches internals — STOP and
-either make the symbol public (if safe) OR refactor the smoke. Do not
-reintroduce the IVT silently.
+The `InternalsVisibleTo Include="ZeroAlloc.Mediator.Authorization.Tests"`
+STAYS — the test fixture still uses the IVT for the
+`CountingDownstreamBehavior`'s counter access (see Section 2). That IVT is
+between two repo-internal projects; nothing leaks externally. Removing it
+is a separate refactor not in scope for this work.
 
-If `PublicAPI.Unshipped.txt` references the removed visibility, drop those
-lines.
-
-### Constructor accessibility risk
-
-If `AuthorizationBehavior<TRequest, TResponse>`'s constructor is `internal`
-(plausible since today the smoke constructs via internals), the refactor in
-Section 3 can't construct it directly without the IVT. In that case the fix
-splits:
-
-1. Promote the constructor to `public` (or add a `public static
-   CreateForTesting(...)` factory).
-2. Add the new symbol to `PublicAPI.Unshipped.txt`.
-3. Only then drop the IVT.
-
-This is a strictly additive PublicAPI change — no removals, no signature
-changes — so the SemVer impact is none.
+**Validation.** `dotnet build samples/ZeroAlloc.Mediator.AotSmoke/...` must
+succeed after the smoke refactor + IVT removal. `dotnet publish
+-p:PublishAot=true` on the smoke must also succeed and the allocation gates
+must still pass within budget.
 
 ## Testing
 
@@ -254,3 +351,7 @@ changes — so the SemVer impact is none.
 - Real `ZeroAlloc.Mediator.Validation` integration test — explicitly
   rejected during brainstorming (B over A on test approach): the stub
   approach decouples this test from the Validation package's behavior.
+- Removing the `InternalsVisibleTo "ZeroAlloc.Mediator.Authorization.Tests"`
+  entry. Tests still use the IVT for the counter behavior's
+  `AuthorizationBehaviorState` access. The IVT to the smoke is the leak
+  that matters; tests are first-party and stay coupled.
