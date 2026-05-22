@@ -66,17 +66,20 @@ The shim trick from item #4 is what makes this possible; the same fixture suppor
 
 ---
 
-## 10. Org-wide: lift the `AllocationGate` helper into a shared internal-source package
+## 10. ✅ Org-wide: lift the `AllocationGate` helper into a shared internal-source package — **shipped**
 
-**What:** the same ~70-LOC `AllocationGate.cs` helper has been copy-pasted into `ZeroAlloc.Authorization` (PR #11, Authorization backlog #6) and `ZeroAlloc.Mediator.Authorization` (Mediator #74). Two more packages (Cache, Resilience, etc.) are likely candidates as they certify their own zero-alloc claims.
+**Shipped:** 2026-05-22. New repo [`ZeroAlloc-Net/ZeroAlloc.TestHelpers`](https://github.com/ZeroAlloc-Net/ZeroAlloc.TestHelpers) hosts the canonical source at `contentFiles/cs/any/ZeroAlloc.TestHelpers/AllocationGate.cs` and ships as `ZeroAlloc.TestHelpers` 1.0.0 on nuget.org (source-only NuGet via `contentFiles`; `DevelopmentDependency=true`). Both halves of the graduation signal were met: three packages (Authorization, Mediator, Mapping) had copied the helper independently, and Mapping's copy had drifted — it was missing `AssertBudgetValueTask<T>(...)` that Mediator + Authorization had added later.
 
-**Why:** copy-paste works for v1 but drift is inevitable. A shared internal-only NuGet (or a shared source link via `<Compile Include="$(MSBuildThisDirectory)../shared/AllocationGate.cs" />`) keeps the helper consistent.
+Design + plan committed in [#95](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/pull/95). Consumers migrated in [ZeroAlloc.Mediator#96](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/pull/96), [ZeroAlloc.Authorization#27](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization/pull/27), and [ZeroAlloc.Mapping#16](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mapping/pull/16). Mapping's migration also closed the drift — it now has the full helper.
 
-**Work:** likely a new repo `ZeroAlloc.TestHelpers` or a `tests/` shared subdirectory in `.github`. Each consuming package's tests + AOT smoke link the file. **Pre-graduation:** wait until 3+ packages have copied the helper independently — that's the friction signal that justifies factoring out.
+Consumer recipe documented in the new repo's README:
 
-**Risk:** medium — shared internals across the org are an ownership question, not just a technical one. Don't ship until at least one user-facing pain point makes it concrete (e.g. divergent helpers cause confusion, or a fix needs to be replicated 5 places).
-
-**Graduation signal:** 3 packages have copied the helper AND a meaningful drift / fix has happened in at least one copy.
+```xml
+<PackageReference Include="ZeroAlloc.TestHelpers" Version="1.*">
+  <PrivateAssets>all</PrivateAssets>
+  <IncludeAssets>contentfiles;build</IncludeAssets>
+</PackageReference>
+```
 
 ---
 
