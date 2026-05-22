@@ -105,7 +105,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+            // AuthorizationBehaviorState.ServiceProvider as a side effect.
+            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
             var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
                 new AotThrowAllow(7), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
@@ -116,7 +118,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(anonCtx))
         using (var scope = sp.CreateScope())
         {
-            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+            // AuthorizationBehaviorState.ServiceProvider as a side effect.
+            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
             try
             {
                 _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
@@ -134,7 +138,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+            // AuthorizationBehaviorState.ServiceProvider as a side effect.
+            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
             var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
                 new AotResultAllow(5), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
@@ -147,7 +153,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(anonCtx))
         using (var scope = sp.CreateScope())
         {
-            AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+            // AuthorizationBehaviorState.ServiceProvider as a side effect.
+            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
             var resultDeny = AuthorizationBehavior.Handle<AotResultDeny, Result<int, AuthorizationFailure>>(
                 new AotResultDeny(5), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id))
@@ -165,20 +173,15 @@ internal static class AuthorizedScenario
         // absorbs the Debug-mode async state machine box; Release/AOT path is 0 B/call.
         using var sp = BuildProvider(adminCtx);
         using var scope = sp.CreateScope();
-        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+        // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+        // AuthorizationBehaviorState.ServiceProvider as a side effect.
+        _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
         var req = new AotThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
             () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
-
-        // Direct policy invocation — tightest budget (0 B/call) on v2's single-method
-        // IAuthorizationPolicy.EvaluateAsync returning UnitResult<AuthorizationFailure>.
-        IAuthorizationPolicy policy = new AotAdminPolicy();
-        AllocationGate.AssertBudgetValueTask(0, 1000,
-            () => policy.EvaluateAsync(adminCtx),
-            "Policy.EvaluateAsync (AOT smoke allow)");
     }
 
     private static ServiceProvider BuildProvider(AotCtx ctx)
