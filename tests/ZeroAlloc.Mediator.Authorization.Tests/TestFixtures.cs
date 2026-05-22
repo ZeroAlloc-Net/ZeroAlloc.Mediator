@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Authorization;
 using ZeroAlloc.Mediator;
 using ZeroAlloc.Results;
@@ -62,6 +63,17 @@ public sealed class CancellablePolicy : IAuthorizationPolicy
     }
 }
 
+[Policy("IntegrationTest")]
+public sealed class IntegrationTestPolicy : IAuthorizationPolicy
+{
+    // Allow when the security context carries the "Admin" role; deny otherwise.
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx.Roles.Contains("Admin")
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure(AuthorizationFailure.DefaultDenyCode, "needs Admin"));
+}
+
 // Plain IRequest + [RequirePolicy] → throw path.
 [RequirePolicy("AlwaysAllow")]
 public sealed record GetThingThrowAllow(int Id) : IRequest<int>;
@@ -87,6 +99,13 @@ public sealed record GetThingCancellable(int Id) : IRequest<int>;
 // No [RequirePolicy] — for fail-open coverage.
 public sealed record GetThingUnauthorized(int Id) : IRequest<int>;
 
+// Integration tests drive this through IMediator.Send. The shim below
+// (AuthorizationBehaviorShim) is what the test-assembly's Mediator generator
+// picks up to wire AuthorizationBehavior.Handle into the dispatcher; this
+// request just exists to be sent.
+[RequirePolicy("IntegrationTest")]
+public sealed record IntegrationTestRequest(int Value) : IRequest<int>;
+
 // Stub handlers — required by ZAM001 (every IRequest<T> needs a registered handler in the
 // compilation). Tests drive AuthorizationBehavior.Handle directly, bypassing the dispatcher,
 // so the handlers are never invoked.
@@ -106,6 +125,11 @@ public sealed class StubGetThingCancellableHandler : IRequestHandler<GetThingCan
 { public ValueTask<int> Handle(GetThingCancellable r, CancellationToken ct) => ValueTask.FromResult(0); }
 public sealed class StubGetThingUnauthorizedHandler : IRequestHandler<GetThingUnauthorized, int>
 { public ValueTask<int> Handle(GetThingUnauthorized r, CancellationToken ct) => ValueTask.FromResult(0); }
+public sealed class IntegrationTestHandler : IRequestHandler<IntegrationTestRequest, int>
+{
+    public ValueTask<int> Handle(IntegrationTestRequest r, CancellationToken ct)
+        => ValueTask.FromResult(r.Value * 2);
+}
 
 internal sealed record TestSecurityContext(string Id,
                                             IReadOnlySet<string> Roles,
@@ -122,6 +146,42 @@ internal static class TestSecurityContexts
         new TestSecurityContext("user-1",
             new HashSet<string>(roles, StringComparer.Ordinal),
             new Dictionary<string, string>(StringComparer.Ordinal));
+}
+
+// Mutable counter resolved by CountingDownstreamBehavior to record whether
+// downstream pipeline behaviors ran on a given Send. AddSingleton in tests.
+internal sealed class InvocationCounter { public int Count; }
+
+// Local shim — the test-assembly's Mediator generator sees this in the
+// current compilation (cross-assembly AuthorizationBehavior is invisible to
+// it). The shim's static Handle just forwards to the real behavior. Same
+// Order constant (-1000), identical contract.
+[PipelineBehavior(Order = -1000)]
+public sealed class AuthorizationBehaviorShim : IPipelineBehavior
+{
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => AuthorizationBehavior.Handle<TRequest, TResponse>(request, ct, next);
+}
+
+// Numerically AFTER the shim (-500 > -1000): runs only if the shim did NOT
+// short-circuit. The integration tests assert this counter to prove
+// pipeline ordering took effect.
+[PipelineBehavior(Order = -500)]
+public sealed class CountingDownstreamBehavior : IPipelineBehavior
+{
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        // Reads via AuthorizationBehaviorState (now public after Task 1).
+        AuthorizationBehaviorState.ServiceProvider!
+            .GetRequiredService<InvocationCounter>().Count++;
+        return next(request, ct);
+    }
 }
 
 // AuthorizationBehaviorState.ServiceProvider is mutated by AddMediator().WithAuthorization()
