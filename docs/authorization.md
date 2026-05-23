@@ -111,6 +111,32 @@ public sealed record ExportUsersCommand : IRequest<byte[]>;
 
 Both policies must pass. Evaluation order matches source order. OR mode depends on a future `Mode` parameter on the contract's `[RequirePolicy]` attribute (see Authorization backlog #1).
 
+## Resource-based policies
+
+When a policy needs to inspect the dispatched request itself (not just the caller's identity), type-check the security context for `IResourceSecurityContext<TRequest>`. `Mediator.Authorization` wraps the resolved `ISecurityContext` in a per-dispatch adapter so the cast resolves automatically — no host configuration required.
+
+```csharp
+[Policy("OwnerOnlyDelete")]
+public sealed class OwnerOnlyDeletePolicy : IAuthorizationPolicy
+{
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx is IResourceSecurityContext<DeleteUserCommand> rc
+                && string.Equals(rc.Resource.UserId, ctx.Id, StringComparison.Ordinal)
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure("delete.not_owner"));
+}
+
+[RequirePolicy("OwnerOnlyDelete")]
+public sealed record DeleteUserCommand(string UserId) : IRequest<Unit>;
+```
+
+The resource exposed to the policy IS the dispatched request. To access a sub-property (e.g. `request.Order.OwnerId`), pull it inside the policy body via `rc.Resource.Order.OwnerId` — no marker interface, no extractor delegate.
+
+Policies that don't need the resource ignore the adapter; the `ISecurityContext` members (`Id`, `Roles`, `Claims`) forward through. The per-dispatch cost is one ~16 B class allocation, absorbed by the existing `AuthorizationBehavior.Handle` allocation budget.
+
+See [`ZeroAlloc.Authorization`'s `resource-based-authorization.md`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization/blob/main/docs/core-concepts/resource-based-authorization.md) for the underlying contract and the design discussion behind it.
+
 ## Pipeline ordering
 
 The `AuthorizationBehavior` registers at `[PipelineBehavior(Order = -1000)]` — runs early, before logging/validation/caching. To run another behavior before authz, give it a smaller order:
