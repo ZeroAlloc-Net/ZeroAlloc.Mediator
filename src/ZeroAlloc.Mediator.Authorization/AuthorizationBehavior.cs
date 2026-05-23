@@ -66,7 +66,11 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
                 "configured a security-context source (UseSecurityContextFactory / UseAnonymousSecurityContext / UseAccessor<>).");
         }
 
-        var result = await authorizer.EvaluateAsync(ctx, ct).ConfigureAwait(false);
+        // Wrap the resolved caller-identity context so resource-based policies
+        // (ctx is IResourceSecurityContext<TRequest> rc) light up automatically.
+        // ~16 B/dispatch; absorbed by the existing allocation budget.
+        var resourceCtx = new ResourceSecurityContextAdapter<TRequest>(ctx, request);
+        var result = await authorizer.EvaluateAsync(resourceCtx, ct).ConfigureAwait(false);
         if (result.IsSuccess)
             return await next(request, ct).ConfigureAwait(false);
 
