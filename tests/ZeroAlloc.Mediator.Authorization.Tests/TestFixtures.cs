@@ -74,6 +74,35 @@ public sealed class IntegrationTestPolicy : IAuthorizationPolicy
             : new AuthorizationFailure(AuthorizationFailure.DefaultDenyCode, "needs Admin"));
 }
 
+[Policy("ResourceOwner")]
+public sealed class ResourceOwnerPolicy : IAuthorizationPolicy
+{
+    // Resource-based: allow only when the dispatched ResourceOwnerCommand's
+    // UserId matches the caller's identity. Demonstrates the v2.1 contract
+    // lit up by AuthorizationBehavior wrapping ctx in
+    // ResourceSecurityContextAdapter<TRequest>.
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx is IResourceSecurityContext<ResourceOwnerCommand> rc
+                && string.Equals(rc.Resource.UserId, ctx.Id, System.StringComparison.Ordinal)
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure("resource.not_owner", "resource owner mismatch"));
+}
+
+[Policy("ResourceWrongType")]
+public sealed class ResourceWrongTypePolicy : IAuthorizationPolicy
+{
+    // Intentionally type-checks the WRONG resource type
+    // (IResourceSecurityContext<ResourceOwnerCommand>) while being applied to
+    // ResourceWrongTypeCommand. The cast must fail at runtime; the deny
+    // branch must fire with the "resource.wrong_type" code.
+    public ValueTask<UnitResult<AuthorizationFailure>> EvaluateAsync(
+        ISecurityContext ctx, CancellationToken ct = default)
+        => new(ctx is IResourceSecurityContext<ResourceOwnerCommand>
+            ? UnitResult<AuthorizationFailure>.Success()
+            : new AuthorizationFailure("resource.wrong_type", "wrong resource type"));
+}
+
 // Plain IRequest + [RequirePolicy] → throw path.
 [RequirePolicy("AlwaysAllow")]
 public sealed record GetThingThrowAllow(int Id) : IRequest<int>;
@@ -106,6 +135,12 @@ public sealed record GetThingUnauthorized(int Id) : IRequest<int>;
 [RequirePolicy("IntegrationTest")]
 public sealed record IntegrationTestRequest(int Value) : IRequest<int>;
 
+[RequirePolicy("ResourceOwner")]
+public sealed record ResourceOwnerCommand(string UserId, int Payload) : IRequest<int>;
+
+[RequirePolicy("ResourceWrongType")]
+public sealed record ResourceWrongTypeCommand(string UserId) : IRequest<int>;
+
 // Stub handlers — required by ZAM001 (every IRequest<T> needs a registered handler in the
 // compilation). Tests drive AuthorizationBehavior.Handle directly, bypassing the dispatcher,
 // so the handlers are never invoked.
@@ -130,6 +165,10 @@ public sealed class IntegrationTestHandler : IRequestHandler<IntegrationTestRequ
     public ValueTask<int> Handle(IntegrationTestRequest r, CancellationToken ct)
         => ValueTask.FromResult(r.Value * 2);
 }
+public sealed class StubResourceOwnerHandler : IRequestHandler<ResourceOwnerCommand, int>
+{ public ValueTask<int> Handle(ResourceOwnerCommand r, CancellationToken ct) => ValueTask.FromResult(0); }
+public sealed class StubResourceWrongTypeHandler : IRequestHandler<ResourceWrongTypeCommand, int>
+{ public ValueTask<int> Handle(ResourceWrongTypeCommand r, CancellationToken ct) => ValueTask.FromResult(0); }
 
 internal sealed record TestSecurityContext(string Id,
                                             IReadOnlySet<string> Roles,
