@@ -23,8 +23,8 @@
          analyzer DLL flows into this compilation, emitting AddZeroAllocAuthorization() +
          AuthorizerFor<TRequest> dispatchers for the AOT scenario's [Policy]/[RequirePolicy]
          types. -->
-    <PackageReference Include="ZeroAlloc.Authorization" Version="2.*" />
-    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.*">
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.1.0" />
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>contentfiles;build</IncludeAssets>
     </PackageReference>
