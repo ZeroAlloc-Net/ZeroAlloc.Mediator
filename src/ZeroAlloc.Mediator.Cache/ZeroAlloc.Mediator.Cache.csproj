@@ -14,6 +14,6 @@
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Cache.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.18" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
   </ItemGroup>
 </Project>
