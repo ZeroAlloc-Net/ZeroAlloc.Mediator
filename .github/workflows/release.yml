@@ -53,4 +53,9 @@ jobs:
         run: bash scripts/verify-generator-pack-layout.sh ./artifacts
 
       - name: Push to NuGet
-        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        # --skip-duplicate is required, not cosmetic. dotnet nuget push fails fast on a glob:
+        # one 409 aborts the whole command and every package after it in the list is never
+        # pushed. Without it, a single already-claimed version leaves the release partially
+        # published and the job unrepeatable, because re-running hits the same conflict again.
+        # This matches how the other repos in the org push.
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
