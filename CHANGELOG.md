@@ -1,5 +1,35 @@
 # Changelog
 
+## [5.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.4...v5.0.0) (2026-08-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generator:** IMediator can no longer appear in a public signature — `public sealed class OrderService(IMediator mediator)` now reports CS0051. Make the consuming type internal, or expose your own abstraction and take IMediator behind it. This is a constraint of the design rather than a regression: each assembly's IMediator is a distinct type with different members, so a signature sharing one across an assembly boundary never had a coherent meaning — it compiled only until a second generated copy appeared, which is the CS0436 this fixes. Lambdas and internal types are unaffected.
+* **authorization:** AuthorizationBehavior no longer reads policies via the static MediatorAuthorizationGeneratedHooks delegate plumbing. It now resolves AuthorizerFor<TRequest> from the IServiceProvider — the source generator in ZeroAlloc.Authorization v2.0.0 emits one per [RequirePolicy]-decorated request type.
+
+### Features
+
+* **authorization:** light up IResourceSecurityContext&lt;TResource&gt; in Mediator dispatch ([#98](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/98)) ([fdadae8](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fdadae8d02a49de8576b544c74ad18ce9509d727))
+* **authorization:** v2.0.0 - split versioning + consume AuthorizerFor&lt;T&gt; via DI ([#87](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/87)) ([a5a50f6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a5a50f6fc4fe85111a2bfa3a9c0b6de6051f284e))
+
+
+### Bug Fixes
+
+* **generator:** emit the generated mediator types as internal ([#101](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/101)) ([04db7b3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/04db7b3eb1636103591c0708bd033b4b0e405722)), closes [#100](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/100)
+
+
+### Documentation
+
+* **backlog:** mark item [#10](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/10) (AllocationGate factor-out) as shipped ([#97](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/97)) ([1363e91](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/1363e911b2a3c2c95b79ce7fdda03b428546da1c))
+* fix examples broken by the internal-visibility change ([#102](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/102)) ([36a3e70](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/36a3e70ff8c2ccc527df2bd665f988dabe0bb304))
+* **plans:** design + impl plan for AllocationGate factor-out (backlog [#10](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/10)) ([#95](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/95)) ([edc8fdb](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/edc8fdb40cd0af3b65a68558bd836b4bdebc1cce))
+
+
+### Tests
+
+* Mediator.Authorization integration tests + AOT smoke restructure (backlog [#4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/4)-[#7](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/7)) ([#93](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/93)) ([caeb7a5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/caeb7a529de2f5f009f3400ff73c80b2f08936c9))
+
 ## [4.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.4...v4.1.4) (2026-05-20)
 
 
