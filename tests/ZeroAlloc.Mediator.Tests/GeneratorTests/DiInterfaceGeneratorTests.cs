@@ -27,7 +27,7 @@ public class DiInterfaceGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public partial interface IMediator", output);
+        Assert.Contains("internal partial interface IMediator", output);
         Assert.Contains("ValueTask<string> Send(global::TestApp.Ping request", output);
     }
 
@@ -53,7 +53,7 @@ public class DiInterfaceGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public partial interface IMediator", output);
+        Assert.Contains("internal partial interface IMediator", output);
         Assert.Contains("ValueTask Publish(global::TestApp.UserCreated notification", output);
     }
 
@@ -85,7 +85,7 @@ public class DiInterfaceGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public partial interface IMediator", output);
+        Assert.Contains("internal partial interface IMediator", output);
         Assert.Contains("IAsyncEnumerable<int> CreateStream(global::TestApp.CountTo request", output);
     }
 
@@ -111,7 +111,7 @@ public class DiInterfaceGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public partial class MediatorService : IMediator", output);
+        Assert.Contains("internal partial class MediatorService : IMediator", output);
         Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", output);
     }
 
@@ -195,8 +195,8 @@ public class DiInterfaceGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         // Interface has all three method types
-        var interfaceIdx = output.IndexOf("public partial interface IMediator", StringComparison.Ordinal);
-        var serviceIdx = output.IndexOf("public partial class MediatorService", StringComparison.Ordinal);
+        var interfaceIdx = output.IndexOf("internal partial interface IMediator", StringComparison.Ordinal);
+        var serviceIdx = output.IndexOf("internal partial class MediatorService", StringComparison.Ordinal);
         var interfaceSection = output.Substring(interfaceIdx, serviceIdx - interfaceIdx);
 
         Assert.Contains("Send(global::TestApp.Ping", interfaceSection);
@@ -237,7 +237,7 @@ public class DiInterfaceGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("public partial class MediatorService", output);
+        Assert.Contains("internal partial class MediatorService", output);
         Assert.Contains("GetRequiredService<global::TestApp.HandlerA>(_services)", output);
         Assert.Contains("GetRequiredService<global::TestApp.HandlerB>(_services)", output);
         Assert.DoesNotContain("=> Mediator.Publish(notification, ct);", output);
@@ -266,7 +266,7 @@ public class DiInterfaceGeneratorTests
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
-        Assert.Contains("public partial class MediatorService", output);
+        Assert.Contains("internal partial class MediatorService", output);
         Assert.Contains("private readonly global::System.IServiceProvider _services", output);
         Assert.Contains("public MediatorService(global::System.IServiceProvider services)", output);
         Assert.Contains(
@@ -337,7 +337,7 @@ public class DiInterfaceGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         // The MediatorService.Send method must include the behavior chain wrapped around the handler resolution.
-        var serviceClassStart = output.IndexOf("public partial class MediatorService", StringComparison.Ordinal);
+        var serviceClassStart = output.IndexOf("internal partial class MediatorService", StringComparison.Ordinal);
         Assert.True(serviceClassStart >= 0, "MediatorService partial class missing");
         var serviceSection = output.Substring(serviceClassStart);
 

@@ -115,6 +115,27 @@ Mediator.Configure(c =>
 
 Once registered, `Mediator.Send(new GetProductQuery(...))` invokes the factory in place of `new GetProductHandler()`. The factory delegate is shared with `IMediator` for handlers that have one.
 
+## Visibility — the generated types are `internal` to your assembly
+
+`IMediator`, `MediatorService`, `MediatorConfig` and the static `Mediator` class are emitted by the generator into the assembly being compiled, not shipped in the `ZeroAlloc.Mediator` package. Their members are derived from the handlers discovered in *that* assembly — one strongly-typed `Send` overload per request handler, `Publish` per notification, `CreateStream` per stream request. That is what makes dispatch reflection-free.
+
+Because every assembly gets a differently-shaped copy, all of them are emitted **`internal`**. Two assemblies that both run the generator can then be referenced from a third project without their copies colliding.
+
+The practical consequence: `IMediator` cannot appear in a `public` signature, or the compiler reports **CS0051** ("inconsistent accessibility").
+
+```csharp
+// Won't compile — public type exposing an internal parameter.
+public sealed class OrderService(IMediator mediator);
+
+// Fine — the consuming type is internal too.
+internal sealed class OrderService(IMediator mediator);
+
+// Fine — lambdas have no declared accessibility.
+app.MapGet("/orders", async (IMediator mediator, CancellationToken ct) => …);
+```
+
+This is a constraint of the design rather than a limitation to work around: assembly A's `IMediator` and assembly B's `IMediator` are different types with different members, so a signature sharing one across a boundary was never meaningful. Types that need to cross assemblies should expose your own abstraction and take `IMediator` internally.
+
 ## Compatibility — migrating from 3.0.x
 
 - **`IMediator` is now Transient (was Singleton).** Behaviorally identical: dispatch is stateless either way. The only thing that changes is reference equality across resolutions — if you cached the singleton instance and compared with `ReferenceEquals`, that no longer holds. Cached references still work; they just no longer match a fresh `GetRequiredService<IMediator>()` call.

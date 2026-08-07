@@ -460,7 +460,7 @@ public class DiagnosticTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         // Should still emit the Mediator class shell with Configure
-        Assert.Contains("public static partial class Mediator", output);
+        Assert.Contains("internal static partial class Mediator", output);
         Assert.Contains("Configure", output);
 
         // But no Send/Publish/CreateStream
