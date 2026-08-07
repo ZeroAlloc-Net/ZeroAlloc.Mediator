@@ -56,6 +56,12 @@ jobs:
           dotnet pack src/ZeroAlloc.Mediator.Telemetry/ZeroAlloc.Mediator.Telemetry.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
           dotnet pack src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
 
+      # Moved here from the removed release.yml, which was the only place it ran. Checks the
+      # generator lands under analyzers/dotnet/cs rather than lib/, since a regression there
+      # silently stops the source generator running for every consumer.
+      - name: Verify generator pack layout
+        run: bash scripts/verify-generator-pack-layout.sh ./nupkg
+
       - name: Push to NuGet
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
