@@ -19,3 +19,6 @@ obj/
 BenchmarkDotNet.Artifacts/
 
 !src/ZeroAlloc.Mediator.Cache/
+
+# Local AOT publish output (produced by scripts/ and manual dotnet publish runs).
+aot-out/

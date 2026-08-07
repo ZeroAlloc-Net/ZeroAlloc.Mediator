@@ -434,7 +434,7 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
             sb.AppendLine("namespace ZeroAlloc.Mediator");
             sb.AppendLine("{");
-            sb.AppendLine("    public static partial class Mediator");
+            sb.AppendLine("    internal static partial class Mediator");
             sb.AppendLine("    {");
 
             var validRequests = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
@@ -718,7 +718,7 @@ namespace ZeroAlloc.Mediator.Generator
             List<StreamHandlerInfo> streamHandlers)
         {
             sb.AppendLine();
-            sb.AppendLine("    public sealed class MediatorConfig");
+            sb.AppendLine("    internal sealed class MediatorConfig");
             sb.AppendLine("    {");
             sb.AppendLine("        public void SetFactory<THandler>(Func<THandler> factory) where THandler : class");
             sb.AppendLine("        {");
@@ -766,7 +766,15 @@ namespace ZeroAlloc.Mediator.Generator
             List<NotificationHandlerInfo> notificationHandlers,
             List<StreamHandlerInfo> streamHandlers)
         {
-            sb.AppendLine("    public partial interface IMediator");
+            // Internal for the same reason as MediatorServiceCollectionExtensions: the members
+            // below are derived from the handlers discovered in *this* assembly, so every
+            // assembly running the generator gets a differently-shaped IMediator. Emitting it
+            // public made those copies visible to each other and any project referencing two
+            // such assemblies failed with CS0436 (issue #100).
+            //
+            // This type cannot live in the runtime package instead — a shared IMediator would
+            // have no members at all, since there are no handlers to derive them from.
+            sb.AppendLine("    internal partial interface IMediator");
             sb.AppendLine("    {");
 
             foreach (var handler in requestHandlers)
@@ -806,7 +814,7 @@ namespace ZeroAlloc.Mediator.Generator
             List<StreamHandlerInfo> streamHandlers,
             List<PipelineBehaviorInfo> pipelineBehaviors)
         {
-            sb.AppendLine("    public partial class MediatorService : IMediator");
+            sb.AppendLine("    internal partial class MediatorService : IMediator");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly global::System.IServiceProvider _services;");
             sb.AppendLine("        private static readonly global::System.Diagnostics.ActivitySource _activitySource = new(\"ZeroAlloc.Mediator\");");

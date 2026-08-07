@@ -104,8 +104,8 @@ public class PipelineBehaviorGeneratorTests
 
         // Constrain search to the static Mediator class — MediatorService also emits Send methods
         // (Task 7) that apply the same behavior chain, and we only want to verify scoping here.
-        var staticClassStart = output.IndexOf("public static partial class Mediator", StringComparison.Ordinal);
-        var staticClassEnd = output.IndexOf("public sealed class MediatorConfig", StringComparison.Ordinal);
+        var staticClassStart = output.IndexOf("internal static partial class Mediator", StringComparison.Ordinal);
+        var staticClassEnd = output.IndexOf("internal sealed class MediatorConfig", StringComparison.Ordinal);
         var staticSection = output.Substring(staticClassStart, staticClassEnd - staticClassStart);
 
         var pingSendIdx = staticSection.IndexOf("Send(global::TestApp.Ping", StringComparison.Ordinal);
