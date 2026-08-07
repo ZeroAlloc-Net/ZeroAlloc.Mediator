@@ -136,6 +136,28 @@ app.MapGet("/orders", async (IMediator mediator, CancellationToken ct) => …);
 
 This is a constraint of the design rather than a limitation to work around: assembly A's `IMediator` and assembly B's `IMediator` are different types with different members, so a signature sharing one across a boundary was never meaningful. Types that need to cross assemblies should expose your own abstraction and take `IMediator` internally.
 
+### MVC controllers
+
+MVC controllers must be `public` to be discovered, so they cannot take `IMediator` in their constructor. Minimal APIs are unaffected — endpoint lambdas have no declared accessibility — so prefer them where you can. Where you need a controller, put an internal seam behind it:
+
+```csharp
+internal interface IOrderCommands
+{
+    ValueTask<OrderId> PlaceAsync(CreateOrder cmd, CancellationToken ct);
+}
+
+internal sealed class OrderCommands(IMediator mediator) : IOrderCommands
+{
+    public ValueTask<OrderId> PlaceAsync(CreateOrder cmd, CancellationToken ct)
+        => mediator.Send(cmd, ct);
+}
+
+// The controller is public; its dependency is your own abstraction, not IMediator.
+public sealed class OrdersController(IOrderCommands commands) : ControllerBase { … }
+```
+
+Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, OrderCommands>()` — an internal service type is fine for DI, since the container resolves by type rather than by signature.
+
 ## Compatibility — migrating from 3.0.x
 
 - **`IMediator` is now Transient (was Singleton).** Behaviorally identical: dispatch is stateless either way. The only thing that changes is reference equality across resolutions — if you cached the singleton instance and compared with `ReferenceEquals`, that no longer holds. Cached references still work; they just no longer match a fresh `GetRequiredService<IMediator>()` call.
