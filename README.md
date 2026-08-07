@@ -37,15 +37,17 @@ public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderId>
 services.AddMediator();
 
 // 4. Send the request and use the result — fully strongly-typed, zero allocation
-public class OrderController(IMediator mediator)
+app.MapPost("/orders", async (CreateOrder cmd, IMediator mediator, CancellationToken ct) =>
 {
-    public async Task<IResult> PlaceOrder(CreateOrder cmd, CancellationToken ct)
-    {
-        var id = await mediator.Send(cmd, ct);   // returns OrderId, no boxing
-        return Results.Created($"/orders/{id}", id);
-    }
-}
+    var id = await mediator.Send(cmd, ct);   // returns OrderId, no boxing
+    return Results.Created($"/orders/{id}", id);
+});
 ```
+
+> `IMediator` is generated into your assembly and is `internal`, so it cannot appear in a
+> `public` signature. Endpoint lambdas and `internal` services are unaffected; see
+> [Visibility](docs/dependency-injection.md#visibility--the-generated-types-are-internal-to-your-assembly)
+> for the reasoning and the pattern for MVC controllers.
 
 ## Performance
 
