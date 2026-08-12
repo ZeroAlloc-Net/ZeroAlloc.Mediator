@@ -25,7 +25,7 @@ public class AspNetCoreScopeIntegrationTests : IClassFixture<WebApplicationFacto
         // into mediator handlers via IServiceProvider, not via singleton resolution.
         Assert.NotEmpty(first);
         Assert.NotEmpty(second);
-        Assert.NotEqual(first, second);
+        Assert.NotEqual(first, second, StringComparer.Ordinal);
     }
 
     [Fact]

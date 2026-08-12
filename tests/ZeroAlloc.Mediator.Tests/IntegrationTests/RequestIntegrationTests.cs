@@ -47,7 +47,7 @@ public class ThrowPingHandler : IRequestHandler<ThrowPing, string>
 [PipelineBehavior(Order = 0, AppliesTo = typeof(PipelineDiPing))]
 public class PipelineDiObservingBehavior : IPipelineBehavior
 {
-    public static int InvocationCount;
+    internal static int InvocationCount;
     public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request, CancellationToken ct,
         System.Func<TRequest, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)

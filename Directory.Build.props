@@ -20,7 +20,10 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     <Copyright>Copyright (c) Marcel Roozekrans</Copyright>
-  </PropertyGroup>
+      <!-- Warnings are errors here as across the rest of the org; without it a build can
+         accumulate warnings indefinitely and nothing reports it. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+</PropertyGroup>
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)assets\icon.png" Pack="true" PackagePath="\" />

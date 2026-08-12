@@ -55,7 +55,7 @@ namespace ZeroAlloc.Mediator.AotSmoke
 
     public sealed class UserCreatedHandler : INotificationHandler<UserCreated>
     {
-        public static int Seen;
+        internal static int Seen;
 
         public ValueTask Handle(UserCreated notification, CancellationToken ct)
         {
