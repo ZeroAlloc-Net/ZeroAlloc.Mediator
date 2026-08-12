@@ -1,0 +1,11 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove($(MSBuildThisFile), $(MSBuildThisFileDirectory)..))" />
+  <PropertyGroup>
+    <!-- ZAM003 is this library's own advice: "request type is a class; use readonly record
+         struct". The AOT smoke sample declares class-based requests on purpose, because
+         supporting them is what it is there to prove. Consumers still receive the advice.
+         MA0048 wants one type per file; these fixtures group the request, handler and
+         result of one scenario, which is how they are read. -->
+    <NoWarn>$(NoWarn);ZAM003;MA0048</NoWarn>
+  </PropertyGroup>
+</Project>
