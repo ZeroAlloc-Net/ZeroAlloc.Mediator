@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.0...v5.0.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* stop the generator emitting code that trips EPC12 in every consumer ([#121](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/121)) ([67d215f](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/67d215f989dede4a358d4b4b52c5234fd9740c14))
+
 ## [5.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v4.1.4...v5.0.0) (2026-08-07)
 
 
