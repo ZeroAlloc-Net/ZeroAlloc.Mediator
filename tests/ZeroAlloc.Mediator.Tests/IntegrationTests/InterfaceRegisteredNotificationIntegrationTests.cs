@@ -115,7 +115,8 @@ public class InterfaceRegisteredNotificationIntegrationTests
         var mediator = sp.GetRequiredService<IMediator>();
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await mediator.Publish(new SagaLikeTriggered(1), CancellationToken.None));
+            async () => await mediator.Publish(new SagaLikeTriggered(1), CancellationToken.None)
+                .ConfigureAwait(false));
 
         Assert.Contains("SagaLikeHandler", ex.Message, StringComparison.Ordinal);
     }
