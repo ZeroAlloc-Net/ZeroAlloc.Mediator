@@ -204,9 +204,12 @@ public class DiInterfaceGeneratorTests
         Assert.Contains("CreateStream(global::TestApp.CountTo", interfaceSection);
 
         // Service: Send + Publish + CreateStream all resolve from DI (Tasks 4, 5, 6).
+        // Publish resolves notification handlers with GetService rather than GetRequiredService —
+        // a handler may legitimately be registered only as INotificationHandler<T> and get picked
+        // up by the DI enumeration instead (ZeroAlloc.Saga#127).
         var serviceSection = output.Substring(serviceIdx);
         Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", serviceSection);
-        Assert.Contains("GetRequiredService<global::TestApp.UserCreatedHandler>(_services)", serviceSection);
+        Assert.Contains("GetService<global::TestApp.UserCreatedHandler>(_services)", serviceSection);
         Assert.Contains("GetRequiredService<global::TestApp.CountToHandler>(_services)", serviceSection);
         Assert.DoesNotContain("Mediator.CreateStream(request, ct)", serviceSection);
     }
@@ -238,8 +241,10 @@ public class DiInterfaceGeneratorTests
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains("internal partial class MediatorService", output);
-        Assert.Contains("GetRequiredService<global::TestApp.HandlerA>(_services)", output);
-        Assert.Contains("GetRequiredService<global::TestApp.HandlerB>(_services)", output);
+        // GetService, not GetRequiredService: an unregistered concrete handler is not an error
+        // here, because the DI enumeration below may still supply it (ZeroAlloc.Saga#127).
+        Assert.Contains("GetService<global::TestApp.HandlerA>(_services)", output);
+        Assert.Contains("GetService<global::TestApp.HandlerB>(_services)", output);
         Assert.DoesNotContain("=> Mediator.Publish(notification, ct);", output);
     }
 

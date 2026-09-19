@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ZeroAlloc.Mediator.Benchmarks.Dispatch</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- MA0047/MA0048: benchmark types intentionally share one file for readability. -->
+    <NoWarn>$(NoWarn);MA0047;MA0048</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Deliberately NO generator reference: every dispatch shape below is hand-written so the
+         strategies can be compared in isolation. See the header comment in Program.cs. -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
+  </ItemGroup>
+</Project>
