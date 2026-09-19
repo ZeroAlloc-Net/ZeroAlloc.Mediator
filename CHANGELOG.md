@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.1...v5.0.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **ci:** stamp the assembly version when publishing from a manifest ([#178](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/178)) ([d0a20f5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/d0a20f515949e64535da8fcfe61b6bad6edf56eb))
+
 ## [5.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.0...v5.0.1) (2026-08-12)
 
 
