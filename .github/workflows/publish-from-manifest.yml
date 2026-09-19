@@ -67,8 +67,13 @@ jobs:
             done
             version=$(jq -r --arg k "$best_match" '.[$k]' .release-please-manifest.json)
             echo "Packing $csproj at version $version (manifest key: '$best_match')"
-            dotnet pack "$csproj" -c Release --no-build \
-              -p:PackageVersion="$version" -o ./nupkg
+            # No --no-build, and -p:Version rather than -p:PackageVersion alone. Each
+            # project carries its own manifest version here, so the solution cannot be
+            # stamped once up front; packing must rebuild the project at its own version
+            # or the assembly keeps a fallback while the package claims the real one.
+            # See ZeroAlloc-Net/.github#26.
+            dotnet pack "$csproj" -c Release \
+              -p:Version="$version" -o ./nupkg
           done
           ls -la ./nupkg
 
