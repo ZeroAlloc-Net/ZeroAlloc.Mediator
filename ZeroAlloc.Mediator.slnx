@@ -16,6 +16,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/ZeroAlloc.Mediator.Authorization.Tests/ZeroAlloc.Mediator.Authorization.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Benchmarks/ZeroAlloc.Mediator.Benchmarks.csproj" />
+    <Project Path="tests/ZeroAlloc.Mediator.Benchmarks.Dispatch/ZeroAlloc.Mediator.Benchmarks.Dispatch.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Cache.Tests/ZeroAlloc.Mediator.Cache.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Resilience.Tests/ZeroAlloc.Mediator.Resilience.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Mediator.Telemetry.Tests/ZeroAlloc.Mediator.Telemetry.Tests.csproj" />
