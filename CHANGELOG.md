@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.2...v5.1.0) (2026-09-19)
+
+
+### Features
+
+* reach notification handlers registered as INotificationHandler&lt;T&gt; ([#180](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/180)) ([b1ac30d](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/b1ac30d07674fa20468006be3647a479e365f63f))
+
 ## [5.0.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.1...v5.0.2) (2026-09-19)
 
 
