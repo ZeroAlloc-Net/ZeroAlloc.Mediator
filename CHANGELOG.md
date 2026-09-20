@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.1...v5.1.2) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** pin the SDK floor at the .NET 10 GA band, not the newest patch ([#187](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/187)) ([0eeab68](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/0eeab6860a61bb02959fb0e0242cb4a0dfe638dc))
+
 ## [5.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.0...v5.1.1) (2026-09-20)
 
 
