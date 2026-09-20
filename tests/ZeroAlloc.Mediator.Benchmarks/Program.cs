@@ -7,7 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 
-BenchmarkRunner.Run<MediatorBenchmarks>(
+// Switcher rather than Runner<T> so command-line arguments reach BenchmarkDotNet: CI runs
+// this with --filter and reduced iteration counts as a smoke check.
+BenchmarkSwitcher.FromAssembly(typeof(MediatorBenchmarks).Assembly).Run(
+    args,
     DefaultConfig.Instance
         .HideColumns(Column.Error, Column.StdDev, Column.Median, Column.RatioSD));
 

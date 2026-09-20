@@ -25,7 +25,10 @@ using BenchmarkDotNet.Running;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
 
-BenchmarkRunner.Run<NotificationDispatchBenchmarks>(
+// Switcher rather than Runner<T> so command-line arguments reach BenchmarkDotNet: CI runs
+// this with --filter and reduced iteration counts as a smoke check.
+BenchmarkSwitcher.FromAssembly(typeof(NotificationDispatchBenchmarks).Assembly).Run(
+    args,
     DefaultConfig.Instance
         .HideColumns(Column.Error, Column.StdDev, Column.Median, Column.RatioSD));
 
