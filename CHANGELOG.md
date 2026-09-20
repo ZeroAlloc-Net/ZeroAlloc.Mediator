@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.2...v5.1.3) (2026-09-20)
+
+
+### Bug Fixes
+
+* pack every src package instead of a hardcoded list ([#190](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/190)) ([b4c073a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/b4c073a06ac1078bad393be5b95d45334bb40c68))
+
 ## [5.1.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.1...v5.1.2) (2026-09-20)
 
 
