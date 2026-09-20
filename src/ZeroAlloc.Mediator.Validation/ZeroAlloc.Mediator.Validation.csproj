@@ -8,8 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
-    <PackageReference Include="ZeroAlloc.Validation" Version="0.2.3" />
-    <PackageReference Include="ZeroAlloc.Results" Version="0.1.4" />
+    <PackageReference Include="ZeroAlloc.Validation" Version="1.7.1" />
+    <PackageReference Include="ZeroAlloc.Results" Version="1.2.2" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Validation.Tests" />
