@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.3...v5.1.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* build against a correctly stamped ZeroAlloc.Authorization ([#192](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/192)) ([c9ead43](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c9ead43d7545112cb6534ec7f0a271feeb6fe012))
+
 ## [5.1.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.2...v5.1.3) (2026-09-20)
 
 
