@@ -48,13 +48,23 @@ jobs:
 
       - name: Pack
         run: |
-          dotnet pack src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Cache/ZeroAlloc.Mediator.Cache.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Validation/ZeroAlloc.Mediator.Validation.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Resilience/ZeroAlloc.Mediator.Resilience.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Telemetry/ZeroAlloc.Mediator.Telemetry.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          dotnet pack src/ZeroAlloc.Mediator.Authorization/ZeroAlloc.Mediator.Authorization.csproj -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
+          # Discovered, not listed. A hardcoded list silently omits any newly
+          # added package: the release still goes green and the package simply
+          # never appears on NuGet. Defaulting to pack means a new src project
+          # ships unless it opts out, so the failure mode is a surplus package
+          # someone notices rather than a missing one nobody does.
+          for csproj in src/*/*.csproj; do
+            if grep -q "<IsPackable>false</IsPackable>" "$csproj"; then
+              echo "Skipping $csproj (IsPackable=false)"
+              continue
+            fi
+            echo "Packing $csproj"
+            dotnet pack "$csproj" -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
+          done
+          if ! ls ./nupkg/*.nupkg >/dev/null 2>&1; then
+            echo "::error::no packages were produced"
+            exit 1
+          fi
 
       # Moved here from the removed release.yml, which was the only place it ran. Checks the
       # generator lands under analyzers/dotnet/cs rather than lib/, since a regression there
