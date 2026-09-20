@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.0...v5.1.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* declare current sibling package versions ([#185](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/185)) ([57784d0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/57784d03d381fba655a5bdd725e05c4aee8f2aef))
+
 ## [5.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.0.2...v5.1.0) (2026-09-19)
 
 
