@@ -8,7 +8,14 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
-    <PackageReference Include="ZeroAlloc.Authorization" Version="2.1.0" />
+    <!--
+      2.1.3, not 2.1.0. Authorization 2.1.0 and 2.1.1 shipped assemblies
+      stamped 9.9.9.0, and both are now unlisted. Compiling against one of
+      them bakes a reference to ZeroAlloc.Authorization 9.9.9.0 into this
+      assembly, so any application resolving a correctly stamped
+      Authorization fails at startup with FileNotFoundException.
+    -->
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.1.3" />
     <PackageReference Include="ZeroAlloc.Results" Version="1.2.*" />
   </ItemGroup>
   <ItemGroup>
