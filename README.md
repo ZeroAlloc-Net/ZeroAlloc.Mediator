@@ -17,8 +17,12 @@ dotnet add package ZeroAlloc.Mediator
 The generator package must also be added as an analyzer:
 
 ```xml
-<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="*" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="*" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
 ```
+
+`PrivateAssets="all"` matters in multi-project solutions: without it the analyzer flows transitively across a `ProjectReference`, so a downstream project runs the generator a second time and gets **CS0436** on the duplicate generated types — a hard failure under `TreatWarningsAsErrors`.
+
+Request types should be `readonly record struct`. A reference-type `record` still works, but the generator reports **ZAM003** (a warning, which `TreatWarningsAsErrors` turns into a build failure) because dispatch then allocates.
 
 ## Example
 
