@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.4...v5.1.5) (2026-09-21)
+
+
+### Documentation
+
+* AddMediator is internal, so registration lives with the handlers ([#196](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/196)) ([fb7eead](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fb7eeadaf943a92493a3e0e240f05d1bc61a1d7f))
+
 ## [5.1.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.3...v5.1.4) (2026-09-20)
 
 
