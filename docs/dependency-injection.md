@@ -14,6 +14,8 @@ ZeroAlloc.Mediator 3.0 exposes two parallel dispatch paths and lets you choose p
 
 Register the mediator and scan the entry-assembly for handlers:
 
+> This single-project shape calls `AddMediator()` from the host. That works because the handlers live in the same assembly. If your handlers are in a separate application assembly, see [`AddMediator()` is internal too](#addmediator-is-internal-too--registration-lives-with-the-handlers) — the call has to move there.
+
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
@@ -135,6 +137,35 @@ app.MapGet("/orders", async (IMediator mediator, CancellationToken ct) => …);
 ```
 
 This is a constraint of the design rather than a limitation to work around: assembly A's `IMediator` and assembly B's `IMediator` are different types with different members, so a signature sharing one across a boundary was never meaningful. Types that need to cross assemblies should expose your own abstraction and take `IMediator` internally.
+
+### `AddMediator()` is internal too — registration lives with the handlers
+
+`AddMediator()` is emitted into the same `internal static partial class MediatorServiceCollectionExtensions`, so it carries the same accessibility as the types above:
+
+```csharp
+internal static partial class MediatorServiceCollectionExtensions   // namespace Microsoft.Extensions.DependencyInjection
+```
+
+It can only be called from the assembly that owns the handlers. In a single-project application that is also the host, so the example at the top of this page compiles as written. **In a layered solution it does not** — with handlers in an application assembly and `Program.cs` in a separate web host, calling `builder.Services.AddMediator()` from the host fails to compile, and the error points at the call site rather than at the cause.
+
+Give the application assembly its own public registration method and call that from the host:
+
+```csharp
+// Application assembly — public, alongside the handlers.
+public static class ApplicationServiceCollectionExtensions
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services) =>
+        services.AddMediator()                       // internal, same assembly — fine
+                .RegisterHandlersFromAssembly(typeof(ApplicationServiceCollectionExtensions).Assembly)
+                .Services;
+}
+
+// Host — Program.cs
+builder.Services.AddApplication();
+```
+
+This follows from the same reasoning as `IMediator` being internal: the registration extension configures *that* assembly's generated mediator, so it belongs in that assembly.
+
 
 ### MVC controllers
 
