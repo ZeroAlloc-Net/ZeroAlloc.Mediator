@@ -19,13 +19,6 @@
       "enabled": false
     },
     {
-      "description": "Ignore internal ZeroAlloc packages \u2014 managed by release-please",
-      "matchPackagePrefixes": [
-        "ZeroAlloc."
-      ],
-      "enabled": false
-    },
-    {
       "description": "Group Roslyn analyzer packages",
       "matchPackageNames": [
         "Meziantou.Analyzer",
