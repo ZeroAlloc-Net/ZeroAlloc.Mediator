@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
     <PackageReference Include="ZeroAlloc.Validation" Version="1.7.8" />
-    <PackageReference Include="ZeroAlloc.Results" Version="1.2.2" />
+    <PackageReference Include="ZeroAlloc.Results" Version="1.2.3" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Validation.Tests" />
