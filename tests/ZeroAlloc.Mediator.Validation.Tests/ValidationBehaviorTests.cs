@@ -197,13 +197,4 @@ public class ValidationBehaviorTests : IDisposable
         Assert.Equal("Name", ex.Error.Failures[0].PropertyName);
         Assert.Equal("must not be empty", ex.Error.Failures[0].ErrorMessage);
     }
-
-    [Fact]
-    public void AddMediatorValidation_LegacyShim_StillRegistersAccessor()
-    {
-        var services = new ServiceCollection();
-        services.AddMediatorValidation();   // shim — emits ZAMED002 warning, suppressed at csproj level
-
-        Assert.Contains(services, d => d.ServiceType == typeof(ValidationBehaviorAccessor));
-    }
 }

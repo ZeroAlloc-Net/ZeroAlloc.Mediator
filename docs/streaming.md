@@ -205,10 +205,10 @@ await foreach (var o in _repo.StreamAsync(ct))
     yield return Map(o);
 ```
 
-**Pitfall 3 — Wrong return type (ZAM007)**
+**Pitfall 3 — Wrong return type (CS0738)**
 
 ```csharp
-// ❌ Returns IEnumerable<T> — triggers ZAM007 error
+// ❌ Returns IEnumerable<T> — CS0738, the handler does not implement the interface
 public IEnumerable<OrderExportRow> Handle(ExportOrdersQuery q, CancellationToken ct) { ... }
 
 // ✅ Must return IAsyncEnumerable<T>

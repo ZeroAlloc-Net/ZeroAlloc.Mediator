@@ -253,15 +253,6 @@ public sealed class ResilienceBehaviorTests
         Assert.Equal(1, registrations);
     }
 
-    [Fact]
-    public void AddMediatorResilience_LegacyShim_StillRegistersMarker()
-    {
-        var services = new ServiceCollection();
-        services.AddMediatorResilience();   // shim — emits ZAMED003 warning, suppressed at csproj level
-
-        Assert.Contains(services, d => d.ServiceType == typeof(MediatorResilienceMarker));
-    }
-
     // ── Attribute cache ───────────────────────────────────────────────────────
 
     [Fact]

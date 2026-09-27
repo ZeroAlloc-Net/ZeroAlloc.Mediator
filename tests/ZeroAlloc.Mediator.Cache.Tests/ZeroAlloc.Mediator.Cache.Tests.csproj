@@ -3,10 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long. -->
-    <!-- Suppress ZAMED001 in this test project so the legacy-shim back-compat tests
-         can deliberately call the obsolete AddMediatorCache(IServiceCollection) extension
-         without breaking TreatWarningsAsErrors. -->
-    <NoWarn>$(NoWarn);MA0048;MA0051;ZAMED001</NoWarn>
+    <NoWarn>$(NoWarn);MA0048;MA0051</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />

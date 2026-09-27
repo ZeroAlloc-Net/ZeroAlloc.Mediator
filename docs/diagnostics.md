@@ -17,10 +17,10 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM001 | Error | No handler for request | A type implements `IRequest<T>` but has no matching `IRequestHandler` in the project |
 | ZAM002 | Error | Multiple handlers for request | More than one `IRequestHandler<TRequest, TResponse>` for the same request type |
 | ZAM003 | Warning | Request type is a class | A request type is a `class` instead of `readonly record struct` |
-| ZAM004 | Error | Invalid handler signature | Handler method doesn't match the expected interface signature (compiler-enforced) |
+| ZAM004 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM005 | Error | Pipeline behavior missing Handle method | A class with `[PipelineBehavior]` has no static `Handle<TRequest,TResponse>` method |
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
-| ZAM007 | Error | Stream handler wrong return type | Stream handler method doesn't return `IAsyncEnumerable<TResponse>` |
+| ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
 
 ## ZAM001 — No Handler for Request
@@ -148,37 +148,6 @@ public static class CachingBehavior { ... }
 
 **Convention:** Use multiples of 10 (0, 10, 20, 30...) so you can insert behaviors between existing ones without renumbering.
 
-## ZAM007 — Stream Handler Wrong Return Type
-
-**What it means:** A class implements `IStreamRequestHandler<TRequest, TResponse>` but the `Handle` method doesn't return `IAsyncEnumerable<TResponse>`.
-
-**Example:**
-```csharp
-// ❌ Returns Task<IEnumerable<T>> — triggers ZAM007
-public class ExportOrdersHandler : IStreamRequestHandler<ExportOrdersQuery, OrderExportRow>
-{
-    public async Task<IEnumerable<OrderExportRow>> Handle(
-        ExportOrdersQuery query, CancellationToken ct)
-    {
-        return await _repo.GetAllAsync(ct);
-    }
-}
-```
-
-**Fix:** Return `IAsyncEnumerable<TResponse>` with `yield return`:
-```csharp
-public class ExportOrdersHandler : IStreamRequestHandler<ExportOrdersQuery, OrderExportRow>
-{
-    public async IAsyncEnumerable<OrderExportRow> Handle(
-        ExportOrdersQuery query,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        await foreach (var order in _repo.StreamAsync(ct))
-            yield return Map(order);
-    }
-}
-```
-
 ## ZAM008 — Handler Has No Parameterless Constructor
 
 **Severity:** Warning
@@ -209,6 +178,17 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
    at startup if you must keep using the static API with a constructor-injected handler.
 4. **Suppress.** `#pragma warning disable ZAM008` on the handler class if you
    know you only ever go through DI.
+
+## Removed diagnostics
+
+ZAM004 and ZAM007 were declared by the generator but never reported, and 6.0 removes them. A handler whose `Handle` method does not match its interface does not compile, so the C# compiler already catches both cases:
+
+| Code | Was | What reports it instead |
+|------|-----|-------------------------|
+| ZAM004 | Invalid handler signature | `CS0535` or `CS0738`: the class does not implement the interface's `Handle` member |
+| ZAM007 | Stream handler wrong return type | `CS0738`: a `Handle` that does not return `IAsyncEnumerable<TResponse>` does not implement `IStreamRequestHandler<TRequest, TResponse>` |
+
+The IDs are retired, not reused. A `#pragma warning disable` or `NoWarn` entry for either ID never had any effect and can be deleted. See [Migrating to 6.0](migrating-to-v6.md).
 
 ## Suppressing Warnings
 

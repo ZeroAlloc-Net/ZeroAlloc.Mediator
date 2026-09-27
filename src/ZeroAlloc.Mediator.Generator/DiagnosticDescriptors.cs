@@ -29,15 +29,6 @@ namespace ZeroAlloc.Mediator.Generator
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true);
 
-        // ZAM004: The C# compiler already enforces correct method signatures via interface implementation.
-        public static readonly DiagnosticDescriptor InvalidHandlerSignature = new DiagnosticDescriptor(
-            "ZAM004",
-            "Invalid handler signature",
-            "Handler '{0}' has an invalid Handle method signature for IRequestHandler<{1}, {2}>",
-            "ZeroAlloc.Mediator",
-            DiagnosticSeverity.Error,
-            isEnabledByDefault: true);
-
         public static readonly DiagnosticDescriptor MissingBehaviorHandleMethod = new DiagnosticDescriptor(
             "ZAM005",
             "Missing behavior Handle method",
@@ -52,15 +43,6 @@ namespace ZeroAlloc.Mediator.Generator
             "Pipeline behaviors {0} have the same Order value {1}; execution order is ambiguous",
             "ZeroAlloc.Mediator",
             DiagnosticSeverity.Warning,
-            isEnabledByDefault: true);
-
-        // ZAM007: The C# compiler already enforces correct return types via interface implementation.
-        public static readonly DiagnosticDescriptor StreamHandlerWrongReturnType = new DiagnosticDescriptor(
-            "ZAM007",
-            "Stream handler wrong return type",
-            "Stream handler '{0}' Handle method must return IAsyncEnumerable<{1}>",
-            "ZeroAlloc.Mediator",
-            DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
         public static readonly DiagnosticDescriptor HandlerMissingParameterlessConstructor =
