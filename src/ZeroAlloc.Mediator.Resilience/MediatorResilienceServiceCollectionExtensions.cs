@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
@@ -22,21 +21,5 @@ public static class MediatorResilienceServiceCollectionExtensions
         services.AddSingleton<MediatorResilienceMarker>();
 
         return builder;
-    }
-
-    /// <summary>
-    /// Legacy v1.x entry point. Use <see cref="WithResilience"/> on the builder returned by
-    /// <c>services.AddMediator()</c> instead. Will be removed in the next major.
-    /// </summary>
-    [Obsolete("Use services.AddMediator().WithResilience() instead. Will be removed in the next major.", DiagnosticId = "ZAMED003")]
-    public static IServiceCollection AddMediatorResilience(this IServiceCollection services)
-    {
-        // Equivalent to services.AddMediator().WithResilience(), but the generated AddMediator()
-        // extension is emitted into consuming projects and isn't visible inside this library —
-        // construct the builder directly. Consumers should still call AddMediator()
-        // themselves to register IMediator; the back-compat contract here is only that the
-        // resilience marker gets registered.
-        new MediatorBuilder(services).WithResilience();
-        return services;
     }
 }

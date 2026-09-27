@@ -164,13 +164,4 @@ public class CacheBehaviorTests : IDisposable
         // Restore for other tests in the same run.
         CacheBehaviorState.SetCache(_cache);
     }
-
-    [Fact]
-    public void AddMediatorCache_LegacyShim_StillRegistersAccessor()
-    {
-        var services = new ServiceCollection();
-        services.AddMediatorCache();   // shim — emits ZAMED001 warning, suppressed at csproj level
-
-        Assert.Contains(services, d => d.ServiceType == typeof(MediatorCacheAccessor));
-    }
 }

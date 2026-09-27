@@ -304,7 +304,7 @@ Assert.NotNull(zam001);
 Assert.Equal(DiagnosticSeverity.Error, zam001.Severity);
 ```
 
-`GeneratorTestHelper.RunGenerator` creates an in-memory Roslyn compilation, runs the `MediatorGenerator`, and returns the generated source text alongside any diagnostics. This enables tests that verify the generator's behavior (ZAM001–ZAM007 rules, generated method signatures, `MediatorConfig` structure) without requiring a full build.
+`GeneratorTestHelper.RunGenerator` creates an in-memory Roslyn compilation, runs the `MediatorGenerator`, and returns the generated source text alongside any diagnostics. This enables tests that verify the generator's behavior (the ZAM diagnostics, generated method signatures, `MediatorConfig` structure) without requiring a full build.
 
 ## No Test Helper Package
 

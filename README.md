@@ -91,10 +91,11 @@ The 104 B on the Stream row is the C# compiler's `async IAsyncEnumerable<T>` sta
 | [Pipeline Behaviors](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/pipeline-behaviors.md) | Compile-time middleware: logging, validation, caching |
 | [Authorization](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
 | [Dependency Injection](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md) | DI containers, `IMediator`, factory delegates |
-| [Diagnostics](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/diagnostics.md) | ZAM001–ZAM007 compiler error reference with fixes |
+| [Diagnostics](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/diagnostics.md) | ZAM001–ZAM008 compiler error reference with fixes |
 | [Performance](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) | Zero-alloc internals, benchmark results, Native AOT |
 | [Advanced Patterns](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/advanced.md) | Error handling, cancellation, scoped behaviors |
 | [Testing](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/testing.md) | Unit-test handlers, behaviors, and notifications |
+| [Migrating to 6.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
 
 ## License
 

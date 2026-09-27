@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,21 +31,5 @@ public static class MediatorCacheServiceCollectionExtensions
         sp.GetRequiredService<MediatorCacheAccessor>();
 
         return builder;
-    }
-
-    /// <summary>
-    /// Legacy v1.x entry point. Use <see cref="WithCache"/> on the builder returned by
-    /// <c>services.AddMediator()</c> instead. Will be removed in the next major.
-    /// </summary>
-    [Obsolete("Use services.AddMediator().WithCache() instead. Will be removed in the next major.", DiagnosticId = "ZAMED001")]
-    public static IServiceCollection AddMediatorCache(this IServiceCollection services)
-    {
-        // Equivalent to services.AddMediator().WithCache(), but the generated AddMediator()
-        // extension is emitted into consuming projects and isn't visible inside this library —
-        // construct the builder directly. Consumers should still call AddMediator()
-        // themselves to register IMediator; the back-compat contract here is only that the
-        // cache accessor + IMemoryCache get registered.
-        new MediatorBuilder(services).WithCache();
-        return services;
     }
 }
