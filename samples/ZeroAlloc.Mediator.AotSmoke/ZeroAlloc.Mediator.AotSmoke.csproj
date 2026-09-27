@@ -9,8 +9,6 @@
     <OptimizationPreference>Size</OptimizationPreference>
 
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2067;IL2075;IL2091;IL3050;IL3051</WarningsAsErrors>
-    <!-- EPS05 fires on auto-generated Mediator.g.cs; matches the non-AOT sample. -->
-    <NoWarn>$(NoWarn);EPS05</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

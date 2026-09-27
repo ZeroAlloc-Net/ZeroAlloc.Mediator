@@ -23,8 +23,6 @@
       "matchPackageNames": [
         "Meziantou.Analyzer",
         "Roslynator.Analyzers",
-        "ErrorProne.NET.CoreAnalyzers",
-        "ErrorProne.NET.Structs",
         "NetFabric.Hyperlinq.Analyzer"
       ],
       "groupName": "Roslyn analyzers"
