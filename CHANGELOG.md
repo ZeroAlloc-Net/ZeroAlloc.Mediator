@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.5...v6.0.0) (2026-09-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* AddMediatorCache, AddMediatorValidation and AddMediatorResilience on IServiceCollection are removed. Use services.AddMediator().WithCache(), .WithValidation() and .WithResilience() instead. The unused diagnostic IDs ZAM004 and ZAM007 are retired; the compiler reports those mistakes as CS0535 or CS0738. See docs/migrating-to-v6.md.
+* **deps:** ZeroAlloc.Mediator.Validation requires ZeroAlloc.Validation 2.x. Projects that reference ZeroAlloc.Validation 1.x directly must upgrade to 2.x together with this package.
+
+### Features
+
+* **deps:** move Mediator.Validation to ZeroAlloc.Validation 2 ([#223](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/223)) ([87dd308](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/87dd30882e1b472203066a10d6c84fe5ce3e23a5))
+* remove the obsolete v1 registration shims and dead diagnostics ([#227](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/227)) ([6d7fc3a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/6d7fc3ab14551d205319d093c3b30c29a42b3d9e))
+
 ## [5.1.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.4...v5.1.5) (2026-09-21)
 
 
