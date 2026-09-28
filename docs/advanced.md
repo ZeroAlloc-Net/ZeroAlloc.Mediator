@@ -8,7 +8,7 @@ sidebar_position: 9
 
 # Advanced Patterns
 
-This page covers patterns that go beyond the basic request/handler/publish cycle: error propagation, cancellation flow, combining features, and accessing scoped DI services from pipeline behaviors.
+This page covers patterns that go beyond the basic request/handler/publish cycle: error propagation, cancellation flow, combining features, accessing scoped DI services from pipeline behaviors, and tracing and metrics.
 
 ## Error Handling
 
@@ -297,6 +297,29 @@ public static class TenantBehavior : IPipelineBehavior
 ```
 
 `AsyncLocal<T>` values flow correctly through `await` boundaries. The `finally` block ensures the value is cleared after the dispatch completes, preventing leakage between requests.
+
+## Tracing and Metrics
+
+The generated dispatch methods open one `Activity` per call on the `ZeroAlloc.Mediator` activity source. This happens with or without the `ZeroAlloc.Mediator.Telemetry` package. `Send` and `Publish` open their span on both the static `Mediator` class and the injected `IMediator`; `mediator.stream` is opened only by the static `Mediator.CreateStream`:
+
+| Span | Opened by | Tag |
+|---|---|---|
+| `mediator.send` | `Send` | `request.type`: simple name of the request type, such as `PlaceOrderCommand` |
+| `mediator.publish` | `Publish` | `notification.type`: simple name of the notification type |
+| `mediator.stream` | `CreateStream` | `request.type`: simple name of the request type |
+
+When a `Send` or `Publish` throws, its span gets `ActivityStatusCode.Error` with the exception message. The `mediator.stream` span covers only creating the stream, not enumerating it.
+
+Referencing `ZeroAlloc.Mediator.Telemetry` adds `TelemetryBehavior` to every request pipeline. It opens no span of its own; it runs inside the `mediator.send` span and records two instruments on the `ZeroAlloc.Mediator` meter:
+
+| Instrument | Type | Recorded |
+|---|---|---|
+| `mediator.requests_total` | `Counter<long>` | 1 per `Send` that completes without an exception |
+| `mediator.request_duration_ms` | `Histogram<double>` | Duration of every `Send`, including ones that throw |
+
+Neither instrument has a request-type dimension. Notifications and streams do not run pipeline behaviors, so they have spans but no metrics.
+
+Subscribe with `AddSource("ZeroAlloc.Mediator")` and `AddMeter("ZeroAlloc.Mediator")` in your OpenTelemetry setup.
 
 ## Handler Visibility
 

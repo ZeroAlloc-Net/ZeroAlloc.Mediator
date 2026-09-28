@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,14 +9,15 @@ using ZeroAlloc.Mediator.Telemetry;
 
 namespace ZeroAlloc.Mediator.Telemetry.Tests;
 
-// Disable parallelism — TelemetryBehavior owns process-wide static ActivitySource/Meter
+// Disable parallelism — the generated Send and TelemetryBehavior emit on process-wide static ActivitySource/Meter
 // instances; concurrent tests would observe each other's activities and metric records.
 [CollectionDefinition("telemetry-non-parallel", DisableParallelization = true)]
 public sealed class TelemetryNonParallelCollection { }
 
 // Stub IRequest + handler — every IRequest<T> needs a registered handler to satisfy
 // the generator's ZAM001 diagnostic. The handler is never invoked because the tests
-// call TelemetryBehavior.Handle directly with an inline `next` lambda.
+// call TelemetryBehavior.Handle directly with an inline `next` lambda. SendSpanTests
+// covers the behavior inside the generated Send.
 public readonly record struct TestRequest(int Value) : IRequest<int>;
 
 public sealed class TestRequestHandler : IRequestHandler<TestRequest, int>
@@ -29,8 +29,9 @@ public sealed class TestRequestHandler : IRequestHandler<TestRequest, int>
 public class TelemetryBehaviorTests
 {
     [Fact]
-    public async Task Handle_StartsActivity_WithExpectedNameAndRequestTypeTag()
+    public async Task Handle_DoesNotStartActivity()
     {
+        // The generated Send owns the mediator.send span (#236); the behavior only records metrics.
         using var listener = new TestActivityListener("ZeroAlloc.Mediator");
 
         var result = await TelemetryBehavior.Handle<TestRequest, int>(
@@ -39,17 +40,11 @@ public class TelemetryBehaviorTests
             (r, _) => ValueTask.FromResult(r.Value * 2));
 
         Assert.Equal(14, result);
-        Assert.Single(listener.StoppedActivities);
-
-        var activity = listener.StoppedActivities[0];
-        Assert.Equal("mediator.send", activity.OperationName);
-
-        var requestTypeTag = GetTag(activity, "mediator.request_type");
-        Assert.Equal(typeof(TestRequest).FullName, requestTypeTag);
+        Assert.Empty(listener.StoppedActivities);
     }
 
     [Fact]
-    public async Task Handle_OnException_RecordsErrorStatus_AndPropagates()
+    public async Task Handle_OnException_Propagates_WithoutStartingActivity()
     {
         using var listener = new TestActivityListener("ZeroAlloc.Mediator");
 
@@ -60,11 +55,7 @@ public class TelemetryBehaviorTests
                 (_, _) => throw new InvalidOperationException("boom")).AsTask());
 
         Assert.Equal("boom", thrown.Message);
-
-        Assert.Single(listener.StoppedActivities);
-        var activity = listener.StoppedActivities[0];
-        Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("boom", activity.StatusDescription);
+        Assert.Empty(listener.StoppedActivities);
     }
 
     [Fact]
@@ -144,18 +135,6 @@ public class TelemetryBehaviorTests
     }
 
     [Fact]
-    public async Task Handle_PassesThrough_WhenNoListenerAttached()
-    {
-        // No TestActivityListener wired — _activitySource.StartActivity(...) returns null.
-        ValueTask<int> Next(TestRequest r, CancellationToken c) => ValueTask.FromResult(123);
-
-        var result = await TelemetryBehavior.Handle<TestRequest, int>(
-            new TestRequest(1), CancellationToken.None, Next);
-
-        Assert.Equal(123, result);
-    }
-
-    [Fact]
     public void WithTelemetry_IsIdempotent()
     {
         var services = new ServiceCollection();
@@ -167,15 +146,5 @@ public class TelemetryBehaviorTests
         Assert.Same(builder, first);
         Assert.Same(builder, second);
         Assert.Same(first, second);
-    }
-
-    private static string? GetTag(Activity activity, string name)
-    {
-        foreach (var kvp in activity.TagObjects)
-        {
-            if (string.Equals(kvp.Key, name, StringComparison.Ordinal))
-                return kvp.Value?.ToString();
-        }
-        return null;
     }
 }
