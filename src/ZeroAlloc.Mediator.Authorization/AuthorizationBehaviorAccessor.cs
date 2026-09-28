@@ -25,14 +25,29 @@ public static class AuthorizationBehaviorState
 /// <summary>
 /// DI-resolved hook whose constructor side-effects
 /// <see cref="AuthorizationBehaviorState.ServiceProvider"/>. Registered as a
-/// singleton by <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/>;
-/// resolve it once after <c>BuildServiceProvider()</c> to initialise the
-/// behavior's view of the container.
+/// singleton by <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/>.
+/// The first <c>IMediator</c> resolved from the container constructs it through
+/// <see cref="PipelineBehaviorStateActivation"/>; an app that only dispatches through the
+/// static <c>Mediator</c> class resolves this accessor, or the activation, once after
+/// <c>BuildServiceProvider()</c>.
 /// </summary>
-public sealed class AuthorizationBehaviorAccessor
+/// <remarks>
+/// Disposing the container does not clear the state. A request dispatched afterwards throws
+/// <see cref="ObjectDisposedException"/> rather than skipping authorization.
+/// </remarks>
+public sealed class AuthorizationBehaviorAccessor : IPipelineBehaviorStateInitializer
 {
+    private readonly IServiceProvider _serviceProvider;
+
     /// <summary>Stores the provided <paramref name="serviceProvider"/> into <see cref="AuthorizationBehaviorState.ServiceProvider"/>.</summary>
-    public AuthorizationBehaviorAccessor(IServiceProvider serviceProvider) =>
+    public AuthorizationBehaviorAccessor(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
         AuthorizationBehaviorState.ServiceProvider = serviceProvider;
+    }
+
+    /// <summary>Stores this container's provider into <see cref="AuthorizationBehaviorState.ServiceProvider"/> again.</summary>
+    void IPipelineBehaviorStateInitializer.Initialize() =>
+        AuthorizationBehaviorState.ServiceProvider = _serviceProvider;
 }
 #pragma warning restore MA0048

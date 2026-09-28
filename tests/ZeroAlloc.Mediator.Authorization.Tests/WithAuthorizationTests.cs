@@ -12,6 +12,7 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 //   1. A security-context source MUST be configured (UseAnonymous / UseFactory / UseAccessor).
 //   2. The D3 guard fires unless services.AddZeroAllocAuthorization() was called first.
 //   3. Multiple WithAuthorization() calls are idempotent.
+[Collection("non-parallel-authorization")]
 public class WithAuthorizationTests
 {
     [Fact]
@@ -87,6 +88,41 @@ public class WithAuthorizationTests
         // accessor descriptor proves the second call short-circuited.
         var accessorRegs = services.Count(d => string.Equals(d.ServiceType.FullName, "ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorAccessor", StringComparison.Ordinal));
         Assert.Equal(1, accessorRegs);
+    }
+
+    // ---- State wiring ----
+
+    [Fact]
+    public void ResolvingMediator_WiresTheContainer_WithoutResolvingTheAccessor()
+    {
+        AuthorizationBehaviorState.ServiceProvider = null;
+        var services = new ServiceCollection();
+        services.AddZeroAllocAuthorization();
+        services.AddMediator().WithAuthorization(o => o.UseAnonymousSecurityContext());
+        using var sp = services.BuildServiceProvider();
+
+        _ = sp.GetRequiredService<IMediator>();
+
+        // Singletons receive the root scope, which is what IServiceProvider resolves to at the root.
+        Assert.Same(sp.GetRequiredService<IServiceProvider>(), AuthorizationBehaviorState.ServiceProvider);
+    }
+
+    [Fact]
+    public void DisposingTheContainer_KeepsState_SoAuthorizationFailsClosed()
+    {
+        // Clearing the state would make AuthorizationBehavior pass requests through. Keeping it
+        // makes a request after disposal throw ObjectDisposedException instead.
+        var services = new ServiceCollection();
+        services.AddZeroAllocAuthorization();
+        services.AddMediator().WithAuthorization(o => o.UseAnonymousSecurityContext());
+        var sp = services.BuildServiceProvider();
+        _ = sp.GetRequiredService<IMediator>();
+        var root = sp.GetRequiredService<IServiceProvider>();
+
+        sp.Dispose();
+
+        Assert.Same(root, AuthorizationBehaviorState.ServiceProvider);
+        AuthorizationBehaviorState.ServiceProvider = null;
     }
 
     // ---- D3 missing-registration guard ----

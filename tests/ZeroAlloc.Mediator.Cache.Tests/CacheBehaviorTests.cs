@@ -151,15 +151,17 @@ public class CacheBehaviorTests : IDisposable
     }
 
     [Fact]
-    public void WithCache_ResolvingAccessorWiresCacheBehaviorState()
+    public void WithCache_ResolvingActivationWiresTheContainersCache()
     {
+        // The route for an app that dispatches only through the static Mediator class and so
+        // never resolves IMediator.
         var services = new ServiceCollection();
         services.AddMediator().WithCache();
         using var provider = services.BuildServiceProvider();
 
-        provider.GetRequiredService<MediatorCacheAccessor>();
+        provider.GetRequiredService<PipelineBehaviorStateActivation>();
 
-        Assert.NotNull(CacheBehaviorState.Cache);
+        Assert.Same(provider.GetRequiredService<IMemoryCache>(), CacheBehaviorState.Cache);
 
         // Restore for other tests in the same run.
         CacheBehaviorState.SetCache(_cache);

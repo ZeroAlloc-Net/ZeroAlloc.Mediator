@@ -8,9 +8,15 @@ namespace ZeroAlloc.Mediator.Cache;
 public static class MediatorCacheServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="IMemoryCache"/> and the cache pipeline-behavior accessor.
+    /// Registers <see cref="IMemoryCache"/> and hands it to <see cref="CacheBehavior"/>.
     /// Idempotent — safe to call more than once.
     /// </summary>
+    /// <remarks>
+    /// <see cref="CacheBehavior"/> is static, so it reads the cache from static state. The first
+    /// <c>IMediator</c> resolved from the built container fills that state with the container's
+    /// own <see cref="IMemoryCache"/>. An app that only dispatches through the static
+    /// <c>Mediator</c> class resolves <see cref="PipelineBehaviorStateActivation"/> once instead.
+    /// </remarks>
     public static IMediatorBuilder WithCache(this IMediatorBuilder builder)
     {
         var services = builder.Services;
@@ -23,12 +29,7 @@ public static class MediatorCacheServiceCollectionExtensions
 
         // Register using a factory so DI doesn't require a public constructor.
         services.AddSingleton(sp => new MediatorCacheAccessor(sp.GetRequiredService<IMemoryCache>()));
-
-        // Eagerly resolve MediatorCacheAccessor so CacheBehaviorState.Cache is populated
-        // before the first cached request arrives, without requiring the consumer to pull an
-        // internal type from their container manually.
-        using var sp = services.BuildServiceProvider();
-        sp.GetRequiredService<MediatorCacheAccessor>();
+        services.AddSingleton<IPipelineBehaviorStateInitializer>(sp => sp.GetRequiredService<MediatorCacheAccessor>());
 
         return builder;
     }

@@ -138,7 +138,7 @@ public class RequestDispatchGeneratorTests
 
         // Without pipeline, should call handler directly (no Behavior.Handle)
         Assert.Contains("handler.Handle(request, ct)", output);
-        Assert.DoesNotContain("Behavior", output);
+        Assert.DoesNotContain("Behavior.Handle", output);
     }
 
     [Fact]

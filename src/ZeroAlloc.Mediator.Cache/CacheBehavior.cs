@@ -5,9 +5,11 @@ namespace ZeroAlloc.Mediator.Cache;
 
 /// <summary>
 /// Pipeline behavior that short-circuits with a cached response when the request type
-/// carries <see cref="CacheResponseAttribute"/>. Register globally via
-/// <see cref="MediatorCacheServiceCollectionExtensions.WithCache"/>;
-/// requests without the attribute pass through at the cost of one static field read per TRequest type.
+/// carries <see cref="CacheResponseAttribute"/>. The Mediator source generator puts it in the
+/// pipeline of every request once this package is referenced;
+/// <see cref="MediatorCacheServiceCollectionExtensions.WithCache"/> supplies the cache it stores
+/// responses in. Requests without the attribute pass through at the cost of one static field read
+/// per TRequest type.
 /// </summary>
 [PipelineBehavior]
 public sealed class CacheBehavior : IPipelineBehavior
@@ -24,8 +26,10 @@ public sealed class CacheBehavior : IPipelineBehavior
 
         var cache = CacheBehaviorState.Cache
             ?? throw new InvalidOperationException(
-                "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup and ensure " +
-                "MediatorCacheAccessor is resolved before the first cached request.");
+                "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup, then resolve " +
+                "IMediator from the built container before the first cached request. An app that dispatches only " +
+                "through the static Mediator class resolves PipelineBehaviorStateActivation instead. The state is " +
+                "also cleared when the container that supplied the cache is disposed.");
 
         var key = $"{typeof(TRequest).FullName ?? typeof(TRequest).Name}:{request}";
 
