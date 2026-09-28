@@ -6,7 +6,9 @@ using ZeroAlloc.Validation;
 
 namespace ZeroAlloc.Mediator.Validation;
 
-[PipelineBehavior]
+// Order -750: after authorization, so an unauthorized caller learns nothing from validation
+// errors, and before the cache, so an invalid request is never answered from it.
+[PipelineBehavior(Order = -750)]
 public sealed class ValidationBehavior : IPipelineBehavior
 {
     // IL2091: FailureFactory<TResponse> requires TResponse to satisfy

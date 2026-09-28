@@ -11,7 +11,9 @@ namespace ZeroAlloc.Mediator.Cache;
 /// responses in. Requests without the attribute pass through at the cost of one static field read
 /// per TRequest type.
 /// </summary>
-[PipelineBehavior]
+// Order -500: after validation, so only valid requests reach the cache, and outside resilience,
+// so a cache hit skips the retries.
+[PipelineBehavior(Order = -500)]
 public sealed class CacheBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(

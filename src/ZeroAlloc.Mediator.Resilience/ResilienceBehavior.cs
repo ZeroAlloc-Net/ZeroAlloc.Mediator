@@ -3,7 +3,9 @@ using ZeroAlloc.Resilience;
 
 namespace ZeroAlloc.Mediator.Resilience;
 
-[PipelineBehavior]
+// Order -250: the innermost bridge behavior, so a retry repeats only the handler and the app's
+// own behaviors, which default to Order 0.
+[PipelineBehavior(Order = -250)]
 public sealed class ResilienceBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(

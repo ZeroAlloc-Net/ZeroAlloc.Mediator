@@ -128,10 +128,9 @@ public sealed record GetThingCancellable(int Id) : IRequest<int>;
 // No [RequirePolicy] — for fail-open coverage.
 public sealed record GetThingUnauthorized(int Id) : IRequest<int>;
 
-// Integration tests drive this through IMediator.Send. The shim below
-// (AuthorizationBehaviorShim) is what the test-assembly's Mediator generator
-// picks up to wire AuthorizationBehavior.Handle into the dispatcher; this
-// request just exists to be sent.
+// Integration tests drive this through IMediator.Send. The generator finds
+// AuthorizationBehavior in the referenced ZeroAlloc.Mediator.Authorization
+// assembly and puts it in the dispatcher; this request just exists to be sent.
 [RequirePolicy("IntegrationTest")]
 public sealed record IntegrationTestRequest(int Value) : IRequest<int>;
 
@@ -191,22 +190,8 @@ internal static class TestSecurityContexts
 // downstream pipeline behaviors ran on a given Send. AddSingleton in tests.
 internal sealed class InvocationCounter { public int Count; }
 
-// Local shim — the test-assembly's Mediator generator sees this in the
-// current compilation (cross-assembly AuthorizationBehavior is invisible to
-// it). The shim's static Handle just forwards to the real behavior. Same
-// Order constant (-1000), identical contract.
-[PipelineBehavior(Order = -1000)]
-public sealed class AuthorizationBehaviorShim : IPipelineBehavior
-{
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
-        => AuthorizationBehavior.Handle<TRequest, TResponse>(request, ct, next);
-}
-
-// Numerically AFTER the shim (-500 > -1000): runs only if the shim did NOT
-// short-circuit. The integration tests assert this counter to prove
+// Numerically AFTER AuthorizationBehavior (-500 > -1000): runs only if
+// authorization did NOT short-circuit. The integration tests assert this counter to prove
 // pipeline ordering took effect.
 [PipelineBehavior(Order = -500)]
 public sealed class CountingDownstreamBehavior : IPipelineBehavior

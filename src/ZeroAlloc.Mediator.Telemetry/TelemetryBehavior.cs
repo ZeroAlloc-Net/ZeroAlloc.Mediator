@@ -10,15 +10,15 @@ namespace ZeroAlloc.Mediator.Telemetry;
 /// <summary>
 /// Pipeline behavior that wraps every <see cref="IRequest{TResponse}"/> dispatch
 /// with an OpenTelemetry <see cref="Activity"/> and records per-request counters and
-/// duration histograms. Outermost in the pipeline (Order = 0) so spans capture
-/// retries, cache misses, and validation errors.
+/// duration histograms. Outermost in the pipeline (Order = -3000) so spans capture
+/// authorization denials, validation errors, cache hits and retries.
 /// </summary>
 /// <remarks>
 /// Notifications dispatched via <c>Mediator.Publish(...)</c> are NOT instrumented in v1 —
 /// the Mediator generator's Publish path bypasses pipeline behaviors. A future generator
 /// change to run pipeline behaviors on Publish would automatically extend coverage.
 /// </remarks>
-[PipelineBehavior(Order = 0)]
+[PipelineBehavior(Order = -3000)]
 public sealed class TelemetryBehavior : IPipelineBehavior
 {
     private static readonly ActivitySource _activitySource = new("ZeroAlloc.Mediator");

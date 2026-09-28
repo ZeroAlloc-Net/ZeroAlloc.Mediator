@@ -197,7 +197,9 @@ Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, 
 
 ## Bridge packages
 
-`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. `RegisterHandlersFromAssembly` is one such extension; cache, validation, resilience, and telemetry are others:
+`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. `RegisterHandlersFromAssembly` is one such extension; cache, validation, resilience, and telemetry are others.
+
+Referencing a bridge package is what puts its behavior into the pipeline: the source generator finds the behavior in the referenced assembly, as described in [Behaviors from Referenced Assemblies](pipeline-behaviors.md#behaviors-from-referenced-assemblies). The `WithXxx()` call registers what the behavior needs at run time, so the two go together:
 
 ```csharp
 services.AddMediator()

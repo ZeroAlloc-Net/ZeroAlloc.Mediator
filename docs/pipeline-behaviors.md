@@ -147,6 +147,24 @@ public static class ExceptionHandlingBehavior
 }
 ```
 
+## Behaviors from Referenced Assemblies
+
+The generator also inlines behaviors that live in assemblies your project references. That is how the bridge packages plug in: referencing `ZeroAlloc.Mediator.Cache` puts `CacheBehavior` into the pipeline of every request, and `WithCache()` supplies the `IMemoryCache` it needs at run time. A request without `[CacheResponse]` passes straight through it.
+
+A referenced type joins the pipeline when it is a public, non-generic class that implements `ZeroAlloc.Mediator.IPipelineBehavior`, carries `[PipelineBehavior]`, and has a public static `Handle<TRequest, TResponse>`. An `internal` behavior stays private to its own assembly, so make a behavior internal when a library should not export it.
+
+The bridge behaviors use fixed orders with gaps between them, all below your own behaviors' default of 0:
+
+| Order | Behavior | Why here |
+|---|---|---|
+| -3000 | `TelemetryBehavior` | Outermost, so its span covers everything below it |
+| -1000 | `AuthorizationBehavior` | A denied caller reaches nothing else |
+| -750 | `ValidationBehavior` | Only authorized requests are validated |
+| -500 | `CacheBehavior` | Only valid requests are answered from the cache |
+| -250 | `ResilienceBehavior` | A cache hit skips the retries; a retry repeats only your behaviors and the handler |
+
+Give your own behavior an order between two of these to run it there. ZAM006 reports an order that ties with a referenced behavior, as it does for two of your own.
+
 ## How Inlining Works (Conceptual)
 
 Instead of building a `List<IPipelineBehavior>` at runtime and iterating it, the generator emits code like:

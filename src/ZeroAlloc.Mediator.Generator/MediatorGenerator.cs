@@ -61,10 +61,19 @@ namespace ZeroAlloc.Mediator.Generator
                 .Where(static x => x != null)
                 .Select(static (x, _) => x!);
 
+            // Behaviors shipped in referenced assemblies, such as the bridge packages'. The two
+            // providers above only see this compilation's syntax trees.
+            var referencedBehaviors = context.CompilationProvider
+                .Select(static (compilation, ct) => ReferencedBehaviorDiscovery.Discover(compilation, ct));
+
+            // OrderBy is stable, so equal Orders keep source behaviors ahead of referenced ones.
+            // ZAM006 still reports the tie.
             var pipelineBehaviors = pipelineBehaviorsBase.Collect()
                 .Combine(pipelineBehaviorsMediator.Collect())
+                .Combine(referencedBehaviors)
                 .Select(static (pair, _) =>
-                    pair.Left.AddRange(pair.Right)
+                    pair.Left.Left.AddRange(pair.Left.Right)
+                        .AddRange(pair.Right.Items)
                         .OrderBy(static b => b.Order)
                         .ToImmutableArray());
 
