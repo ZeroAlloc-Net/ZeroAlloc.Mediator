@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     # Publishes samples/ZeroAlloc.Mediator.AotSmoke with PublishAot=true and runs
     # the binary. Exercises all three dispatch shapes the generator emits — Send,
-    # Publish, and CreateStream — plus the Authorization and Cache bridges.
+    # Publish, and CreateStream — plus the Telemetry, Authorization and Cache bridges.
     #
     # The cache hit path calls IMemoryCache.TryGetValue<TResponse>, which can hang under
     # NativeAOT for a Nullable<T> response: dotnet/runtime#134799. The timeouts turn a hang

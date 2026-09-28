@@ -157,7 +157,7 @@ The bridge behaviors use fixed orders with gaps between them, all below your own
 
 | Order | Behavior | Why here |
 |---|---|---|
-| -3000 | `TelemetryBehavior` | Outermost, so its span covers everything below it |
+| -3000 | `TelemetryBehavior` | Outermost, so its metrics cover everything below it |
 | -1000 | `AuthorizationBehavior` | A denied caller reaches nothing else |
 | -750 | `ValidationBehavior` | Only authorized requests are validated |
 | -500 | `CacheBehavior` | Only valid requests are answered from the cache |

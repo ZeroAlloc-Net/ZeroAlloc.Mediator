@@ -74,7 +74,7 @@ The 104 B on the Stream row is the C# compiler's `async IAsyncEnumerable<T>` sta
 - **Notifications** — sequential or parallel (`[ParallelNotification]`) dispatch
 - **Streaming** — `IAsyncEnumerable<T>` via `CreateStream`
 - **Pipeline Behaviors** — compile-time inlined middleware chain (logging, validation, etc.)
-- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry spans + metrics on `IRequest<T>.Send`), `WithAuthorization()` (`[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies)
+- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry metrics on `IRequest<T>.Send`; every dispatch opens a span with or without it), `WithAuthorization()` (`[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies)
 - **Polymorphic Notifications** — base interface handlers are automatically included in concrete notification dispatch
 - **Analyzer Diagnostics** — missing handlers, duplicates, and misconfigurations are build errors/warnings
 - **Zero Allocation** — `ValueTask`, `readonly record struct`, static dispatch, no closures

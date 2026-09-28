@@ -8,6 +8,7 @@ using ZeroAlloc.Mediator.AotSmoke;
 //   * Mediator.Send              — request/response
 //   * Mediator.Publish           — notification
 //   * Mediator.CreateStream      — streaming
+// plus the Telemetry, Cache and Authorization bridges.
 
 var pong = await Mediator.Send(new Ping("ok"), CancellationToken.None).ConfigureAwait(false);
 if (!string.Equals(pong, "Pong: ok", StringComparison.Ordinal))
@@ -25,6 +26,8 @@ await foreach (var n in Mediator.CreateStream(new CountTo(3), CancellationToken.
 }
 if (total != 6)  // 1+2+3
     return Fail($"CreateStream<CountTo,int> expected total=6, got {total}");
+
+await ZeroAlloc.Mediator.AotSmoke.Telemetry.TracedScenario.RunAsync().ConfigureAwait(false);
 
 // Before the authorization scenario: that one leaves AuthorizationBehaviorState on a disposed
 // container, which fails closed, and the cache scenario's Send runs AuthorizationBehavior too.
