@@ -57,7 +57,12 @@ jobs:
     runs-on: ubuntu-latest
     # Publishes samples/ZeroAlloc.Mediator.AotSmoke with PublishAot=true and runs
     # the binary. Exercises all three dispatch shapes the generator emits — Send,
-    # Publish, and CreateStream.
+    # Publish, and CreateStream — plus the Authorization and Cache bridges.
+    #
+    # The cache hit path calls IMemoryCache.TryGetValue<TResponse>, which can hang under
+    # NativeAOT for a Nullable<T> response: dotnet/runtime#134799. The timeouts turn a hang
+    # into a failure that names itself instead of a job that runs until GitHub cancels it.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,7 +87,14 @@ jobs:
         run: dotnet publish samples/ZeroAlloc.Mediator.AotSmoke/ZeroAlloc.Mediator.AotSmoke.csproj -r linux-x64 -c Release -o ./aot-out
 
       - name: Run AOT binary
-        run: ./aot-out/ZeroAlloc.Mediator.AotSmoke
+        timeout-minutes: 3
+        run: |
+          status=0
+          timeout 120 ./aot-out/ZeroAlloc.Mediator.AotSmoke || status=$?
+          if [ "$status" -eq 124 ]; then
+            echo "::error::AOT smoke did not finish within 120s; see dotnet/runtime#134799"
+          fi
+          exit "$status"
 
   api-compat:
     uses: ZeroAlloc-Net/.github/.github/workflows/api-compat.yml@main

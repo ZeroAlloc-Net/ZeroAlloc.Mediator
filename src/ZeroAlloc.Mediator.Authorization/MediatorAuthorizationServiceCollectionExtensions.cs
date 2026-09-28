@@ -56,9 +56,11 @@ public static class MediatorAuthorizationServiceCollectionExtensions
         if (services.Any(d => d.ServiceType == typeof(AuthorizationBehaviorAccessor)))
             return builder;
 
-        // Stash the IServiceProvider into the behavior's static state on first IServiceProvider
-        // construction. Singleton service triggers state init once per provider build.
+        // Stash the IServiceProvider into the behavior's static state. The first IMediator
+        // resolved from the container constructs the accessor through
+        // PipelineBehaviorStateActivation; resolving the accessor directly still works too.
         services.AddSingleton(sp => new AuthorizationBehaviorAccessor(sp));
+        services.AddSingleton<IPipelineBehaviorStateInitializer>(sp => sp.GetRequiredService<AuthorizationBehaviorAccessor>());
 
         return builder;
     }

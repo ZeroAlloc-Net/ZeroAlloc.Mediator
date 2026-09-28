@@ -50,6 +50,17 @@ public class MediatorBuilderTests
     }
 
     [Fact]
+    public void AddMediator_RegistersPipelineBehaviorStateActivation_AsSingleton()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator();
+        services.AddMediator();
+
+        var registration = Assert.Single(services, d => d.ServiceType == typeof(PipelineBehaviorStateActivation));
+        Assert.Equal(ServiceLifetime.Singleton, registration.Lifetime);
+    }
+
+    [Fact]
     public void MediatorBuilder_Construction_IsBackedBySameServiceCollection()
     {
         var services = new ServiceCollection();

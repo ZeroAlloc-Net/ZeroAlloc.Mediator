@@ -9,8 +9,8 @@ public static class MediatorTelemetryServiceCollectionExtensions
 {
     /// <summary>
     /// Marker entry point for fluent composition: <c>services.AddMediator().WithTelemetry()</c>.
-    /// Telemetry is wired automatically by package reference — the <see cref="TelemetryBehavior"/>'s
-    /// <see cref="PipelineBehaviorAttribute"/> is statically discovered by the Mediator source generator.
+    /// Telemetry is wired automatically by package reference — the Mediator source generator
+    /// finds <see cref="TelemetryBehavior"/> in this referenced assembly and puts it in the pipeline.
     /// This method exists for fluent-API consistency with <c>WithCache()</c>, <c>WithValidation()</c>,
     /// and <c>WithResilience()</c>.
     /// </summary>

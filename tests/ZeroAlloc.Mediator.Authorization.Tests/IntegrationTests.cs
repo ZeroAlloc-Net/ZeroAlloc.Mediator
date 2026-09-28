@@ -13,9 +13,9 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 // (end-to-end via IMediator.Send). These complement AuthorizationBehaviorTests,
 // which drives AuthorizationBehavior.Handle directly with a mocked next
 // delegate. The tests here exercise the full chain: DI container build →
-// AuthorizationBehaviorAccessor sets the static → Mediator generator's
-// dispatcher routes IMediator.Send through AuthorizationBehaviorShim →
-// shim forwards to AuthorizationBehavior.Handle → AuthorizerFor + policy +
+// resolving IMediator sets the static through PipelineBehaviorStateActivation →
+// the generated dispatcher routes IMediator.Send through AuthorizationBehavior,
+// found in the referenced assembly → AuthorizerFor + policy +
 // CountingDownstreamBehavior + handler.
 //
 // All three tests use [Collection("non-parallel-authorization")] because
@@ -24,7 +24,7 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 //
 // Swap-test for the ordering assertion's meaningfulness: temporarily change
 // CountingDownstreamBehavior's attribute in TestFixtures.cs to
-// [PipelineBehavior(Order = -2000)] (numerically BEFORE the shim's -1000).
+// [PipelineBehavior(Order = -2000)] (numerically BEFORE AuthorizationBehavior's -1000).
 // The Pipeline_ordering_authorization_runs_before_later_behaviors test must
 // then FAIL with counter.Count == 1 — proving the test catches a real
 // regression in pipeline ordering. Revert after verifying. Recommended any
@@ -43,7 +43,7 @@ public sealed class IntegrationTests
             await mediator.Send(new IntegrationTestRequest(42)));
 
         // Proves ordering: CountingDownstreamBehavior (Order=-500) never ran
-        // because AuthorizationBehaviorShim (Order=-1000) short-circuited
+        // because AuthorizationBehavior (Order=-1000) short-circuited
         // ahead of it via AuthorizationDeniedException.
         Assert.Equal(0, counter.Count);
     }
@@ -71,7 +71,7 @@ public sealed class IntegrationTests
         await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
             await mediator.Send(new IntegrationTestRequest(7)));
 
-        // Handler must NOT have run — the shim short-circuited via the throw.
+        // Handler must NOT have run — authorization short-circuited via the throw.
         Assert.Equal(0, counter.Count);
     }
 
@@ -83,14 +83,8 @@ public sealed class IntegrationTests
         services.AddScoped<ISecurityContextAccessor>(_ => new TestSecurityContextAccessor { Current = ctx });
         services.AddTransient<IntegrationTestHandler>();
         services.AddMediator().WithAuthorization(o => o.UseAccessor<ISecurityContextAccessor>());
-        var sp = services.BuildServiceProvider();
-
-        // Trigger AuthorizationBehaviorAccessor's ctor → sets the static
-        // ServiceProvider so the shim can resolve AuthorizerFor + the
-        // security context per request. Equivalent to what
-        // AuthorizationBehaviorState.ServiceProvider = sp would do via
-        // internals, but goes through the public accessor.
-        _ = sp.GetRequiredService<AuthorizationBehaviorAccessor>();
-        return sp;
+        // No explicit wiring: the first IMediator the tests resolve from this
+        // provider points AuthorizationBehaviorState at it.
+        return services.BuildServiceProvider();
     }
 }

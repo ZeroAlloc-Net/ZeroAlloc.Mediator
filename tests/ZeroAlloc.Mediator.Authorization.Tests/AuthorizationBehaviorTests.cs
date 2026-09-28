@@ -13,15 +13,13 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 // These tests drive AuthorizationBehavior.Handle directly. The DI container is wired the
 // production way — services.AddZeroAllocAuthorization() registers the [Policy] classes and
 // AuthorizerFor<TRequest> dispatchers; services.AddMediator().WithAuthorization(...) stashes
-// the provider into AuthorizationBehaviorState via AuthorizationBehaviorAccessor on the first
-// IServiceProvider build. From there, AuthorizationBehavior.Handle resolves
+// the provider into AuthorizationBehaviorState via AuthorizationBehaviorAccessor when the
+// container first resolves IMediator. From there, AuthorizationBehavior.Handle resolves
 // AuthorizerFor<TRequest> + ISecurityContext on every invocation just like it would inside
 // the source-generated MediatorService pipeline.
 //
-// IMediator-driven integration is intentionally not exercised here: the Mediator generator's
-// pipeline wiring only sees [PipelineBehavior]-decorated types in the *current* compilation,
-// so a cross-assembly behavior like AuthorizationBehavior cannot be wired without a local
-// shim. The behavior contract is identical either way; this file targets the contract.
+// IMediator-driven integration lives in IntegrationTests; this file targets the behavior's
+// contract directly.
 [Collection("non-parallel-authorization")]
 public sealed class AuthorizationBehaviorTests
 {

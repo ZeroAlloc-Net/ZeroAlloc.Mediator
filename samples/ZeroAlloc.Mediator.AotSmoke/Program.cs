@@ -26,6 +26,10 @@ await foreach (var n in Mediator.CreateStream(new CountTo(3), CancellationToken.
 if (total != 6)  // 1+2+3
     return Fail($"CreateStream<CountTo,int> expected total=6, got {total}");
 
+// Before the authorization scenario: that one leaves AuthorizationBehaviorState on a disposed
+// container, which fails closed, and the cache scenario's Send runs AuthorizationBehavior too.
+await ZeroAlloc.Mediator.AotSmoke.Cache.CachedScenario.RunAsync().ConfigureAwait(false);
+
 ZeroAlloc.Mediator.AotSmoke.Authorization.AuthorizedScenario.Run();
 
 Console.WriteLine("AOT smoke: PASS");

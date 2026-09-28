@@ -171,6 +171,34 @@ public class ValidationBehaviorTests : IDisposable
     }
 
     [Fact]
+    public void WithValidation_ResolvingMediator_WiresTheContainer()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator().WithValidation();
+        using var provider = services.BuildServiceProvider();
+
+        _ = provider.GetRequiredService<IMediator>();
+
+        // Singletons receive the root scope, which is what IServiceProvider resolves to at the root.
+        Assert.Same(provider.GetRequiredService<IServiceProvider>(), ValidationBehaviorState.ServiceProvider);
+    }
+
+    [Fact]
+    public void WithValidation_DisposingTheContainer_ClearsState()
+    {
+        var services = new ServiceCollection();
+        services.AddMediator().WithValidation();
+        var provider = services.BuildServiceProvider();
+        _ = provider.GetRequiredService<IMediator>();
+
+        provider.Dispose();
+
+        // Validation then passes through, as it does with no container, instead of resolving
+        // a validator from a disposed provider.
+        Assert.Null(ValidationBehaviorState.ServiceProvider);
+    }
+
+    [Fact]
     public void WithValidation_RegistersAccessor()
     {
         var services = new ServiceCollection();

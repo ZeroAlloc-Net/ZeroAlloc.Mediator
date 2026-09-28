@@ -7,9 +7,14 @@ namespace ZeroAlloc.Mediator.Validation;
 public static class MediatorValidationServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the validation pipeline-behavior accessor.
-    /// Idempotent — safe to call more than once.
+    /// Hands the container to <see cref="ValidationBehavior"/> so it can resolve
+    /// <c>ValidatorFor&lt;TRequest&gt;</c>. Idempotent — safe to call more than once.
     /// </summary>
+    /// <remarks>
+    /// The first <c>IMediator</c> resolved from the built container wires the behavior. An app
+    /// that only dispatches through the static <c>Mediator</c> class resolves
+    /// <see cref="PipelineBehaviorStateActivation"/> once instead.
+    /// </remarks>
     public static IMediatorBuilder WithValidation(this IMediatorBuilder builder)
     {
         var services = builder.Services;
@@ -19,6 +24,7 @@ public static class MediatorValidationServiceCollectionExtensions
             return builder;
 
         services.AddSingleton(sp => new ValidationBehaviorAccessor(sp));
+        services.AddSingleton<IPipelineBehaviorStateInitializer>(sp => sp.GetRequiredService<ValidationBehaviorAccessor>());
 
         return builder;
     }

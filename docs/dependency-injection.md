@@ -197,7 +197,9 @@ Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, 
 
 ## Bridge packages
 
-`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. `RegisterHandlersFromAssembly` is one such extension; cache, validation, resilience, and telemetry are others:
+`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. `RegisterHandlersFromAssembly` is one such extension; cache, validation, resilience, and telemetry are others.
+
+Referencing a bridge package is what puts its behavior into the pipeline: the source generator finds the behavior in the referenced assembly, as described in [Behaviors from Referenced Assemblies](pipeline-behaviors.md#behaviors-from-referenced-assemblies). The `WithXxx()` call registers what the behavior needs at run time, so the two go together:
 
 ```csharp
 services.AddMediator()
@@ -209,6 +211,21 @@ services.AddMediator()
 ```
 
 `AddMediator()` is idempotent (`TryAddTransient`); calling it more than once is safe.
+
+### How a bridge reaches your container
+
+Pipeline behaviors are static, so the generated dispatcher can call them without allocating. A static behavior has no instance to inject into, so each bridge keeps what it needs in static state: the cache bridge keeps an `IMemoryCache`, and the validation and authorization bridges keep the `IServiceProvider` they resolve validators and policies from.
+
+That state is filled from the container your app runs on. Each `WithXxx()` registers an `IPipelineBehaviorStateInitializer`, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton, so the behaviors are wired before the first request with no extra call.
+
+An app that dispatches only through the static `Mediator` class never resolves `IMediator`. It resolves the activation once after building the container:
+
+```csharp
+var provider = services.BuildServiceProvider();
+provider.GetRequiredService<PipelineBehaviorStateActivation>();
+```
+
+The state is process-wide. When one process builds several containers, for example one per integration test, the container that most recently activated is the one the behaviors use. Disposing a container clears the cache and validation state, but only while it still points at that container, so another live container stays wired. The authorization state is not cleared: a request dispatched after its container is disposed throws `ObjectDisposedException` rather than skipping authorization.
 
 ## See also
 
