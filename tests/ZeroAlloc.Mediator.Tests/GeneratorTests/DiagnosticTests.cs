@@ -384,11 +384,8 @@ public class DiagnosticTests
         // `#pragma warning disable ZAM008` and `#pragma warning restore ZAM008`,
         // otherwise the pragma cannot suppress it.
         //
-        // GeneratorTestHelper.RunGenerator returns the *generator-reported*
-        // diagnostics (via RunGeneratorsAndUpdateCompilation), which are
-        // unsuppressed. So we cannot directly assert IsSuppressed = true here
-        // — instead we verify the location falls inside the pragma-disabled
-        // span, which is the prerequisite Roslyn uses to suppress.
+        // RunGeneratorsAndUpdateCompilation passes the generator's diagnostics through the
+        // compilation's filter, which applies the pragma and sets IsSuppressed.
         var source = """
             using ZeroAlloc.Mediator;
             using System.Threading;
@@ -421,6 +418,7 @@ public class DiagnosticTests
 
         var locStart = zam008.Location.SourceSpan.Start;
         Assert.InRange(locStart, disableIdx, restoreIdx);
+        Assert.True(zam008.IsSuppressed);
     }
 
     [Fact]

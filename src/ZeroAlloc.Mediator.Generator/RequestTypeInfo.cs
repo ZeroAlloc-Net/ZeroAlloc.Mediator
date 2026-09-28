@@ -8,17 +8,25 @@ namespace ZeroAlloc.Mediator.Generator
         public string RequestTypeName { get; }
         public string ResponseTypeName { get; }
 
-        public RequestTypeInfo(string requestTypeName, string responseTypeName)
+        /// <summary>
+        /// The request type's identifier in this declaration, for ZAM001 and ZAM003. Part of
+        /// equality, so a cached model never keeps a stale location.
+        /// </summary>
+        public LocationInfo? Location { get; }
+
+        public RequestTypeInfo(string requestTypeName, string responseTypeName, LocationInfo? location)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
+            Location = location;
         }
 
         public bool Equals(RequestTypeInfo? other)
         {
             if (other is null) return false;
             return RequestTypeName == other.RequestTypeName
-                && ResponseTypeName == other.ResponseTypeName;
+                && ResponseTypeName == other.ResponseTypeName
+                && Equals(Location, other.Location);
         }
 
         public override bool Equals(object? obj)
@@ -33,6 +41,7 @@ namespace ZeroAlloc.Mediator.Generator
                 var hash = 17;
                 hash = hash * 31 + RequestTypeName.GetHashCode();
                 hash = hash * 31 + ResponseTypeName.GetHashCode();
+                hash = hash * 31 + (Location?.GetHashCode() ?? 0);
                 return hash;
             }
         }

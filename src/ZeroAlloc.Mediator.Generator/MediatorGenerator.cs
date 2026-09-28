@@ -22,22 +22,34 @@ namespace ZeroAlloc.Mediator.Generator
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            var requestHandlers = context.SyntaxProvider.CreateSyntaxProvider(
+            // The handler models carry the location their diagnostics point at. The emitted source
+            // is built from the same models with the location stripped, so moving a handler
+            // reruns the diagnostics but leaves the emitted source cached.
+            var requestHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
                 transform: static (ctx, ct) => GetRequestHandlerInfo(ctx, ct))
                 .Where(static x => x != null)
+                .WithTrackingName(TrackingNames.RequestHandlers);
+            var requestHandlers = requestHandlerInfos
+                .Select(static (x, _) => (RequestHandlerInfo?)x!.WithoutLocation())
                 .Collect();
 
-            var notificationHandlers = context.SyntaxProvider.CreateSyntaxProvider(
+            var notificationHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
                 transform: static (ctx, ct) => GetNotificationHandlerInfo(ctx, ct))
                 .Where(static x => x != null)
+                .WithTrackingName(TrackingNames.NotificationHandlers);
+            var notificationHandlers = notificationHandlerInfos
+                .Select(static (x, _) => (NotificationHandlerInfo?)x!.WithoutLocation())
                 .Collect();
 
-            var streamHandlers = context.SyntaxProvider.CreateSyntaxProvider(
+            var streamHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
                 transform: static (ctx, ct) => GetStreamHandlerInfo(ctx, ct))
                 .Where(static x => x != null)
+                .WithTrackingName(TrackingNames.StreamHandlers);
+            var streamHandlers = streamHandlerInfos
+                .Select(static (x, _) => (StreamHandlerInfo?)x!.WithoutLocation())
                 .Collect();
 
             // Use ForAttributeWithMetadataName so Roslyn can cache at the per-class level and
@@ -45,21 +57,26 @@ namespace ZeroAlloc.Mediator.Generator
             // Two registrations are needed: one for direct use of the base attribute and one for
             // the ZeroAlloc.Mediator subclass attribute — ForAttributeWithMetadataName matches
             // exact FQNs only (no subclass walk).
-            var pipelineBehaviorsBase = context.SyntaxProvider
+            var sourceBehaviorsBase = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     "ZeroAlloc.Pipeline.PipelineBehaviorAttribute",
                     predicate: static (node, _) => node is ClassDeclarationSyntax,
-                    transform: static (ctx, _) => PipelineBehaviorDiscoverer.FromAttributeSyntaxContext(ctx))
+                    transform: static (ctx, _) => SourceBehaviorInfo.From(ctx))
                 .Where(static x => x != null)
-                .Select(static (x, _) => x!);
+                .Select(static (x, _) => x!)
+                .WithTrackingName(TrackingNames.SourceBehaviors);
 
-            var pipelineBehaviorsMediator = context.SyntaxProvider
+            var sourceBehaviorsMediator = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     "ZeroAlloc.Mediator.PipelineBehaviorAttribute",
                     predicate: static (node, _) => node is ClassDeclarationSyntax,
-                    transform: static (ctx, _) => PipelineBehaviorDiscoverer.FromAttributeSyntaxContext(ctx))
+                    transform: static (ctx, _) => SourceBehaviorInfo.From(ctx))
                 .Where(static x => x != null)
-                .Select(static (x, _) => x!);
+                .Select(static (x, _) => x!)
+                .WithTrackingName(TrackingNames.SourceBehaviors);
+
+            var pipelineBehaviorsBase = sourceBehaviorsBase.Select(static (x, _) => x.Info);
+            var pipelineBehaviorsMediator = sourceBehaviorsMediator.Select(static (x, _) => x.Info);
 
             // Behaviors shipped in referenced assemblies, such as the bridge packages'. The two
             // providers above only see this compilation's syntax trees.
@@ -81,6 +98,7 @@ namespace ZeroAlloc.Mediator.Generator
                 predicate: static (node, _) => node is TypeDeclarationSyntax tds && tds.BaseList != null,
                 transform: static (ctx, ct) => GetRequestTypeInfo(ctx, ct))
                 .Where(static x => x != null)
+                .WithTrackingName(TrackingNames.RequestTypes)
                 .Collect();
 
             // Notification types are discovered independently of their handlers so Publish can be
@@ -93,6 +111,7 @@ namespace ZeroAlloc.Mediator.Generator
                 predicate: static (node, _) => node is TypeDeclarationSyntax tds && tds.BaseList != null,
                 transform: static (ctx, ct) => GetNotificationTypeInfo(ctx, ct))
                 .Where(static x => x != null)
+                .WithTrackingName(TrackingNames.NotificationTypes)
                 .Collect();
 
             // Whether the referenced ZeroAlloc.Mediator runtime has PipelineBehaviorStateActivation.
@@ -106,22 +125,38 @@ namespace ZeroAlloc.Mediator.Generator
                 .Combine(notificationHandlers)
                 .Combine(streamHandlers)
                 .Combine(pipelineBehaviors)
-                .Combine(requestTypes)
                 .Combine(notificationTypes)
-                .Combine(hasStateActivation);
+                .Combine(hasStateActivation)
+                .WithTrackingName(TrackingNames.EmitInputs);
+
+            // Diagnostics have their own output, fed by the located models, so a moved handler
+            // or request reports at its new place without regenerating the source.
+            var diagnosticInputs = requestHandlerInfos.Collect()
+                .Combine(notificationHandlerInfos.Collect())
+                .Combine(streamHandlerInfos.Collect())
+                .Combine(pipelineBehaviors)
+                .Combine(sourceBehaviorsBase.Collect().Combine(sourceBehaviorsMediator.Collect()))
+                .Combine(requestTypes)
+                .WithTrackingName(TrackingNames.DiagnosticInputs);
+
+            context.RegisterSourceOutput(diagnosticInputs, static (spc, data) =>
+                ReportDiagnostics(
+                    spc,
+                    requestHandlers: data.Left.Left.Left.Left.Left,
+                    notificationHandlers: data.Left.Left.Left.Left.Right,
+                    streamHandlers: data.Left.Left.Left.Right,
+                    pipelineBehaviors: data.Left.Left.Right,
+                    sourceBehaviors: data.Left.Right.Left.AddRange(data.Left.Right.Right),
+                    requestTypes: data.Right));
 
             context.RegisterSourceOutput(combined, static (spc, data) =>
             {
-                var requestInfos = data.Left.Left.Left.Left.Left.Left;
-                var notificationInfos = data.Left.Left.Left.Left.Left.Right;
-                var streamInfos = data.Left.Left.Left.Left.Right;
-                var pipelineInfos = data.Left.Left.Left.Right;
-                var requestTypeInfos = data.Left.Left.Right;
+                var requestInfos = data.Left.Left.Left.Left.Left;
+                var notificationInfos = data.Left.Left.Left.Left.Right;
+                var streamInfos = data.Left.Left.Left.Right;
+                var pipelineInfos = data.Left.Left.Right;
                 var notificationTypeNames = data.Left.Right;
                 var activateBehaviorState = data.Right;
-
-                // Report diagnostics
-                ReportDiagnostics(spc, requestInfos, notificationInfos, streamInfos, pipelineInfos, requestTypeInfos);
 
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos, notificationTypeNames, activateBehaviorState);
                 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
@@ -187,7 +222,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    var location = classDecl.Identifier.GetLocation();
+                    var location = LocationInfo.From(classDecl.Identifier.GetLocation());
                     return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location);
                 }
             }
@@ -236,7 +271,7 @@ namespace ZeroAlloc.Mediator.Generator
                     }
 
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    var location = classDecl.Identifier.GetLocation();
+                    var location = LocationInfo.From(classDecl.Identifier.GetLocation());
                     return new NotificationHandlerInfo(
                         notificationType,
                         handlerType,
@@ -323,7 +358,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    var location = classDecl.Identifier.GetLocation();
+                    var location = LocationInfo.From(classDecl.Identifier.GetLocation());
                     return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location);
                 }
             }
@@ -351,7 +386,7 @@ namespace ZeroAlloc.Mediator.Generator
                 {
                     var requestType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
-                    return new RequestTypeInfo(requestType, responseType);
+                    return new RequestTypeInfo(requestType, responseType, LocationInfo.From(typeDecl.Identifier.GetLocation()));
                 }
             }
 
@@ -364,86 +399,127 @@ namespace ZeroAlloc.Mediator.Generator
             ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
             ImmutableArray<StreamHandlerInfo?> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
+            ImmutableArray<SourceBehaviorInfo> sourceBehaviors,
             ImmutableArray<RequestTypeInfo?> requestTypes)
         {
             var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
             var validNotificationHandlers = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
             var validStreamHandlers = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
 
-            // ZAM001: No registered handler for a request type
-            var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
-            var validRequestTypes = requestTypes.Where(x => x != null).Select(x => x!).ToList();
-            foreach (var requestType in validRequestTypes)
+            // A partial request type is described once per declaration that has a base list. Its
+            // first declaration stands for it, so each rule reports it once.
+            var requestTypeByName = new Dictionary<string, RequestTypeInfo>(StringComparer.Ordinal);
+            foreach (var requestType in requestTypes)
             {
+                if (requestType == null) continue;
+                if (!requestTypeByName.TryGetValue(requestType.RequestTypeName, out var known)
+                    || LocationInfo.Compare(requestType.Location, known.Location) < 0)
+                {
+                    requestTypeByName[requestType.RequestTypeName] = requestType;
+                }
+            }
+
+            // ZAM001: No registered handler for a request type. At the request type.
+            var handledRequestTypes = new HashSet<string>(validHandlers.Select(h => h.RequestTypeName));
+            foreach (var requestType in requestTypes)
+            {
+                if (requestType == null || !ReferenceEquals(requestTypeByName[requestType.RequestTypeName], requestType))
+                    continue;
                 if (!handledRequestTypes.Contains(requestType.RequestTypeName))
                 {
                     spc.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.NoHandler,
-                        Location.None,
+                        LocationInfo.ToLocation(requestType.Location),
                         requestType.RequestTypeName));
                 }
             }
 
-            // ZAM002: Duplicate handlers for the same request type
+            // ZAM002: Duplicate handlers for the same request type. At the later handler, with
+            // the others as additional locations.
             var grouped = validHandlers.GroupBy(h => h.RequestTypeName).ToList();
             foreach (var group in grouped)
             {
-                if (group.Count() > 1)
+                var handlers = group.OrderBy(h => h.HandlerLocation, LocationInfo.Order).ToList();
+                if (handlers.Count > 1)
                 {
                     var handlerNames = string.Join(", ", group.Select(h => h.HandlerTypeName));
                     spc.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.DuplicateHandler,
-                        Location.None,
+                        LocationInfo.ToLocation(handlers[handlers.Count - 1].HandlerLocation),
+                        ToLocations(handlers.Take(handlers.Count - 1).Select(h => h.HandlerLocation)),
                         group.Key,
                         handlerNames));
                 }
             }
 
-            // ZAM003: Request type is a class (not a value type)
+            // ZAM003: Request type is a class (not a value type). At the request type when it is
+            // declared in this compilation, otherwise at the handler, the code here that uses it.
             var seenRequestTypes = new HashSet<string>();
             foreach (var handler in validHandlers)
             {
                 if (!handler.IsRequestValueType && seenRequestTypes.Add(handler.RequestTypeName))
                 {
+                    var location = requestTypeByName.TryGetValue(handler.RequestTypeName, out var requestType)
+                        ? requestType.Location
+                        : handler.HandlerLocation;
                     spc.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.ClassRequest,
-                        Location.None,
+                        LocationInfo.ToLocation(location),
                         handler.RequestTypeName));
                 }
             }
 
-            // ZAM005: Missing behavior Handle method (2 type params expected for Send pipeline)
+            // Behaviors declared in this compilation have a place to report at. A referenced one
+            // has none here, and only takes part in the order check.
+            var sourceBehaviorByName = new Dictionary<string, SourceBehaviorInfo>(StringComparer.Ordinal);
+            foreach (var behavior in sourceBehaviors)
+            {
+                if (!sourceBehaviorByName.ContainsKey(behavior.Info.BehaviorTypeName))
+                    sourceBehaviorByName.Add(behavior.Info.BehaviorTypeName, behavior);
+            }
+
+            // ZAM005: Missing behavior Handle method (2 type params expected for Send pipeline).
+            // At the behavior class.
             var validBehaviors = pipelineBehaviors.ToList();
             foreach (var behavior in PipelineDiagnosticRules.FindMissingHandleMethod(validBehaviors, expectedTypeParamCount: 2))
             {
+                sourceBehaviorByName.TryGetValue(behavior.BehaviorTypeName, out var declared);
                 spc.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.MissingBehaviorHandleMethod,
-                    Location.None,
+                    LocationInfo.ToLocation(declared?.TypeLocation),
                     behavior.BehaviorTypeName));
             }
 
-            // ZAM006: Duplicate behavior order
+            // ZAM006: Duplicate behavior order. At the later attribute that sets the order, with
+            // the others declared here as additional locations. A tie between referenced behaviors
+            // only is not in this compilation's code, and has no location.
             foreach (var group in PipelineDiagnosticRules.FindDuplicateOrders(validBehaviors))
             {
                 var behaviorNames = string.Join(", ", group.Select(b => b.BehaviorTypeName));
+                var attributes = group
+                    .Select(b => sourceBehaviorByName.TryGetValue(b.BehaviorTypeName, out var declared) ? declared.AttributeLocation : null)
+                    .Where(l => l != null)
+                    .OrderBy(l => l, LocationInfo.Order)
+                    .ToList();
                 spc.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.DuplicateBehaviorOrder,
-                    Location.None,
+                    attributes.Count > 0 ? attributes[attributes.Count - 1]!.ToLocation() : Location.None,
+                    ToLocations(attributes.Take(Math.Max(0, attributes.Count - 1))),
                     behaviorNames,
                     group.Key));
             }
 
-            // ZAM008: Handler has no accessible parameterless constructor.
+            // ZAM008: Handler has no accessible parameterless constructor. At the handler class.
             // A class implementing multiple handler interfaces (e.g. IRequestHandler<X,Y> AND
             // INotificationHandler<Z>) appears in more than one list — deduplicate so the
             // diagnostic fires once per handler type.
             var seenMissingCtor = new HashSet<string>(StringComparer.Ordinal);
-            void ReportIfMissingCtor(string handlerTypeName, Location? location)
+            void ReportIfMissingCtor(string handlerTypeName, LocationInfo? location)
             {
                 if (seenMissingCtor.Add(handlerTypeName))
                     spc.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.HandlerMissingParameterlessConstructor,
-                        location ?? Location.None,
+                        LocationInfo.ToLocation(location),
                         handlerTypeName));
             }
 
@@ -454,6 +530,9 @@ namespace ZeroAlloc.Mediator.Generator
             foreach (var h in validStreamHandlers.Where(x => !x.HasParameterlessConstructor))
                 ReportIfMissingCtor(h.HandlerTypeName, h.HandlerLocation);
         }
+
+        private static IEnumerable<Location> ToLocations(IEnumerable<LocationInfo?> locations) =>
+            locations.Where(l => l != null).Select(l => l!.ToLocation());
 
         private static string GenerateServiceCollectionExtensions(bool activateBehaviorState)
         {

@@ -190,9 +190,22 @@ ZAM004 and ZAM007 were declared by the generator but never reported, and 6.0 rem
 
 The IDs are retired, not reused. A `#pragma warning disable` or `NoWarn` entry for either ID never had any effect and can be deleted. See [Migrating to 6.0](migrating-to-v6.md).
 
+## Where each diagnostic is reported
+
+Every diagnostic points at the code it is about, so the IDE can take you there and a `#pragma` around that code suppresses that one case:
+
+| Code | Reported at |
+|------|-------------|
+| ZAM001 | The request type's name |
+| ZAM002 | The later handler's class name, with the other handlers as additional locations |
+| ZAM003 | The request type's name, or the handler's class name when the request type is declared in another assembly |
+| ZAM005 | The behavior's class name |
+| ZAM006 | The later `[PipelineBehavior]` attribute, with the other tied behaviors in this project as additional locations. A tie between behaviors from referenced assemblies only has no location in your code. |
+| ZAM008 | The handler's class name |
+
 ## Suppressing Warnings
 
-If you intentionally use a class request type (ZAM003) or have duplicate Order values (ZAM006) for a valid reason, suppress with `#pragma`:
+If you intentionally use a class request type (ZAM003) or have duplicate Order values (ZAM006) for a valid reason, suppress with `#pragma` around the location in the table above:
 
 ```csharp
 #pragma warning disable ZAM003

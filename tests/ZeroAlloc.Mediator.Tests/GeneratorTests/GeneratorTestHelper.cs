@@ -35,6 +35,35 @@ internal static class GeneratorTestHelper
         return (output, diagnostics);
     }
 
+    /// <summary>The file path given to the source tree by <see cref="RunGeneratorOnFile"/>.</summary>
+    public const string TestFilePath = "/src/App.cs";
+
+    /// <summary>
+    /// Runs the generator on a source tree that has the file path <see cref="TestFilePath"/>, so a
+    /// test can assert the file of a diagnostic's location. The returned diagnostics went through
+    /// the compilation's filter, so a diagnostic inside <c>#pragma warning disable</c> has
+    /// <see cref="Diagnostic.IsSuppressed"/> set.
+    /// </summary>
+    public static (string output, ImmutableArray<Diagnostic> diagnostics) RunGeneratorOnFile(string source)
+    {
+        var compilation = CreateCompilation([CSharpSyntaxTree.ParseText(source, path: TestFilePath)]);
+
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.MediatorGenerator());
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        var output = string.Join("\n", outputCompilation.SyntaxTrees
+            .Where(t => t.FilePath.Contains("ZeroAlloc"))
+            .Select(t => t.GetText().ToString()));
+        return (output, diagnostics);
+    }
+
+    public static CSharpCompilation CreateCompilation(IEnumerable<SyntaxTree> trees) =>
+        CSharpCompilation.Create(
+            "TestAssembly",
+            trees,
+            BaseReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
     // Every loaded assembly, minus this repo's own apart from the ZeroAlloc.Mediator runtime.
     // The generator puts public pipeline behaviors from referenced assemblies into the pipeline,
     // so letting the bridge packages, this test assembly or the samples in would add their
