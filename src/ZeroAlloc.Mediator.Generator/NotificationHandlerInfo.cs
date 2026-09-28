@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using Microsoft.CodeAnalysis;
 
 namespace ZeroAlloc.Mediator.Generator
 {
@@ -19,10 +18,8 @@ namespace ZeroAlloc.Mediator.Generator
         /// <summary>
         /// Source location of the handler class identifier. See
         /// <see cref="RequestHandlerInfo.HandlerLocation"/>.
-        /// Excluded from equality so source-position changes do not bust
-        /// the incremental cache.
         /// </summary>
-        public Location? HandlerLocation { get; }
+        public LocationInfo? HandlerLocation { get; }
 
         public NotificationHandlerInfo(
             string notificationTypeName,
@@ -31,7 +28,7 @@ namespace ZeroAlloc.Mediator.Generator
             bool isBaseHandler,
             string baseNotificationTypeNames,
             bool hasParameterlessConstructor,
-            Location? handlerLocation)
+            LocationInfo? handlerLocation)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
@@ -50,8 +47,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && IsParallel == other.IsParallel
                 && IsBaseHandler == other.IsBaseHandler
                 && BaseNotificationTypeNames == other.BaseNotificationTypeNames
-                && HasParameterlessConstructor == other.HasParameterlessConstructor;
+                && HasParameterlessConstructor == other.HasParameterlessConstructor
+                && Equals(HandlerLocation, other.HandlerLocation);
         }
+
+        /// <summary>This model without its location, for the emitted source.</summary>
+        public NotificationHandlerInfo WithoutLocation() =>
+            HandlerLocation is null
+                ? this
+                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null);
 
         public override bool Equals(object? obj)
         {
@@ -69,6 +73,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + IsBaseHandler.GetHashCode();
                 hash = hash * 31 + BaseNotificationTypeNames.GetHashCode();
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
+                hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
                 return hash;
             }
         }

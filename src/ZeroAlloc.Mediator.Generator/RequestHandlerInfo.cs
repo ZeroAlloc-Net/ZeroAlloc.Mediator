@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using Microsoft.CodeAnalysis;
 
 namespace ZeroAlloc.Mediator.Generator
 {
@@ -13,15 +12,15 @@ namespace ZeroAlloc.Mediator.Generator
         public bool HasParameterlessConstructor { get; }
         /// <summary>
         /// Source location of the handler class identifier, used to scope
-        /// ZAM008 (and friends) so <c>#pragma warning disable</c> and
+        /// ZAM002, ZAM003 and ZAM008 so <c>#pragma warning disable</c> and
         /// <c>[SuppressMessage]</c> can target the offending handler.
-        /// Excluded from <see cref="Equals(RequestHandlerInfo?)"/> /
-        /// <see cref="GetHashCode"/> so trivial source movements do not
-        /// invalidate the incremental generator cache.
+        /// Part of equality, so a cached model never keeps a stale location. The emitted
+        /// source is built from <see cref="WithoutLocation"/>, so a moved handler does not
+        /// regenerate it.
         /// </summary>
-        public Location? HandlerLocation { get; }
+        public LocationInfo? HandlerLocation { get; }
 
-        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, Location? handlerLocation)
+        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, LocationInfo? handlerLocation)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
@@ -31,6 +30,12 @@ namespace ZeroAlloc.Mediator.Generator
             HandlerLocation = handlerLocation;
         }
 
+        /// <summary>This model without its location, for the emitted source.</summary>
+        public RequestHandlerInfo WithoutLocation() =>
+            HandlerLocation is null
+                ? this
+                : new RequestHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, IsRequestValueType, HasParameterlessConstructor, null);
+
         public bool Equals(RequestHandlerInfo? other)
         {
             if (other is null) return false;
@@ -38,7 +43,8 @@ namespace ZeroAlloc.Mediator.Generator
                 && ResponseTypeName == other.ResponseTypeName
                 && HandlerTypeName == other.HandlerTypeName
                 && IsRequestValueType == other.IsRequestValueType
-                && HasParameterlessConstructor == other.HasParameterlessConstructor;
+                && HasParameterlessConstructor == other.HasParameterlessConstructor
+                && Equals(HandlerLocation, other.HandlerLocation);
         }
 
         public override bool Equals(object? obj)
@@ -56,6 +62,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + HandlerTypeName.GetHashCode();
                 hash = hash * 31 + IsRequestValueType.GetHashCode();
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
+                hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
                 return hash;
             }
         }
