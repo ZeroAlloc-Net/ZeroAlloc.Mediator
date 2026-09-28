@@ -14,6 +14,8 @@ ZeroAlloc.Mediator.INotification
 ZeroAlloc.Mediator.INotificationHandler<TNotification>
 ZeroAlloc.Mediator.INotificationHandler<TNotification>.Handle(TNotification notification, System.Threading.CancellationToken ct) -> System.Threading.Tasks.ValueTask
 ZeroAlloc.Mediator.IPipelineBehavior
+ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer
+ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer.Initialize() -> void
 ZeroAlloc.Mediator.IRequest
 ZeroAlloc.Mediator.IRequest<TResponse>
 ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>
@@ -29,6 +31,8 @@ ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
 ZeroAlloc.Mediator.PipelineBehaviorAttribute.PipelineBehaviorAttribute(int order = 0) -> void
+ZeroAlloc.Mediator.PipelineBehaviorStateActivation
+ZeroAlloc.Mediator.PipelineBehaviorStateActivation.PipelineBehaviorStateActivation(System.Collections.Generic.IEnumerable<ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer!>! initializers) -> void
 ZeroAlloc.Mediator.Unit
 ZeroAlloc.Mediator.Unit.Equals(ZeroAlloc.Mediator.Unit other) -> bool
 ZeroAlloc.Mediator.Unit.Unit() -> void
