@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.0...v6.0.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **cache:** stop WithCache from handing CacheBehavior a disposed MemoryCache ([ef494f0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ef494f0a8304a55c3d644ba81ddec2393df6b377))
+* **generator:** run pipeline behaviors that live in referenced assemblies ([ef494f0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ef494f0a8304a55c3d644ba81ddec2393df6b377))
+* mark released analyzer rules and public api as shipped and automate the move ([#232](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/232)) ([27170b5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/27170b5c50e9810c78ff92f450a53dcefdea3e45))
+* open one mediator.send span per Send when the Telemetry package is referenced ([#240](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/240)) ([d1cab86](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/d1cab86bf47c64912f73fc67f3ec42c070a85b7b)), closes [#236](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/236)
+* report ZAM diagnostics at the type or attribute they are about ([#239](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/239)) ([52fac6b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/52fac6b1abe326e1c0a636007ee9cdb4b7e00825))
+
 ## [6.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v5.1.5...v6.0.0) (2026-09-27)
 
 

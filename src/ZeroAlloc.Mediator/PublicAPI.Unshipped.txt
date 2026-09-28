@@ -1,5 +1,1 @@
 #nullable enable
-ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer
-ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer.Initialize() -> void
-ZeroAlloc.Mediator.PipelineBehaviorStateActivation
-ZeroAlloc.Mediator.PipelineBehaviorStateActivation.PipelineBehaviorStateActivation(System.Collections.Generic.IEnumerable<ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer!>! initializers) -> void
