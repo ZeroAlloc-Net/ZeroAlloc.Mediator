@@ -1,0 +1,12 @@
+#nullable enable
+static ZeroAlloc.Mediator.Cache.CacheBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
+static ZeroAlloc.Mediator.Cache.MediatorCacheServiceCollectionExtensions.WithCache(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
+ZeroAlloc.Mediator.Cache.CacheBehavior
+ZeroAlloc.Mediator.Cache.CacheBehavior.CacheBehavior() -> void
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute.CacheResponseAttribute() -> void
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute.Sliding.get -> bool
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute.Sliding.init -> void
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute.TtlMs.get -> int
+ZeroAlloc.Mediator.Cache.CacheResponseAttribute.TtlMs.init -> void
+ZeroAlloc.Mediator.Cache.MediatorCacheServiceCollectionExtensions

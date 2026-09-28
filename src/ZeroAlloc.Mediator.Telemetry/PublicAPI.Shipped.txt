@@ -1,0 +1,6 @@
+#nullable enable
+static ZeroAlloc.Mediator.Telemetry.MediatorTelemetryServiceCollectionExtensions.WithTelemetry(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
+static ZeroAlloc.Mediator.Telemetry.TelemetryBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
+ZeroAlloc.Mediator.Telemetry.MediatorTelemetryServiceCollectionExtensions
+ZeroAlloc.Mediator.Telemetry.TelemetryBehavior
+ZeroAlloc.Mediator.Telemetry.TelemetryBehavior.TelemetryBehavior() -> void
