@@ -1,0 +1,16 @@
+#nullable enable
+override ZeroAlloc.Mediator.Validation.ValidationError.ToString() -> string!
+static ZeroAlloc.Mediator.Validation.MediatorValidationServiceCollectionExtensions.WithValidation(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
+static ZeroAlloc.Mediator.Validation.ValidationBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
+ZeroAlloc.Mediator.Validation.MediatorValidationServiceCollectionExtensions
+ZeroAlloc.Mediator.Validation.ValidationBehavior
+ZeroAlloc.Mediator.Validation.ValidationBehavior.ValidationBehavior() -> void
+ZeroAlloc.Mediator.Validation.ValidationError
+ZeroAlloc.Mediator.Validation.ValidationError.Failures.get -> ZeroAlloc.Validation.ValidationFailure[]!
+ZeroAlloc.Mediator.Validation.ValidationError.ValidationError() -> void
+ZeroAlloc.Mediator.Validation.ValidationError.ValidationError(ZeroAlloc.Validation.ValidationFailure[]! failures) -> void
+ZeroAlloc.Mediator.Validation.ValidationFailedException
+ZeroAlloc.Mediator.Validation.ValidationFailedException.Error.get -> ZeroAlloc.Mediator.Validation.ValidationError
+ZeroAlloc.Mediator.Validation.ValidationFailedException.ValidationFailedException(ZeroAlloc.Mediator.Validation.ValidationError error) -> void
+ZeroAlloc.Mediator.Validation.ValidationFailedException.ValidationFailedException(ZeroAlloc.Mediator.Validation.ValidationError error, string! message) -> void
+ZeroAlloc.Mediator.Validation.ValidationFailedException.ValidationFailedException(ZeroAlloc.Mediator.Validation.ValidationError error, string! message, System.Exception! inner) -> void

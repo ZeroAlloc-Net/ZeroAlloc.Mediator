@@ -1,0 +1,28 @@
+#nullable enable
+static ZeroAlloc.Mediator.Resilience.MediatorResilienceServiceCollectionExtensions.WithResilience(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
+static ZeroAlloc.Mediator.Resilience.ResilienceBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.HalfOpenProbes.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.HalfOpenProbes.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.MaxFailures.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.MaxFailures.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.MediatorCircuitBreakerAttribute() -> void
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.ResetMs.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.ResetMs.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorResilienceServiceCollectionExtensions
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.BackoffMs.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.BackoffMs.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.Jitter.get -> bool
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.Jitter.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.MaxAttempts.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.MaxAttempts.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.MediatorRetryAttribute() -> void
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.PerAttemptTimeoutMs.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorRetryAttribute.PerAttemptTimeoutMs.init -> void
+ZeroAlloc.Mediator.Resilience.MediatorTimeoutAttribute
+ZeroAlloc.Mediator.Resilience.MediatorTimeoutAttribute.MediatorTimeoutAttribute() -> void
+ZeroAlloc.Mediator.Resilience.MediatorTimeoutAttribute.Ms.get -> int
+ZeroAlloc.Mediator.Resilience.MediatorTimeoutAttribute.Ms.init -> void
+ZeroAlloc.Mediator.Resilience.ResilienceBehavior
+ZeroAlloc.Mediator.Resilience.ResilienceBehavior.ResilienceBehavior() -> void
