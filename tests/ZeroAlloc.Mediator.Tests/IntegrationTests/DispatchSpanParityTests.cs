@@ -39,6 +39,21 @@ public sealed class UnresolvableSpanStreamHandler : IStreamRequestHandler<Unreso
     }
 }
 
+public readonly record struct SpanParityRequest(int Value) : IRequest<int>;
+
+public sealed class SpanParityRequestHandler : IRequestHandler<SpanParityRequest, int>
+{
+    public ValueTask<int> Handle(SpanParityRequest request, CancellationToken ct) => ValueTask.FromResult(request.Value + 1);
+}
+
+public readonly record struct FailingSpanParityRequest(int Value) : IRequest<int>;
+
+public sealed class FailingSpanParityRequestHandler : IRequestHandler<FailingSpanParityRequest, int>
+{
+    public ValueTask<int> Handle(FailingSpanParityRequest request, CancellationToken ct)
+        => throw new TimeoutException("request failed");
+}
+
 public readonly record struct SpanParityNotification(int Value) : INotification;
 
 public sealed class SpanParityNotificationHandler : INotificationHandler<SpanParityNotification>
@@ -55,11 +70,55 @@ public sealed class FailingSpanParityNotificationHandler : INotificationHandler<
 }
 
 // #238: the static Mediator and the injected IMediator must emit the same span for every dispatch
-// kind: same name, same tags, same error status. These run with and without the Telemetry package,
-// because the spans come from the generated dispatch methods, not from a pipeline behavior.
+// kind: same name, same tags, same error status. A span that ends in error also carries
+// error.type, the exception's full type name, as the metrics do; a success span does not.
+// These run without the Telemetry package, because the spans come from the generated dispatch
+// methods, not from a pipeline behavior.
 public class DispatchSpanParityTests
 {
     public static TheoryData<string> Paths => new() { "static", "IMediator" };
+
+    [Theory]
+    [MemberData(nameof(Paths))]
+    public async Task Send_OpensExactlyOneSendSpan(string path)
+    {
+        using var capture = new SpanCapture();
+        using var sp = BuildProvider();
+
+        var result = string.Equals(path, "static", StringComparison.Ordinal)
+            ? await Mediator.Send(new SpanParityRequest(41), CancellationToken.None)
+            : await sp.GetRequiredService<IMediator>().Send(new SpanParityRequest(41), CancellationToken.None);
+
+        Assert.Equal(42, result);
+        var activity = Assert.Single(capture.Spans("mediator.send", "request.type", "SpanParityRequest"));
+        Assert.Null(activity.Parent);
+        Assert.Equal(ActivityStatusCode.Unset, activity.Status);
+        Assert.Equal(
+            new[] { new KeyValuePair<string, string?>("request.type", "SpanParityRequest") },
+            activity.Tags.ToArray());
+    }
+
+    [Theory]
+    [MemberData(nameof(Paths))]
+    public async Task Send_OnHandlerException_MarksTheSendSpanAsError_WithErrorType(string path)
+    {
+        using var capture = new SpanCapture();
+        using var sp = BuildProvider();
+
+        var thrown = await Assert.ThrowsAsync<TimeoutException>(async () =>
+        {
+            if (string.Equals(path, "static", StringComparison.Ordinal))
+                await Mediator.Send(new FailingSpanParityRequest(1), CancellationToken.None).ConfigureAwait(false);
+            else
+                await sp.GetRequiredService<IMediator>().Send(new FailingSpanParityRequest(1), CancellationToken.None).ConfigureAwait(false);
+        });
+
+        Assert.Equal("request failed", thrown.Message);
+        var activity = Assert.Single(capture.Spans("mediator.send", "request.type", "FailingSpanParityRequest"));
+        Assert.Equal(ActivityStatusCode.Error, activity.Status);
+        Assert.Equal("request failed", activity.StatusDescription);
+        Assert.Equal("System.TimeoutException", activity.GetTagItem("error.type"));
+    }
 
     [Theory]
     [MemberData(nameof(Paths))]
@@ -89,7 +148,7 @@ public class DispatchSpanParityTests
 
     [Theory]
     [MemberData(nameof(Paths))]
-    public void CreateStream_WhenTheHandlerCannotBeCreated_MarksTheStreamSpanAsError(string path)
+    public void CreateStream_WhenTheHandlerCannotBeCreated_MarksTheStreamSpanAsError_WithErrorType(string path)
     {
         using var capture = new SpanCapture();
         using var sp = BuildProvider();
@@ -103,6 +162,7 @@ public class DispatchSpanParityTests
         var activity = Assert.Single(capture.Spans("mediator.stream", "request.type", "UnresolvableSpanStream"));
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Equal("handler construction failed", activity.StatusDescription);
+        Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
     }
 
     [Theory]
@@ -127,7 +187,7 @@ public class DispatchSpanParityTests
 
     [Theory]
     [MemberData(nameof(Paths))]
-    public async Task Publish_OnHandlerException_MarksThePublishSpanAsError(string path)
+    public async Task Publish_OnHandlerException_MarksThePublishSpanAsError_WithErrorType(string path)
     {
         using var capture = new SpanCapture();
         using var sp = BuildProvider();
@@ -144,12 +204,15 @@ public class DispatchSpanParityTests
         var activity = Assert.Single(capture.Spans("mediator.publish", "notification.type", "FailingSpanParityNotification"));
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Equal("notification failed", activity.StatusDescription);
+        Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
     }
 
     private static ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
         services.AddMediator();
+        services.AddTransient<SpanParityRequestHandler>();
+        services.AddTransient<FailingSpanParityRequestHandler>();
         services.AddTransient<SpanParityStreamHandler>();
         services.AddTransient<UnresolvableSpanStreamHandler>();
         services.AddTransient<SpanParityNotificationHandler>();

@@ -45,6 +45,7 @@ public class SendSpanTests
         Assert.Null(activity.Parent);
         Assert.Equal("SpanProbe", activity.GetTagItem("request.type"));
         Assert.Null(activity.GetTagItem("mediator.request_type"));
+        Assert.Null(activity.GetTagItem("error.type"));
 
         // #238: a success is counted without an error.type tag, on both instruments.
         var count = Assert.Single(metrics.RequestsTotal);
@@ -69,6 +70,7 @@ public class SendSpanTests
         Assert.Null(activity.Parent);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Equal("probe failed", activity.StatusDescription);
+        Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
 
         // #238: a failure is counted too, tagged error.type with the exception's full type name,
         // and the histogram carries the same tag so the two instruments stay consistent.

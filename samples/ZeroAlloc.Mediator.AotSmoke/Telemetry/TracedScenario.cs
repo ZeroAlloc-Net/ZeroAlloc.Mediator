@@ -93,6 +93,8 @@ public static class TracedScenario
         var failedSpans = spans.FindAll(a => string.Equals(a.GetTagItem("request.type") as string, "FailingPing", StringComparison.Ordinal));
         if (failedSpans.Count != 1 || failedSpans[0].Status != ActivityStatusCode.Error)
             throw new InvalidOperationException("Telemetry: expected 1 mediator.send span for FailingPing marked Error");
+        if (!string.Equals(failedSpans[0].GetTagItem("error.type") as string, "System.InvalidOperationException", StringComparison.Ordinal))
+            throw new InvalidOperationException("Telemetry: FailingPing span is missing error.type=System.InvalidOperationException");
     }
 
     private static void AssertMetrics(List<string> counts, List<string> durations)

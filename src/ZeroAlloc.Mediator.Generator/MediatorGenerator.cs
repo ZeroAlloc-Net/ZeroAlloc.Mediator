@@ -743,11 +743,7 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             sb.AppendLine("            }");
-            sb.AppendLine("            catch (global::System.Exception __ex)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-            sb.AppendLine("                throw;");
-            sb.AppendLine("            }");
+            EmitSpanErrorCatch(sb);
             sb.AppendLine("        }");
             sb.AppendLine();
         }
@@ -815,11 +811,7 @@ namespace ZeroAlloc.Mediator.Generator
                     }
                     sb.AppendLine("                );");
                     sb.AppendLine("            }");
-                    sb.AppendLine("            catch (global::System.Exception __ex)");
-                    sb.AppendLine("            {");
-                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                    sb.AppendLine("                throw;");
-                    sb.AppendLine("            }");
+                    EmitSpanErrorCatch(sb);
                     sb.AppendLine("        }");
                 }
                 else
@@ -843,11 +835,7 @@ namespace ZeroAlloc.Mediator.Generator
                     }
 
                     sb.AppendLine("            }");
-                    sb.AppendLine("            catch (global::System.Exception __ex)");
-                    sb.AppendLine("            {");
-                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                    sb.AppendLine("                throw;");
-                    sb.AppendLine("            }");
+                    EmitSpanErrorCatch(sb);
                     sb.AppendLine("        }");
                 }
 
@@ -869,6 +857,24 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
         }
 
+        // The catch that ends every generated dispatch span: Send, Publish and CreateStream, on
+        // both the static Mediator and MediatorService, so none of them can drift. It marks the
+        // span as an error and tags error.type with the exception's fully-qualified type name,
+        // the same value TelemetryBehavior puts on its metrics. That follows the OpenTelemetry
+        // convention for recording errors: error.type is present only when the operation fails.
+        private static void EmitSpanErrorCatch(StringBuilder sb)
+        {
+            sb.AppendLine("            catch (global::System.Exception __ex)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                if (__activity is not null)");
+            sb.AppendLine("                {");
+            sb.AppendLine("                    __activity.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+            sb.AppendLine("                    __activity.SetTag(\"error.type\", __ex.GetType().FullName ?? \"_OTHER\");");
+            sb.AppendLine("                }");
+            sb.AppendLine("                throw;");
+            sb.AppendLine("            }");
+        }
+
         // The body of CreateStream on both the static Mediator and MediatorService, so the two
         // paths cannot drift apart again (#238). The span covers only creating the stream —
         // resolving the handler and calling Handle — not enumerating it: "dispatch" semantics.
@@ -882,11 +888,7 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine(string.Format("                var handler = {0};", handlerExpression));
             sb.AppendLine("                return handler.Handle(request, ct);");
             sb.AppendLine("            }");
-            sb.AppendLine("            catch (global::System.Exception __ex)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-            sb.AppendLine("                throw;");
-            sb.AppendLine("            }");
+            EmitSpanErrorCatch(sb);
         }
 
         // Emits Mediator.Configure(Action<MediatorConfig>). The MediatorConfig instance has no
@@ -1209,11 +1211,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
 
                 sb.AppendLine("            }");
-                sb.AppendLine("            catch (global::System.Exception __ex)");
-                sb.AppendLine("            {");
-                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                sb.AppendLine("                throw;");
-                sb.AppendLine("            }");
+                EmitSpanErrorCatch(sb);
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -1287,11 +1285,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
 
                 sb.AppendLine("            }");
-                sb.AppendLine("            catch (global::System.Exception __ex)");
-                sb.AppendLine("            {");
-                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                sb.AppendLine("                throw;");
-                sb.AppendLine("            }");
+                EmitSpanErrorCatch(sb);
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }

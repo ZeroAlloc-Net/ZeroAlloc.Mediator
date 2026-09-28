@@ -21,7 +21,8 @@ namespace ZeroAlloc.Mediator.Telemetry;
 /// This behavior does not open a trace span. The generated <c>Send</c> already opens one
 /// <c>mediator.send</c> activity on the <c>ZeroAlloc.Mediator</c> activity source, with or without
 /// this package, tagged <c>request.type</c> with the request's simple type name and marked as an
-/// error when the request throws. This behavior runs inside that span.
+/// error, tagged with the same <c>error.type</c> value as the metrics below, when the request
+/// throws. This behavior runs inside that span.
 /// </para>
 /// <para>
 /// A request that throws is recorded on both instruments with an <c>error.type</c> tag set to the
