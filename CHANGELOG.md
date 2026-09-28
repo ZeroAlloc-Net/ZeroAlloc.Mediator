@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.0.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.1...v6.0.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* count failed requests in mediator.requests_total, tagged error.type ([c34054c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c34054c47a8fa3d3e66ea4935e195e26c3fc16c4))
+* open the mediator.stream span on IMediator.CreateStream and mark it on failure ([c34054c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c34054c47a8fa3d3e66ea4935e195e26c3fc16c4))
+* tag error.type on mediator spans that end in error ([c34054c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c34054c47a8fa3d3e66ea4935e195e26c3fc16c4))
+
 ## [6.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.0...v6.0.1) (2026-09-28)
 
 
