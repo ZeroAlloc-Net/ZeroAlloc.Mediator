@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -91,6 +92,36 @@ public class TelemetryBehaviorTests
 
         Assert.Equal(2, measurements.Count);
         Assert.All(measurements, m => Assert.Equal(1L, m));
+    }
+
+    [Fact]
+    public async Task Handle_OnException_CountsTheRequest_TaggedWithErrorType()
+    {
+        // #238: requests_total counts every request; a failure carries error.type on both
+        // instruments, a success carries no tags.
+        var recorded = new List<(string Instrument, KeyValuePair<string, object?>[] Tags)>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (string.Equals(instrument.Meter.Name, "ZeroAlloc.Mediator", StringComparison.Ordinal))
+                    l.EnableMeasurementEvents(instrument);
+            },
+        };
+        meterListener.SetMeasurementEventCallback<long>((instrument, _, tags, _) => recorded.Add((instrument.Name, tags.ToArray())));
+        meterListener.SetMeasurementEventCallback<double>((instrument, _, tags, _) => recorded.Add((instrument.Name, tags.ToArray())));
+        meterListener.Start();
+
+        await Assert.ThrowsAsync<TimeoutException>(() =>
+            TelemetryBehavior.Handle<TestRequest, int>(
+                new TestRequest(1),
+                CancellationToken.None,
+                (_, _) => throw new TimeoutException("slow")).AsTask());
+
+        var errorTag = new KeyValuePair<string, object?>("error.type", "System.TimeoutException");
+        Assert.Equal(
+            new[] { ("mediator.requests_total", errorTag), ("mediator.request_duration_ms", errorTag) },
+            recorded.Select(r => (r.Instrument, Assert.Single(r.Tags))).OrderByDescending(r => r.Instrument, StringComparer.Ordinal).ToArray());
     }
 
     [Fact]

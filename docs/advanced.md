@@ -314,8 +314,10 @@ Referencing `ZeroAlloc.Mediator.Telemetry` adds `TelemetryBehavior` to every req
 
 | Instrument | Type | Recorded |
 |---|---|---|
-| `mediator.requests_total` | `Counter<long>` | 1 per `Send` that completes without an exception |
+| `mediator.requests_total` | `Counter<long>` | 1 per `Send`, including ones that throw |
 | `mediator.request_duration_ms` | `Histogram<double>` | Duration of every `Send`, including ones that throw |
+
+A `Send` that throws is recorded on both instruments with an `error.type` tag: the exception's fully-qualified type name, such as `System.InvalidOperationException`. This follows the OpenTelemetry [convention for recording errors](https://opentelemetry.io/docs/specs/semconv/general/recording-errors/). A `Send` that completes carries no tags, so the error rate is the `error.type`-tagged count over the total count. A cancelled `Send` is a failure too, tagged with its `OperationCanceledException` type.
 
 Neither instrument has a request-type dimension. Notifications and streams do not run pipeline behaviors, so they have spans but no metrics.
 
