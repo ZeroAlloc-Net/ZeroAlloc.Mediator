@@ -300,7 +300,7 @@ public static class TenantBehavior : IPipelineBehavior
 
 ## Tracing and Metrics
 
-The generated dispatch methods open one `Activity` per call on the `ZeroAlloc.Mediator` activity source. This happens with or without the `ZeroAlloc.Mediator.Telemetry` package. `Send` and `Publish` open their span on both the static `Mediator` class and the injected `IMediator`; `mediator.stream` is opened only by the static `Mediator.CreateStream`:
+The generated dispatch methods open one `Activity` per call on the `ZeroAlloc.Mediator` activity source. This happens with or without the `ZeroAlloc.Mediator.Telemetry` package. The static `Mediator` class and the injected `IMediator` open the same spans, with the same tags:
 
 | Span | Opened by | Tag |
 |---|---|---|
@@ -308,14 +308,16 @@ The generated dispatch methods open one `Activity` per call on the `ZeroAlloc.Me
 | `mediator.publish` | `Publish` | `notification.type`: simple name of the notification type |
 | `mediator.stream` | `CreateStream` | `request.type`: simple name of the request type |
 
-When a `Send` or `Publish` throws, its span gets `ActivityStatusCode.Error` with the exception message. The `mediator.stream` span covers only creating the stream, not enumerating it.
+When a `Send`, `Publish` or `CreateStream` throws, its span gets `ActivityStatusCode.Error` with the exception message, and an `error.type` tag set to the exception's fully-qualified type name, such as `System.InvalidOperationException`. That is the same value the metrics below carry. A span that succeeds has no `error.type` tag. The `mediator.stream` span covers only creating the stream, which is resolving the handler and calling its `Handle`, not enumerating it.
 
 Referencing `ZeroAlloc.Mediator.Telemetry` adds `TelemetryBehavior` to every request pipeline. It opens no span of its own; it runs inside the `mediator.send` span and records two instruments on the `ZeroAlloc.Mediator` meter:
 
 | Instrument | Type | Recorded |
 |---|---|---|
-| `mediator.requests_total` | `Counter<long>` | 1 per `Send` that completes without an exception |
+| `mediator.requests_total` | `Counter<long>` | 1 per `Send`, including ones that throw |
 | `mediator.request_duration_ms` | `Histogram<double>` | Duration of every `Send`, including ones that throw |
+
+A `Send` that throws is recorded on both instruments with an `error.type` tag: the exception's fully-qualified type name, such as `System.InvalidOperationException`. This follows the OpenTelemetry [convention for recording errors](https://opentelemetry.io/docs/specs/semconv/general/recording-errors/). A `Send` that completes carries no tags, so the error rate is the `error.type`-tagged count over the total count. A cancelled `Send` is a failure too, tagged with its `OperationCanceledException` type.
 
 Neither instrument has a request-type dimension. Notifications and streams do not run pipeline behaviors, so they have spans but no metrics.
 

@@ -45,9 +45,14 @@ public class SendSpanTests
         Assert.Null(activity.Parent);
         Assert.Equal("SpanProbe", activity.GetTagItem("request.type"));
         Assert.Null(activity.GetTagItem("mediator.request_type"));
+        Assert.Null(activity.GetTagItem("error.type"));
 
-        Assert.Equal(new[] { 1L }, metrics.RequestsTotal);
-        Assert.Single(metrics.DurationsMs);
+        // #238: a success is counted without an error.type tag, on both instruments.
+        var count = Assert.Single(metrics.RequestsTotal);
+        Assert.Equal(1L, count.Value);
+        Assert.Null(count.ErrorType);
+        var duration = Assert.Single(metrics.DurationsMs);
+        Assert.Null(duration.ErrorType);
     }
 
     [Theory]
@@ -65,9 +70,15 @@ public class SendSpanTests
         Assert.Null(activity.Parent);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Equal("probe failed", activity.StatusDescription);
+        Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
 
-        Assert.Empty(metrics.RequestsTotal);
-        Assert.Single(metrics.DurationsMs);
+        // #238: a failure is counted too, tagged error.type with the exception's full type name,
+        // and the histogram carries the same tag so the two instruments stay consistent.
+        var count = Assert.Single(metrics.RequestsTotal);
+        Assert.Equal(1L, count.Value);
+        Assert.Equal("System.InvalidOperationException", count.ErrorType);
+        var duration = Assert.Single(metrics.DurationsMs);
+        Assert.Equal("System.InvalidOperationException", duration.ErrorType);
     }
 
     private static async ValueTask<int> SendAsync(string path, SpanProbe request)
@@ -101,8 +112,8 @@ public class SendSpanTests
     {
         private readonly MeterListener _listener;
 
-        public List<long> RequestsTotal { get; } = new();
-        public List<double> DurationsMs { get; } = new();
+        public List<Recorded<long>> RequestsTotal { get; } = new();
+        public List<Recorded<double>> DurationsMs { get; } = new();
 
         public MetricCapture()
         {
@@ -114,19 +125,36 @@ public class SendSpanTests
                         l.EnableMeasurementEvents(instrument);
                 },
             };
-            _listener.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+            _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
             {
                 if (string.Equals(instrument.Name, "mediator.requests_total", StringComparison.Ordinal))
-                    RequestsTotal.Add(value);
+                    RequestsTotal.Add(new Recorded<long>(value, tags.ToArray()));
             });
-            _listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+            _listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
             {
                 if (string.Equals(instrument.Name, "mediator.request_duration_ms", StringComparison.Ordinal))
-                    DurationsMs.Add(value);
+                    DurationsMs.Add(new Recorded<double>(value, tags.ToArray()));
             });
             _listener.Start();
         }
 
         public void Dispose() => _listener.Dispose();
+    }
+
+    // A success carries no tags at all, so its series is the one it always was; a failure carries
+    // exactly one, error.type. ErrorType fails the test on any other tag shape.
+    private readonly record struct Recorded<T>(T Value, KeyValuePair<string, object?>[] Tags)
+    {
+        public string? ErrorType
+        {
+            get
+            {
+                if (Tags.Length == 0)
+                    return null;
+                var tag = Assert.Single(Tags);
+                Assert.Equal("error.type", tag.Key);
+                return Assert.IsType<string>(tag.Value);
+            }
+        }
     }
 }

@@ -743,11 +743,7 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             sb.AppendLine("            }");
-            sb.AppendLine("            catch (global::System.Exception __ex)");
-            sb.AppendLine("            {");
-            sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-            sb.AppendLine("                throw;");
-            sb.AppendLine("            }");
+            EmitSpanErrorCatch(sb);
             sb.AppendLine("        }");
             sb.AppendLine();
         }
@@ -815,11 +811,7 @@ namespace ZeroAlloc.Mediator.Generator
                     }
                     sb.AppendLine("                );");
                     sb.AppendLine("            }");
-                    sb.AppendLine("            catch (global::System.Exception __ex)");
-                    sb.AppendLine("            {");
-                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                    sb.AppendLine("                throw;");
-                    sb.AppendLine("            }");
+                    EmitSpanErrorCatch(sb);
                     sb.AppendLine("        }");
                 }
                 else
@@ -843,11 +835,7 @@ namespace ZeroAlloc.Mediator.Generator
                     }
 
                     sb.AppendLine("            }");
-                    sb.AppendLine("            catch (global::System.Exception __ex)");
-                    sb.AppendLine("            {");
-                    sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                    sb.AppendLine("                throw;");
-                    sb.AppendLine("            }");
+                    EmitSpanErrorCatch(sb);
                     sb.AppendLine("        }");
                 }
 
@@ -863,17 +851,44 @@ namespace ZeroAlloc.Mediator.Generator
                 "        public static System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct = default)",
                 handler.ResponseTypeName, handler.RequestTypeName));
             sb.AppendLine("        {");
-            // Span covers only iterator construction, not enumeration — "dispatch" semantics.
-            // Enumeration errors are not captured by this span.
-            sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
-            sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
             var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
-            sb.AppendLine(string.Format(
-                "            var handler = {0}?.Invoke() ?? {1};",
-                fieldName, fallback));
-            sb.AppendLine("            return handler.Handle(request, ct);");
+            EmitStreamSpanBody(sb, requestSimpleName, string.Format("{0}?.Invoke() ?? {1}", fieldName, fallback));
             sb.AppendLine("        }");
             sb.AppendLine();
+        }
+
+        // The catch that ends every generated dispatch span: Send, Publish and CreateStream, on
+        // both the static Mediator and MediatorService, so none of them can drift. It marks the
+        // span as an error and tags error.type with the exception's fully-qualified type name,
+        // the same value TelemetryBehavior puts on its metrics. That follows the OpenTelemetry
+        // convention for recording errors: error.type is present only when the operation fails.
+        private static void EmitSpanErrorCatch(StringBuilder sb)
+        {
+            sb.AppendLine("            catch (global::System.Exception __ex)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                if (__activity is not null)");
+            sb.AppendLine("                {");
+            sb.AppendLine("                    __activity.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
+            sb.AppendLine("                    __activity.SetTag(\"error.type\", __ex.GetType().FullName ?? \"_OTHER\");");
+            sb.AppendLine("                }");
+            sb.AppendLine("                throw;");
+            sb.AppendLine("            }");
+        }
+
+        // The body of CreateStream on both the static Mediator and MediatorService, so the two
+        // paths cannot drift apart again (#238). The span covers only creating the stream —
+        // resolving the handler and calling Handle — not enumerating it: "dispatch" semantics.
+        // A failure while creating it marks the span as an error, the same as Send and Publish.
+        private static void EmitStreamSpanBody(StringBuilder sb, string requestSimpleName, string handlerExpression)
+        {
+            sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
+            sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
+            sb.AppendLine("            try");
+            sb.AppendLine("            {");
+            sb.AppendLine(string.Format("                var handler = {0};", handlerExpression));
+            sb.AppendLine("                return handler.Handle(request, ct);");
+            sb.AppendLine("            }");
+            EmitSpanErrorCatch(sb);
         }
 
         // Emits Mediator.Configure(Action<MediatorConfig>). The MediatorConfig instance has no
@@ -1196,11 +1211,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
 
                 sb.AppendLine("            }");
-                sb.AppendLine("            catch (global::System.Exception __ex)");
-                sb.AppendLine("            {");
-                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                sb.AppendLine("                throw;");
-                sb.AppendLine("            }");
+                EmitSpanErrorCatch(sb);
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -1274,11 +1285,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
 
                 sb.AppendLine("            }");
-                sb.AppendLine("            catch (global::System.Exception __ex)");
-                sb.AppendLine("            {");
-                sb.AppendLine("                __activity?.SetStatus(global::System.Diagnostics.ActivityStatusCode.Error, __ex.Message);");
-                sb.AppendLine("                throw;");
-                sb.AppendLine("            }");
+                EmitSpanErrorCatch(sb);
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -1289,10 +1296,9 @@ namespace ZeroAlloc.Mediator.Generator
                     "        public global::System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
                 sb.AppendLine("        {");
-                sb.AppendLine(string.Format(
-                    "            var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services);",
+                EmitStreamSpanBody(sb, GetSimpleTypeName(handler.RequestTypeName), string.Format(
+                    "global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services)",
                     handler.HandlerTypeName));
-                sb.AppendLine("            return handler.Handle(request, ct);");
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
