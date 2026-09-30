@@ -56,7 +56,8 @@ namespace ZeroAlloc.Mediator.Generator
             // avoid re-running discovery on every compilation change (unlike CompilationProvider).
             // Two registrations are needed: one for direct use of the base attribute and one for
             // the ZeroAlloc.Mediator subclass attribute — ForAttributeWithMetadataName matches
-            // exact FQNs only (no subclass walk).
+            // exact FQNs only (no subclass walk). Each yields every attributed type, including one
+            // without IPipelineBehavior: that one stays out of the pipeline and is reported as ZAM009.
             var sourceBehaviorsBase = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     "ZeroAlloc.Pipeline.PipelineBehaviorAttribute",
@@ -75,8 +76,12 @@ namespace ZeroAlloc.Mediator.Generator
                 .Select(static (x, _) => x!)
                 .WithTrackingName(TrackingNames.SourceBehaviors);
 
-            var pipelineBehaviorsBase = sourceBehaviorsBase.Select(static (x, _) => x.Info);
-            var pipelineBehaviorsMediator = sourceBehaviorsMediator.Select(static (x, _) => x.Info);
+            var pipelineBehaviorsBase = sourceBehaviorsBase
+                .Where(static x => x.Info != null)
+                .Select(static (x, _) => x.Info!);
+            var pipelineBehaviorsMediator = sourceBehaviorsMediator
+                .Where(static x => x.Info != null)
+                .Select(static (x, _) => x.Info!);
 
             // Behaviors shipped in referenced assemblies, such as the bridge packages'. The two
             // providers above only see this compilation's syntax trees.
@@ -474,8 +479,8 @@ namespace ZeroAlloc.Mediator.Generator
             var sourceBehaviorByName = new Dictionary<string, SourceBehaviorInfo>(StringComparer.Ordinal);
             foreach (var behavior in sourceBehaviors)
             {
-                if (!sourceBehaviorByName.ContainsKey(behavior.Info.BehaviorTypeName))
-                    sourceBehaviorByName.Add(behavior.Info.BehaviorTypeName, behavior);
+                if (!sourceBehaviorByName.ContainsKey(behavior.Candidate.BehaviorTypeName))
+                    sourceBehaviorByName.Add(behavior.Candidate.BehaviorTypeName, behavior);
             }
 
             // ZAM005: Missing behavior Handle method (2 type params expected for Send pipeline).
@@ -507,6 +512,25 @@ namespace ZeroAlloc.Mediator.Generator
                     ToLocations(attributes.Take(Math.Max(0, attributes.Count - 1))),
                     behaviorNames,
                     group.Key));
+            }
+
+            // ZAM009: A type with a behavior attribute that does not implement IPipelineBehavior,
+            // so it never joins the pipeline. At the class. A type with both the base and the
+            // Mediator attribute comes from both providers; report it once.
+            var seenMissingInterface = new HashSet<string>(StringComparer.Ordinal);
+            var candidates = sourceBehaviors.Select(b => b.Candidate);
+            foreach (var candidate in PipelineDiagnosticRules.FindMissingPipelineBehaviorInterface(candidates))
+            {
+                if (!seenMissingInterface.Add(candidate.BehaviorTypeName)) continue;
+
+                sourceBehaviorByName.TryGetValue(candidate.BehaviorTypeName, out var declared);
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.BehaviorMissingPipelineBehaviorInterface,
+                    LocationInfo.ToLocation(declared?.TypeLocation),
+                    candidate.BehaviorTypeName,
+                    candidate.IsStatic
+                        ? "a static class cannot implement an interface, so make the class non-static and implement IPipelineBehavior"
+                        : "implement IPipelineBehavior"));
             }
 
             // ZAM008: Handler has no accessible parameterless constructor. At the handler class.

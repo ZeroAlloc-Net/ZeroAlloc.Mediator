@@ -2,7 +2,7 @@
 id: diagnostics
 title: Compiler Diagnostics
 slug: /docs/diagnostics
-description: ZAM001–ZAM008 Roslyn analyzer rules with triggers, severities, and fix guidance.
+description: ZAM001–ZAM009 Roslyn analyzer rules with triggers, severities, and fix guidance.
 sidebar_position: 7
 ---
 
@@ -22,6 +22,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
 | ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
+| ZAM009 | Warning | Pipeline behavior does not implement IPipelineBehavior | A `[PipelineBehavior]` class is static or does not implement `IPipelineBehavior`, so it never runs |
 
 ## ZAM001 — No Handler for Request
 
@@ -132,7 +133,7 @@ The method must have this shape:
 
 ZAM005 checks the first two. A `public static Handle<TRequest, TResponse>` with other parameters is not reported as ZAM005; the generated `Send` fails to compile instead.
 
-ZAM005 is only reported for a class the generator picked up as a behavior, which requires `IPipelineBehavior`. A `static class`, or a class without `IPipelineBehavior`, is skipped without any diagnostic, so the behavior never runs. See [Pitfall 1](pipeline-behaviors.md#common-pitfalls).
+ZAM005 is only reported for a class the generator picked up as a behavior, which requires `IPipelineBehavior`. A `static class`, or a class without `IPipelineBehavior`, is left out of the pipeline and reported as [ZAM009](#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior) instead.
 
 ## ZAM006 — Duplicate Pipeline Behavior Order
 
@@ -190,6 +191,53 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
 4. **Suppress.** `#pragma warning disable ZAM008` on the handler class if you
    know you only ever go through DI.
 
+## ZAM009 — Pipeline Behavior Does Not Implement IPipelineBehavior
+
+**Severity:** Warning
+
+**What it means:** A class marked `[PipelineBehavior]` does not implement `IPipelineBehavior`. The generator only puts a class that implements it into the pipeline, so the generated `Send` has no call to this behavior and it never runs. The common case is a `static class`, which cannot implement an interface at all.
+
+**Example that triggers it:**
+```csharp
+// ❌ Triggers ZAM009 — a static class cannot implement IPipelineBehavior
+[PipelineBehavior(Order = 0)]
+public static class LoggingBehavior
+{
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    {
+        Console.WriteLine($"[START] {typeof(TRequest).Name}");
+        return await next(request, ct);
+    }
+}
+
+// ❌ Triggers ZAM009 — the class does not implement IPipelineBehavior
+[PipelineBehavior(Order = 10)]
+public sealed class ValidationBehavior { ... }
+```
+
+**Warning message:** for the static class, `ZAM009: Pipeline behavior 'LoggingBehavior' does not implement IPipelineBehavior and never runs; a static class cannot implement an interface, so make the class non-static and implement IPipelineBehavior`. For the other class, the message ends in `implement IPipelineBehavior`.
+
+**Fix:** Make the class non-static and implement `IPipelineBehavior`. Only `Handle` is static:
+```csharp
+[PipelineBehavior(Order = 0)]
+public sealed class LoggingBehavior : IPipelineBehavior
+{
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    {
+        Console.WriteLine($"[START] {typeof(TRequest).Name}");
+        return await next(request, ct);
+    }
+}
+```
+
+ZAM009 is a warning rather than an error because such a class compiled without complaint before it was added. The class still stays out of the pipeline; ZAM005 and ZAM006 are not reported for it.
+
 ## Removed diagnostics
 
 ZAM004 and ZAM007 were declared by the generator but never reported, and 6.0 removes them. A handler whose `Handle` method does not match its interface does not compile, so the C# compiler already catches both cases:
@@ -213,6 +261,7 @@ Every diagnostic points at the code it is about, so the IDE can take you there a
 | ZAM005 | The behavior's class name |
 | ZAM006 | The later `[PipelineBehavior]` attribute, with the other tied behaviors in this project as additional locations. A tie between behaviors from referenced assemblies only has no location in your code. |
 | ZAM008 | The handler's class name |
+| ZAM009 | The behavior's class name |
 
 ## Suppressing Warnings
 

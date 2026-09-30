@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
+using System.Globalization;
 
 namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
 
@@ -441,6 +442,153 @@ public class DiagnosticTests
         var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.DoesNotContain(diagnostics, d => d.Id == "ZAM008");
+    }
+
+    private const string Zam009App = """
+        using ZeroAlloc.Mediator;
+        using System;
+        using System.Threading;
+        using System.Threading.Tasks;
+
+        namespace TestApp;
+
+        public readonly record struct Ping : IRequest<string>;
+
+        public class PingHandler : IRequestHandler<Ping, string>
+        {
+            public ValueTask<string> Handle(Ping request, CancellationToken ct)
+                => ValueTask.FromResult("Pong");
+        }
+
+        """;
+
+    private const string Zam009HandleMethod = """
+            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+                TRequest request, CancellationToken ct,
+                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                where TRequest : IRequest<TResponse>
+                => next(request, ct);
+        """;
+
+    [Fact]
+    public void ZAM009_StaticClassBehavior_EmitsWarning_AndStaysOutOfSend()
+    {
+        var source = Zam009App + $$"""
+            [PipelineBehavior(Order = 0)]
+            public static class StaticBehavior
+            {
+            {{Zam009HandleMethod}}
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam009 = Assert.Single(diagnostics, d => d.Id == "ZAM009");
+        Assert.Equal(DiagnosticSeverity.Warning, zam009.Severity);
+        var message = zam009.GetMessage(CultureInfo.InvariantCulture);
+        Assert.Contains("'global::TestApp.StaticBehavior'", message, StringComparison.Ordinal);
+        Assert.Contains("make the class non-static and implement IPipelineBehavior", message, StringComparison.Ordinal);
+        Assert.Contains("Send(", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("StaticBehavior", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ZAM009_ClassWithoutInterface_EmitsWarning_AndStaysOutOfSend()
+    {
+        var source = Zam009App + $$"""
+            [PipelineBehavior(Order = 0)]
+            public sealed class PlainBehavior
+            {
+            {{Zam009HandleMethod}}
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam009 = Assert.Single(diagnostics, d => d.Id == "ZAM009");
+        Assert.Equal(DiagnosticSeverity.Warning, zam009.Severity);
+        var message = zam009.GetMessage(CultureInfo.InvariantCulture);
+        Assert.Contains("'global::TestApp.PlainBehavior'", message, StringComparison.Ordinal);
+        Assert.EndsWith("; implement IPipelineBehavior", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("non-static", message, StringComparison.Ordinal);
+        Assert.Contains("Send(", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("PlainBehavior", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ZAM009_IsReported_ForTheBasePipelineAttribute()
+    {
+        // The generator registers ZeroAlloc.Pipeline.PipelineBehaviorAttribute and the
+        // ZeroAlloc.Mediator subclass separately; both must report.
+        var source = Zam009App + """
+            [ZeroAlloc.Pipeline.PipelineBehavior(Order = 0)]
+            public static class BaseAttributeBehavior { }
+            """;
+
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        var zam009 = Assert.Single(diagnostics, d => d.Id == "ZAM009");
+        Assert.Contains(
+            "'global::TestApp.BaseAttributeBehavior'",
+            zam009.GetMessage(CultureInfo.InvariantCulture),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ZAM009_IsReportedOnce_ForATypeWithBothAttributes()
+    {
+        // Each registration yields the type, so without deduplication it would report twice.
+        var source = Zam009App + """
+            [PipelineBehavior(Order = 0)]
+            [ZeroAlloc.Pipeline.PipelineBehavior(Order = 0)]
+            public static class DoubleAttributeBehavior { }
+            """;
+
+        var (_, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.Single(diagnostics, d => d.Id == "ZAM009");
+    }
+
+    [Fact]
+    public void ZAM009_NotEmitted_ForAValidBehavior()
+    {
+        var source = Zam009App + $$"""
+            [PipelineBehavior(Order = 0)]
+            public sealed class LoggingBehavior : IPipelineBehavior
+            {
+            {{Zam009HandleMethod}}
+            }
+            """;
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "ZAM009");
+        Assert.Contains("LoggingBehavior.Handle", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ZAM009_IsSuppressedByAPragmaAroundTheBehavior()
+    {
+        var source = Zam009App + """
+            #pragma warning disable ZAM009
+            [PipelineBehavior(Order = 0)]
+            public static class QuietBehavior { }
+            #pragma warning restore ZAM009
+
+            [PipelineBehavior(Order = 10)]
+            public static class LoudBehavior { }
+            """;
+
+        var (_, diagnostics) = GeneratorTestHelper.RunGeneratorOnFile(source);
+
+        var zam009 = diagnostics.Where(d => d.Id == "ZAM009").ToList();
+        Assert.Equal(2, zam009.Count);
+        Assert.True(ForBehavior(zam009, "QuietBehavior").IsSuppressed);
+        Assert.False(ForBehavior(zam009, "LoudBehavior").IsSuppressed);
+
+        static Diagnostic ForBehavior(List<Diagnostic> list, string name) =>
+            Assert.Single(list, d => d.GetMessage(CultureInfo.InvariantCulture)
+                .Contains("TestApp." + name + "'", StringComparison.Ordinal));
     }
 
     [Fact]

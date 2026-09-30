@@ -20,7 +20,7 @@ Zero-allocation, compile-time-dispatched mediator for .NET 8 and .NET 10.
 | 4 | [Streaming](streaming.md) | `IAsyncEnumerable<T>` for large result sets |
 | 5 | [Pipeline Behaviors](pipeline-behaviors.md) | Middleware: logging, validation, caching, transactions |
 | 6 | [Dependency Injection](dependency-injection.md) | DI containers, `IMediator`, factory delegates |
-| 7 | [Diagnostics](diagnostics.md) | ZAM001–ZAM008 compiler error reference with fixes |
+| 7 | [Diagnostics](diagnostics.md) | ZAM001–ZAM009 compiler error reference with fixes |
 | 8 | [Performance](performance.md) | Zero-alloc internals, benchmark results, Native AOT |
 | 9 | [Advanced Patterns](advanced.md) | Error handling, cancellation, scoped behaviors |
 | 10 | [Testing](testing.md) | Unit-test handlers, behaviors, and notifications |

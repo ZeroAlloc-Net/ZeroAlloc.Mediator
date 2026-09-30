@@ -57,6 +57,11 @@ public class DiagnosticLocationTests
             public ValueTask<string> Handle(Ping request, CancellationToken ct) => default;
         }
         """)]
+    // ZAM009: the behavior class that does not implement IPipelineBehavior.
+    [InlineData("ZAM009", Usings + """
+        [PipelineBehavior(Order = 0)]
+        public static class [|StaticBehavior|] { }
+        """)]
     public void Diagnostic_IsReportedAtItsSourceLocation(string id, string markedSource)
     {
         var (source, spans) = Unmark(markedSource);

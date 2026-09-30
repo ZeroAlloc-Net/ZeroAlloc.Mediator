@@ -7,21 +7,34 @@ using ZeroAlloc.Pipeline.Generators;
 namespace ZeroAlloc.Mediator.Generator
 {
     /// <summary>
-    /// A pipeline behavior declared in this compilation, with the locations its diagnostics point
-    /// at. <see cref="PipelineBehaviorInfo"/> comes from ZeroAlloc.Pipeline and has no location.
+    /// A type in this compilation that carries a behavior attribute, with the locations its
+    /// diagnostics point at. <see cref="PipelineBehaviorInfo"/> and
+    /// <see cref="PipelineBehaviorCandidateInfo"/> come from ZeroAlloc.Pipeline and have no location.
     /// </summary>
     internal sealed class SourceBehaviorInfo : IEquatable<SourceBehaviorInfo>
     {
-        public SourceBehaviorInfo(PipelineBehaviorInfo info, LocationInfo? typeLocation, LocationInfo? attributeLocation)
+        public SourceBehaviorInfo(
+            PipelineBehaviorCandidateInfo candidate,
+            PipelineBehaviorInfo? info,
+            LocationInfo? typeLocation,
+            LocationInfo? attributeLocation)
         {
+            Candidate = candidate;
             Info = info;
             TypeLocation = typeLocation;
             AttributeLocation = attributeLocation;
         }
 
-        public PipelineBehaviorInfo Info { get; }
+        /// <summary>The attributed type, valid or not, for ZAM009.</summary>
+        public PipelineBehaviorCandidateInfo Candidate { get; }
 
-        /// <summary>The class identifier, for ZAM005.</summary>
+        /// <summary>
+        /// The behavior, or null when the type does not implement IPipelineBehavior. Only a type
+        /// with a behavior joins the pipeline.
+        /// </summary>
+        public PipelineBehaviorInfo? Info { get; }
+
+        /// <summary>The class identifier, for ZAM005 and ZAM009.</summary>
         public LocationInfo? TypeLocation { get; }
 
         /// <summary>The behavior attribute that sets the Order, for ZAM006.</summary>
@@ -29,8 +42,11 @@ namespace ZeroAlloc.Mediator.Generator
 
         public static SourceBehaviorInfo? From(GeneratorAttributeSyntaxContext context)
         {
+            var candidate = PipelineBehaviorDiscoverer.CandidateFromAttributeSyntaxContext(context);
+            if (candidate == null) return null;
+
+            // Still null for a type without IPipelineBehavior, which stays out of the pipeline.
             var info = PipelineBehaviorDiscoverer.FromAttributeSyntaxContext(context);
-            if (info == null) return null;
 
             var typeLocation = context.TargetNode is ClassDeclarationSyntax classDecl
                 ? LocationInfo.From(classDecl.Identifier.GetLocation())
@@ -38,12 +54,13 @@ namespace ZeroAlloc.Mediator.Generator
             var attributeLocation = context.Attributes.Length > 0
                 ? LocationInfo.From(context.Attributes[0].ApplicationSyntaxReference)
                 : null;
-            return new SourceBehaviorInfo(info, typeLocation, attributeLocation);
+            return new SourceBehaviorInfo(candidate, info, typeLocation, attributeLocation);
         }
 
         public bool Equals(SourceBehaviorInfo? other) =>
             other is not null
-            && Info.Equals(other.Info)
+            && Candidate.Equals(other.Candidate)
+            && Equals(Info, other.Info)
             && Equals(TypeLocation, other.TypeLocation)
             && Equals(AttributeLocation, other.AttributeLocation);
 
@@ -53,7 +70,8 @@ namespace ZeroAlloc.Mediator.Generator
         {
             unchecked
             {
-                var hash = Info.GetHashCode();
+                var hash = Candidate.GetHashCode();
+                hash = (hash * 31) + (Info?.GetHashCode() ?? 0);
                 hash = (hash * 31) + (TypeLocation?.GetHashCode() ?? 0);
                 hash = (hash * 31) + (AttributeLocation?.GetHashCode() ?? 0);
                 return hash;

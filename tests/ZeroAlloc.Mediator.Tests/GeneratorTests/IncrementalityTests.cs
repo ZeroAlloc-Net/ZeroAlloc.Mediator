@@ -50,6 +50,9 @@ public class IncrementalityTests
 
         [PipelineBehavior(Order = 0)]
         public class BadBehavior : IPipelineBehavior { }
+
+        [PipelineBehavior(Order = 5)]
+        public static class StaticBehavior { }
         """;
 
     // The tracking names the generator gives its steps, in ZeroAlloc.Mediator.Generator.TrackingNames.
@@ -98,6 +101,7 @@ public class IncrementalityTests
         // A cached output still reports its diagnostics, at the same place.
         Assert.Equal(Describe(first.Diagnostics), Describe(second.Diagnostics));
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM008", StringComparison.Ordinal));
+        Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM009", StringComparison.Ordinal));
     }
 
     [Fact]

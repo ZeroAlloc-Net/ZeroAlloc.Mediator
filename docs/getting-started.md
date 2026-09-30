@@ -122,7 +122,7 @@ sequenceDiagram
 | [Streaming](streaming.md) | `IAsyncEnumerable` for large result sets |
 | [Pipeline Behaviors](pipeline-behaviors.md) | Logging, validation, caching middleware |
 | [Dependency Injection](dependency-injection.md) | DI containers, `IMediator`, factories |
-| [Diagnostics](diagnostics.md) | ZAM001–ZAM008 compiler error reference |
+| [Diagnostics](diagnostics.md) | ZAM001–ZAM009 compiler error reference |
 | [Performance](performance.md) | Zero-alloc internals, benchmarks, AOT |
 | [Advanced Patterns](advanced.md) | Error handling, cancellation, scoped behaviors |
 | [Testing](testing.md) | Unit-test handlers, behaviors, and notifications |
