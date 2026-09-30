@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.2...v6.0.3) (2026-09-30)
+
+
+### Documentation
+
+* show pipeline behaviors as classes that implement IPipelineBehavior ([#248](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/248)) ([d82147e](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/d82147ef73699ae3443b25e760c872f81e445bff)), closes [#235](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/235)
+
 ## [6.0.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.1...v6.0.2) (2026-09-28)
 
 
