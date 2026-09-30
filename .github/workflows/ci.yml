@@ -78,7 +78,22 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Install AOT native toolchain
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+        # NativeAOT links with clang and the zlib headers. The runner image ships clang, so apt
+        # runs only for what is missing. apt has no network timeout of its own: a stalled mirror
+        # used to hang this step until the job timed out. See ZeroAlloc-Net/.github#47.
+        timeout-minutes: 5
+        run: |
+          missing=""
+          command -v clang >/dev/null || missing="$missing clang"
+          dpkg -s zlib1g-dev >/dev/null 2>&1 || missing="$missing zlib1g-dev"
+          if [ -z "$missing" ]; then
+            echo "clang and zlib1g-dev are already installed"
+            exit 0
+          fi
+          echo "Installing:$missing"
+          apt_opts="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          sudo apt-get $apt_opts update
+          sudo apt-get $apt_opts install -y $missing
 
       - name: Restore
         run: dotnet restore samples/ZeroAlloc.Mediator.AotSmoke/ZeroAlloc.Mediator.AotSmoke.csproj
