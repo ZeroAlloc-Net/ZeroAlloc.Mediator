@@ -142,13 +142,11 @@ Because `IMediator` contains strongly-typed overloads (one per request/notificat
 
 ## Testing Pipeline Behaviors in Isolation
 
-A pipeline behavior is a static class with a static `Handle` method. Test it by calling the method directly, passing a lambda as the `next` delegate:
+A pipeline behavior is a class that implements `IPipelineBehavior` and has a static `Handle` method. Test it by calling the method directly, passing a lambda as the `next` delegate:
 
 ```csharp
-// Note: in real usage, `: IPipelineBehavior` is required so the generator registers this behavior.
-// The tests below call the static method directly, so the interface is not strictly needed for isolation testing.
 [PipelineBehavior(Order = 0)]
-public static class ValidationBehavior : IPipelineBehavior
+public sealed class ValidationBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,

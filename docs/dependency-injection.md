@@ -214,7 +214,7 @@ services.AddMediator()
 
 ### How a bridge reaches your container
 
-Pipeline behaviors are static, so the generated dispatcher can call them without allocating. A static behavior has no instance to inject into, so each bridge keeps what it needs in static state: the cache bridge keeps an `IMemoryCache`, and the validation and authorization bridges keep the `IServiceProvider` they resolve validators and policies from.
+A pipeline behavior's `Handle` is static, so the generated dispatcher can call it without allocating. The behavior has no instance to inject into, so each bridge keeps what it needs in static state: the cache bridge keeps an `IMemoryCache`, and the validation and authorization bridges keep the `IServiceProvider` they resolve validators and policies from.
 
 That state is filled from the container your app runs on. Each `WithXxx()` registers an `IPipelineBehaviorStateInitializer`, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton, so the behaviors are wired before the first request with no extra call.
 

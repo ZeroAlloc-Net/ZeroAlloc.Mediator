@@ -64,7 +64,7 @@ await foreach (var row in Mediator.CreateStream(new ExportOrdersQuery(...))) { .
 
 // Pipeline behavior
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior
+public sealed class LoggingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request, CancellationToken ct,

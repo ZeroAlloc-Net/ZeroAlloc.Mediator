@@ -22,9 +22,9 @@ public readonly record struct GetProductQuery(Guid ProductId) : IRequest<Product
 public readonly record struct ListOrdersQuery(string CustomerId) : IRequest<IReadOnlyList<OrderSummary>>;
 ```
 
-## Accessing the DbContext from a Static Behavior
+## Accessing the DbContext from a Behavior
 
-Static behaviors have no instance state. The cleanest solution for ASP.NET Core is an `AsyncLocal` ambient scope, set in middleware per HTTP request.
+A behavior's `Handle` is static and the generator never creates the behavior class, so it has no instance state. The cleanest solution for ASP.NET Core is an `AsyncLocal` ambient scope, set in middleware per HTTP request.
 
 ```csharp
 /// <summary>Thread-safe ambient access to the current request's IServiceProvider.</summary>
@@ -59,7 +59,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using ZeroAlloc.Mediator;
 
 [PipelineBehavior(Order = 5)]   // Run after logging (0) but before validation (10)
-public static class TransactionBehavior
+public sealed class TransactionBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -194,7 +194,7 @@ If you publish domain events inside the handler (while still inside the transact
 
 ```csharp
 [PipelineBehavior(Order = 5)]
-public static class TransactionBehavior
+public sealed class TransactionBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,

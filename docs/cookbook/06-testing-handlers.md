@@ -176,7 +176,7 @@ public class FakeEmailService : IEmailService
 
 ## Unit Testing a Pipeline Behavior
 
-Behaviors are static — test the static method directly by providing a `next` delegate:
+A behavior's `Handle` is static — test the static method directly by providing a `next` delegate:
 
 ```csharp
 public class LoggingBehaviorTests
