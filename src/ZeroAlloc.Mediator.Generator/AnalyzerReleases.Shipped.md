@@ -31,3 +31,11 @@ Rule ID | Category           | Severity | Notes
 --------|--------------------|----------|-----------------------------------
 ZAM004  | ZeroAlloc.Mediator | Error    | Invalid handler signature
 ZAM007  | ZeroAlloc.Mediator | Error    | Stream handler wrong return type
+
+## Release 6.1.0
+
+### New Rules
+
+Rule ID | Category           | Severity | Notes
+--------|--------------------|----------|-------------------------------------------------------
+ZAM009  | ZeroAlloc.Mediator | Warning  | Pipeline behavior does not implement IPipelineBehavior
