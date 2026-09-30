@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.3...v6.1.0) (2026-09-30)
+
+
+### Features
+
+* report a [PipelineBehavior] type without IPipelineBehavior as ZAM009 ([#251](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/251)) ([94ab0d3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/94ab0d310ab36034788b9f3aefea72019c8ae24a)), closes [#250](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/250)
+
 ## [6.0.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.2...v6.0.3) (2026-09-30)
 
 
