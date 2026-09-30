@@ -57,8 +57,10 @@
     <LangVersion>latest</LangVersion>
     <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017</WarningsAsErrors>
 
-    <!-- ZeroAlloc.Pipeline dependency version (used when local checkout is absent) -->
-    <ZeroAllocPipelineVersion>1.2.2</ZeroAllocPipelineVersion>
+    <!-- ZeroAlloc.Pipeline dependency version. A direct PackageReference resolves to exactly this
+         floor, so it is the version CI builds and tests against. 1.3.0 adds the candidate
+         discovery that ZAM009 reports from. -->
+    <ZeroAllocPipelineVersion>1.3.0</ZeroAllocPipelineVersion>
 
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>

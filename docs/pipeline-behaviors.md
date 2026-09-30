@@ -42,7 +42,7 @@ public sealed class LoggingBehavior : IPipelineBehavior
 }
 ```
 
-- `: IPipelineBehavior` — required; the generator only picks up a `[PipelineBehavior]` class that implements it. A `static class` cannot implement an interface, so a static behavior is skipped without any diagnostic (see [Pitfall 1](#common-pitfalls))
+- `: IPipelineBehavior` — required; the generator only picks up a `[PipelineBehavior]` class that implements it. A `static class` cannot implement an interface, so a static behavior never runs; either mistake is reported as ZAM009 (see [Pitfall 1](#common-pitfalls))
 - `sealed class` — the generator never creates an instance; it calls the static `Handle` directly. `sealed` is a convention, not a requirement
 - `public static Handle` — required; a missing or non-static `Handle` is reported as ZAM005
 - `[PipelineBehavior(Order = 0)]` — a lower Order runs further out: first to run, last to complete. 0 is the default; the bridge packages use negative orders, so they wrap your behaviors (see [Behaviors from Referenced Assemblies](#behaviors-from-referenced-assemblies))
@@ -184,14 +184,14 @@ Zero allocation. No list. No delegates stored on the heap. No virtual calls.
 
 ## Common Pitfalls
 
-**Pitfall 1 — Static class, or no `IPipelineBehavior` (silently skipped)**
+**Pitfall 1 — Static class, or no `IPipelineBehavior` (ZAM009)**
 
 ```csharp
-// ❌ Never runs — a static class cannot implement IPipelineBehavior, so the generator skips it
+// ❌ Never runs, ZAM009 — a static class cannot implement IPipelineBehavior, so the generator skips it
 [PipelineBehavior(Order = 0)]
 public static class LoggingBehavior { ... }
 
-// ❌ Never runs — the class does not implement IPipelineBehavior
+// ❌ Never runs, ZAM009 — the class does not implement IPipelineBehavior
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior { ... }
 
@@ -200,7 +200,7 @@ public sealed class LoggingBehavior { ... }
 public sealed class LoggingBehavior : IPipelineBehavior { ... }
 ```
 
-No diagnostic is reported for either mistake: the generated `Send` simply has no call to the behavior. Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
+The generated `Send` has no call to either behavior, and each is reported as the warning [ZAM009](diagnostics.md#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior). Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
 
 **Pitfall 2 — Forgetting to call `next`**
 

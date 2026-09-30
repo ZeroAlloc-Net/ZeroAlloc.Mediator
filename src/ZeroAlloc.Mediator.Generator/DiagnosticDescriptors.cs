@@ -53,5 +53,15 @@ namespace ZeroAlloc.Mediator.Generator
                 "ZeroAlloc.Mediator",
                 DiagnosticSeverity.Warning,
                 isEnabledByDefault: true);
+
+        // A Warning, not an Error: such a type compiled without a diagnostic before ZAM009.
+        public static readonly DiagnosticDescriptor BehaviorMissingPipelineBehaviorInterface =
+            new DiagnosticDescriptor(
+                "ZAM009",
+                "Pipeline behavior does not implement IPipelineBehavior",
+                "Pipeline behavior '{0}' does not implement IPipelineBehavior and never runs; {1}",
+                "ZeroAlloc.Mediator",
+                DiagnosticSeverity.Warning,
+                isEnabledByDefault: true);
     }
 }
