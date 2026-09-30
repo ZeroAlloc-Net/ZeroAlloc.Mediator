@@ -110,7 +110,7 @@ sequenceDiagram
 - **Requests**: Implement `IRequest<TResponse>` for request/response interactions, or `IRequest` for fire-and-forget operations that return `Unit`.
 - **Notifications**: Implement `INotification` to publish events to multiple handlers. Dispatch can be sequential, parallel, or polymorphic depending on configuration.
 - **Streaming**: Implement `IStreamRequest<T>` to receive an `IAsyncEnumerable<T>` result, suited for large or paginated result sets.
-- **Pipeline Behaviors**: Apply cross-cutting concerns such as logging, validation, or caching by decorating a class with the `[PipelineBehavior]` attribute.
+- **Pipeline Behaviors**: Apply cross-cutting concerns such as logging, validation, or caching with a class that implements `IPipelineBehavior`, carries the `[PipelineBehavior]` attribute and has a static `Handle` method. The class itself must not be `static`, or the generator skips it.
 - **Zero allocation**: Always declare request types as `readonly record struct`. Using a class triggers compiler diagnostic ZAM003 and forfeits the zero-allocation guarantee.
 
 ## Next Steps

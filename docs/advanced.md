@@ -41,11 +41,11 @@ catch (ProductNotFoundException ex)
 
 ### Handling exceptions at the pipeline level
 
-The recommended pattern for cross-cutting exception handling is a pipeline behavior at `Order = 0` (outermost), so it wraps the entire dispatch chain:
+The recommended pattern for cross-cutting exception handling is a pipeline behavior with the lowest `Order` of your own behaviors, so it wraps them and the handler. Bridge packages such as telemetry use negative orders and run outside it:
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class ExceptionHandlingBehavior : IPipelineBehavior
+public sealed class ExceptionHandlingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -209,13 +209,13 @@ You can mix global behaviors (no `AppliesTo`) with request-specific behaviors (`
 
 ```csharp
 [PipelineBehavior(Order = 0)]          // applies to ALL requests
-public static class LoggingBehavior { ... }
+public sealed class LoggingBehavior : IPipelineBehavior { ... }
 
 [PipelineBehavior(Order = 5, AppliesTo = typeof(PlaceOrderCommand))]
-public static class StockValidationBehavior { ... }  // only PlaceOrderCommand
+public sealed class StockValidationBehavior : IPipelineBehavior { ... }  // only PlaceOrderCommand
 
 [PipelineBehavior(Order = 10)]         // applies to ALL requests
-public static class PerformanceMonitorBehavior { ... }
+public sealed class PerformanceMonitorBehavior : IPipelineBehavior { ... }
 ```
 
 For `PlaceOrderCommand` the chain is: `LoggingBehavior` → `StockValidationBehavior` → `PerformanceMonitorBehavior` → handler.
@@ -224,9 +224,9 @@ For all other requests: `LoggingBehavior` → `PerformanceMonitorBehavior` → h
 
 ## Scoped Behaviors
 
-### The problem: static behaviors have no instance state
+### The problem: behaviors have no instance state
 
-Pipeline behaviors require a `static` `Handle` method — the generator emits them as static method calls, not instantiated objects. The class itself does not need to be `static`, but because `Handle` is static, you cannot inject services via a constructor. For stateless cross-cutting concerns (logging via `Console`, performance counters, lightweight validation) this is fine.
+Pipeline behaviors require a `static` `Handle` method — the generator emits them as static method calls, not instantiated objects. The class itself must not be `static`: it has to implement `IPipelineBehavior`, which a static class cannot, and the generator skips a class that does not. Because `Handle` is static, you cannot inject services via a constructor. For stateless cross-cutting concerns (logging via `Console`, performance counters, lightweight validation) this is fine.
 
 For behaviors that genuinely need a scoped service (e.g., `DbContext`, `ICurrentUserService`, or a per-request audit log), use an ambient context pattern:
 
@@ -240,7 +240,7 @@ builder.Services.AddHttpContextAccessor();
 
 // In a behavior that needs the current user
 [PipelineBehavior(Order = 5)]
-public static class CurrentUserBehavior : IPipelineBehavior
+public sealed class CurrentUserBehavior : IPipelineBehavior
 {
     // Set once at startup via Mediator.Configure or DI wiring
     internal static IHttpContextAccessor? HttpContextAccessor;
@@ -268,7 +268,7 @@ For non-ASP.NET scenarios, use `AsyncLocal<T>` to flow a scoped value through th
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class TenantBehavior : IPipelineBehavior
+public sealed class TenantBehavior : IPipelineBehavior
 {
     private static readonly AsyncLocal<string?> _tenantId = new();
 

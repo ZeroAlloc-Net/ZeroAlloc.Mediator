@@ -17,7 +17,7 @@ using System.Diagnostics;
 using ZeroAlloc.Mediator;
 
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior
+public sealed class LoggingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -42,8 +42,10 @@ public static class LoggingBehavior
 }
 ```
 
-- `static class` — required; behaviors have no instance state
-- `[PipelineBehavior(Order = 0)]` — Order=0 = outermost (first to run, last to complete)
+- `: IPipelineBehavior` — required; the generator only picks up a `[PipelineBehavior]` class that implements it. A `static class` cannot implement an interface, so a static behavior is skipped without any diagnostic (see [Pitfall 1](#common-pitfalls))
+- `sealed class` — the generator never creates an instance; it calls the static `Handle` directly. `sealed` is a convention, not a requirement
+- `public static Handle` — required; a missing or non-static `Handle` is reported as ZAM005
+- `[PipelineBehavior(Order = 0)]` — a lower Order runs further out: first to run, last to complete. 0 is the default; the bridge packages use negative orders, so they wrap your behaviors (see [Behaviors from Referenced Assemblies](#behaviors-from-referenced-assemblies))
 - `Handle<TRequest, TResponse>` — generic; applies to ALL request types globally
 - `next(request, ct)` — calls the next behavior, or the final handler if this is the innermost behavior
 - Must `await next(...)` and return the result — forgetting this silently drops the response
@@ -52,13 +54,13 @@ public static class LoggingBehavior
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior { ... }      // outermost — runs before all, completes after all
+public sealed class LoggingBehavior : IPipelineBehavior { ... }             // outermost — runs before all, completes after all
 
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior { ... }   // middle
+public sealed class ValidationBehavior : IPipelineBehavior { ... }          // middle
 
 [PipelineBehavior(Order = 20)]
-public static class PerformanceMonitorBehavior { ... }  // innermost — closest to handler
+public sealed class PerformanceMonitorBehavior : IPipelineBehavior { ... }  // innermost — closest to handler
 ```
 
 Execution order on the way IN (before handler): Logging → Validation → PerformanceMonitor → Handler
@@ -89,7 +91,7 @@ Use `AppliesTo` to target a behavior at exactly one request type. Other requests
 
 ```csharp
 [PipelineBehavior(Order = 5, AppliesTo = typeof(PlaceOrderCommand))]
-public static class OrderStockValidationBehavior
+public sealed class OrderStockValidationBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -116,7 +118,7 @@ Note: `AppliesTo` accepts a concrete request type, not an interface. The generat
 
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class ExceptionHandlingBehavior
+public sealed class ExceptionHandlingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -182,17 +184,23 @@ Zero allocation. No list. No delegates stored on the heap. No virtual calls.
 
 ## Common Pitfalls
 
-**Pitfall 1 — Non-static class (ZAM005)**
+**Pitfall 1 — Static class, or no `IPipelineBehavior` (silently skipped)**
 
 ```csharp
-// ❌ Must be static
-[PipelineBehavior(Order = 0)]
-public class LoggingBehavior { ... }
-
-// ✅ Correct
+// ❌ Never runs — a static class cannot implement IPipelineBehavior, so the generator skips it
 [PipelineBehavior(Order = 0)]
 public static class LoggingBehavior { ... }
+
+// ❌ Never runs — the class does not implement IPipelineBehavior
+[PipelineBehavior(Order = 0)]
+public sealed class LoggingBehavior { ... }
+
+// ✅ Correct — a non-static class that implements IPipelineBehavior, with a static Handle
+[PipelineBehavior(Order = 0)]
+public sealed class LoggingBehavior : IPipelineBehavior { ... }
 ```
+
+No diagnostic is reported for either mistake: the generated `Send` simply has no call to the behavior. Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
 
 **Pitfall 2 — Forgetting to call `next`**
 
@@ -213,19 +221,19 @@ public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
 ```csharp
 // ❌ Both Order=10 — execution order is non-deterministic
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior { ... }
+public sealed class ValidationBehavior : IPipelineBehavior { ... }
 
 [PipelineBehavior(Order = 10)]
-public static class CachingBehavior { ... }
+public sealed class CachingBehavior : IPipelineBehavior { ... }
 
 // ✅ Use unique values with gaps
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior { ... }
+public sealed class ValidationBehavior : IPipelineBehavior { ... }
 
 [PipelineBehavior(Order = 20)]
-public static class CachingBehavior { ... }
+public sealed class CachingBehavior : IPipelineBehavior { ... }
 ```
 
-**Pitfall 4 — Accessing DI services from a static behavior**
+**Pitfall 4 — Accessing DI services from a behavior**
 
-Static behaviors have no instance state. To access services (e.g., `ILogger`, `DbContext`), use an ambient scope pattern. See [Dependency Injection](dependency-injection.md) and the [Transactional Pipeline cookbook](cookbook/04-transactional-pipeline.md).
+`Handle` is static and the generator never creates the behavior class, so a behavior has no instance state and no constructor injection. To access services (e.g., `ILogger`, `DbContext`), use an ambient scope pattern. See [Dependency Injection](dependency-injection.md) and the [Transactional Pipeline cookbook](cookbook/04-transactional-pipeline.md).

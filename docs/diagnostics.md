@@ -18,7 +18,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM002 | Error | Multiple handlers for request | More than one `IRequestHandler<TRequest, TResponse>` for the same request type |
 | ZAM003 | Warning | Request type is a class | A request type is a `class` instead of `readonly record struct` |
 | ZAM004 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
-| ZAM005 | Error | Pipeline behavior missing Handle method | A class with `[PipelineBehavior]` has no static `Handle<TRequest,TResponse>` method |
+| ZAM005 | Error | Pipeline behavior missing Handle method | A `[PipelineBehavior]` class that implements `IPipelineBehavior` has no public static `Handle<TRequest,TResponse>` method |
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
 | ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
@@ -87,22 +87,29 @@ public readonly record struct PlaceOrderCommand(
 
 ## ZAM005 — Pipeline Behavior Missing Handle Method
 
-**What it means:** A class marked `[PipelineBehavior]` doesn't have a `static Handle<TRequest, TResponse>` method with the correct signature.
+**What it means:** A class marked `[PipelineBehavior]` that implements `IPipelineBehavior` has no `public static` `Handle` method with two type parameters, `Handle<TRequest, TResponse>`.
 
 **Example:**
 ```csharp
-// ❌ Triggers ZAM005 — no Handle method
+// ❌ Triggers ZAM005 — Handle is an instance method, and the generator only calls static ones
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior
+public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static void Log(string message) => Console.WriteLine(message); // wrong method
+    public async ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    {
+        Console.WriteLine($"[START] {typeof(TRequest).Name}");
+        return await next(request, ct);
+    }
 }
 ```
 
-**Fix:** Add the required static method:
+**Fix:** Make `Handle` static:
 ```csharp
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior
+public sealed class LoggingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -117,11 +124,15 @@ public static class LoggingBehavior
 }
 ```
 
-The method signature must match exactly:
+The method must have this shape:
+- Access: `public static`
 - Generic: `Handle<TRequest, TResponse>`
 - Parameters: `(TRequest, CancellationToken, Func<TRequest, CancellationToken, ValueTask<TResponse>>)`
 - Return: `ValueTask<TResponse>`
-- Access: `public static`
+
+ZAM005 checks the first two. A `public static Handle<TRequest, TResponse>` with other parameters is not reported as ZAM005; the generated `Send` fails to compile instead.
+
+ZAM005 is only reported for a class the generator picked up as a behavior, which requires `IPipelineBehavior`. A `static class`, or a class without `IPipelineBehavior`, is skipped without any diagnostic, so the behavior never runs. See [Pitfall 1](pipeline-behaviors.md#common-pitfalls).
 
 ## ZAM006 — Duplicate Pipeline Behavior Order
 
@@ -131,19 +142,19 @@ The method signature must match exactly:
 ```csharp
 // ❌ Both Order=10 — ZAM006 warning
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior { ... }
+public sealed class ValidationBehavior : IPipelineBehavior { ... }
 
 [PipelineBehavior(Order = 10)]
-public static class CachingBehavior { ... }
+public sealed class CachingBehavior : IPipelineBehavior { ... }
 ```
 
 **Fix:** Use unique values:
 ```csharp
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior { ... }
+public sealed class ValidationBehavior : IPipelineBehavior { ... }
 
 [PipelineBehavior(Order = 20)]
-public static class CachingBehavior { ... }
+public sealed class CachingBehavior : IPipelineBehavior { ... }
 ```
 
 **Convention:** Use multiples of 10 (0, 10, 20, 30...) so you can insert behaviors between existing ones without renumbering.

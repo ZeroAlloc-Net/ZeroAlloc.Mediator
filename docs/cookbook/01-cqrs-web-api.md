@@ -261,7 +261,7 @@ A single pipeline behavior covers all 4 endpoints with no per-handler boilerplat
 using System.Diagnostics;
 
 [PipelineBehavior(Order = 0)]
-public static class LoggingBehavior
+public sealed class LoggingBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,

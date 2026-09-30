@@ -57,7 +57,7 @@ The validation behavior:
 
 ```csharp
 [PipelineBehavior(Order = 10)]
-public static class ValidationBehavior
+public sealed class ValidationBehavior : IPipelineBehavior
 {
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
@@ -146,7 +146,7 @@ using FluentValidation;
 using System.Collections.Concurrent;
 
 [PipelineBehavior(Order = 10)]
-public static class FluentValidationBehavior
+public sealed class FluentValidationBehavior : IPipelineBehavior
 {
     // Cache validator instances to avoid repeated service resolution overhead
     private static readonly ConcurrentDictionary<Type, object?> _validatorCache = new();
