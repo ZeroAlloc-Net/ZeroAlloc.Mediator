@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.1.0...v6.1.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **deps:** update dependency zeroalloc.validation to 2.1.0 ([#257](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/257)) ([aaaa923](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/aaaa9237082119df7d5645264893b199ebf79b11))
+
 ## [6.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.0.3...v6.1.0) (2026-09-30)
 
 
