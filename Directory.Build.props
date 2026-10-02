@@ -59,8 +59,10 @@
 
     <!-- ZeroAlloc.Pipeline dependency version. A direct PackageReference resolves to exactly this
          floor, so it is the version CI builds and tests against. 1.3.0 adds the candidate
-         discovery that ZAM009 reports from. -->
-    <ZeroAllocPipelineVersion>1.3.0</ZeroAllocPipelineVersion>
+         discovery that ZAM009 reports from. 1.4.0 is the floor ZeroAlloc.Validation 2.1.0
+         requires, so a lower value here downgrades it in every project that references
+         ZeroAlloc.Mediator.Validation. -->
+    <ZeroAllocPipelineVersion>1.4.0</ZeroAllocPipelineVersion>
 
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>
