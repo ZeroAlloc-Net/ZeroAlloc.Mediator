@@ -1,1 +1,4 @@
 #nullable enable
+ZeroAlloc.Mediator.PipelineBehaviorServices
+static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.get -> System.IServiceProvider?
+static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.set -> void

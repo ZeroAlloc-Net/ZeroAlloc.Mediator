@@ -206,15 +206,17 @@ public sealed class CountingDownstreamBehavior : IPipelineBehavior
         Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
-        // Reads via AuthorizationBehaviorState (now public after Task 1).
-        AuthorizationBehaviorState.ServiceProvider!
-            .GetRequiredService<InvocationCounter>().Count++;
+        // The services of the request being dispatched, which IMediator.Send hands to the
+        // pipeline. A static Mediator.Send has none, and nothing to count.
+        var counter = PipelineBehaviorServices.Current?.GetService<InvocationCounter>();
+        if (counter is not null)
+            counter.Count++;
         return next(request, ct);
     }
 }
 
-// AuthorizationBehaviorState.ServiceProvider is mutated by AddMediator().WithAuthorization()
-// via AuthorizationBehaviorAccessor — keep these tests non-parallel to avoid cross-test
-// service-provider stomping.
+// AuthorizationBehaviorState.ServiceProvider, the container for requests dispatched without
+// IMediator, is mutated by AddMediator().WithAuthorization() via AuthorizationBehaviorAccessor —
+// keep these tests non-parallel to avoid cross-test service-provider stomping.
 [CollectionDefinition("non-parallel-authorization", DisableParallelization = true)]
 public sealed class NonParallelAuthorizationCollection { }

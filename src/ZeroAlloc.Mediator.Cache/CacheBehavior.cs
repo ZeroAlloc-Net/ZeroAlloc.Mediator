@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
 
 namespace ZeroAlloc.Mediator.Cache;
@@ -26,12 +27,12 @@ public sealed class CacheBehavior : IPipelineBehavior
         if (attr is null)
             return await next(request, ct).ConfigureAwait(false);
 
-        var cache = CacheBehaviorState.Cache
+        var cache = ResolveCache()
             ?? throw new InvalidOperationException(
-                "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup, then resolve " +
-                "IMediator from the built container before the first cached request. An app that dispatches only " +
-                "through the static Mediator class resolves PipelineBehaviorStateActivation instead. The state is " +
-                "also cleared when the container that supplied the cache is disposed.");
+                "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup on the " +
+                "container IMediator is resolved from. An app that dispatches only through the static Mediator class " +
+                "resolves PipelineBehaviorStateActivation from the built container before the first cached request; " +
+                "that state is cleared when the container that supplied the cache is disposed.");
 
         var key = $"{typeof(TRequest).FullName ?? typeof(TRequest).Name}:{request}";
 
@@ -49,5 +50,16 @@ public sealed class CacheBehavior : IPipelineBehavior
             cache.Set(key, result, TimeSpan.FromMilliseconds(attr.TtlMs));
 
         return result;
+    }
+
+    // The cache of the container whose IMediator dispatches the request, so two containers in one
+    // process never answer each other's requests. A request dispatched without IMediator, through
+    // the static Mediator class, uses the cache PipelineBehaviorStateActivation handed over.
+    private static IMemoryCache? ResolveCache()
+    {
+        var services = PipelineBehaviorServices.Current;
+        return services is not null
+            ? services.GetService<MediatorCacheAccessor>()?.Cache
+            : CacheBehaviorState.Cache;
     }
 }

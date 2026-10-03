@@ -81,4 +81,28 @@ public sealed class WithCacheDispatchTests : IDisposable
         Assert.Equal(first, second);
         Assert.Equal(1, CountedRequestHandler.Calls);
     }
+
+    [Fact]
+    public async Task Two_containers_in_one_process_each_use_their_own_cache()
+    {
+        using var first = BuildProvider();
+        var second = BuildProvider();
+
+        // Resolving IMediator runs each container's PipelineBehaviorStateActivation, the second
+        // container's last.
+        var firstMediator = first.GetRequiredService<IMediator>();
+        var secondMediator = second.GetRequiredService<IMediator>();
+
+        var fromFirst = await firstMediator.Send(new CountedRequest(9));
+        var fromSecond = await secondMediator.Send(new CountedRequest(9));
+
+        // Neither container answers from the other's cache.
+        Assert.NotEqual(fromFirst, fromSecond);
+        Assert.Equal(2, CountedRequestHandler.Calls);
+
+        // Disposing the second container leaves the first one caching in its own cache.
+        second.Dispose();
+        Assert.Equal(fromFirst, await firstMediator.Send(new CountedRequest(9)));
+        Assert.Equal(2, CountedRequestHandler.Calls);
+    }
 }

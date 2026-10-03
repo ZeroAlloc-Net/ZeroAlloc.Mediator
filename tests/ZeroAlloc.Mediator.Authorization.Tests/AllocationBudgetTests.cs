@@ -13,10 +13,9 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 // Allocation budgets for the documented hot paths of AuthorizationBehavior in v2. Each
 // budgeted test wires the DI container the production way (services.AddZeroAllocAuthorization()
 // + services.AddMediator().WithAuthorization(...)) and drives AuthorizationBehavior.Handle
-// directly — the cross-assembly behavior is not auto-wired into MediatorService by the
-// Mediator generator, so a direct call is required to measure the v2 path. Allocation profile
-// is identical either way (the dispatcher would inline a static lambda chain around the same
-// Handle call).
+// directly, so the gate measures the behavior alone rather than the dispatcher around it. The
+// test sets PipelineBehaviorServices.Current to the request scope, exactly as the generated
+// IMediator.Send does before it enters the pipeline.
 //
 // Throw-path deny intentionally is NOT budgeted: throwing an exception allocates the
 // Exception object + stack trace, which is unavoidable and dwarfs any pipeline overhead.
@@ -75,7 +74,7 @@ public sealed class AllocationBudgetTests
         //                   Debug box without masking real regressions.
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
         using var scope = sp.CreateScope();
-        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+        PipelineBehaviorServices.Current = scope.ServiceProvider;
         var req = new GetThingThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
@@ -92,7 +91,7 @@ public sealed class AllocationBudgetTests
         // no allocation. Budget rationale identical to Allow_HappyPath_ZeroAlloc.
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
-        AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
+        PipelineBehaviorServices.Current = scope.ServiceProvider;
         var req = new GetThingResultDeny(1);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,

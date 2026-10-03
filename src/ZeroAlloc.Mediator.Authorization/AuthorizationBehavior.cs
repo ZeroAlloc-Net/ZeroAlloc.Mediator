@@ -14,6 +14,17 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// <see cref="AuthorizationOptions"/>, then calls <see cref="AuthorizerFor{TRequest}.EvaluateAsync"/>.
 /// </summary>
 /// <remarks>
+/// <para><b>Services come from the request being dispatched.</b> The dispatcher and the security
+/// context are scoped, so they are resolved from <see cref="PipelineBehaviorServices.Current"/>:
+/// the provider of the <c>IMediator</c> dispatching the request, which is the request's scope when
+/// <c>IMediator</c> was resolved from one. Each request is authorized with its own caller's
+/// identity, and two containers in one process never see each other's services.</para>
+/// <para>A request dispatched without <c>IMediator</c>, through the static <c>Mediator</c> class or
+/// a direct call, has no request scope. The behavior then opens a scope of its own on the
+/// container <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/> was
+/// wired to, for that request alone, and only when the request type has a dispatcher. It never
+/// resolves the scoped services from the root provider, which would cache the first caller's
+/// identity for every later request.</para>
 /// <para><b>Fail-open if no dispatcher is registered.</b> When
 /// <c>sp.GetService&lt;AuthorizerFor&lt;TRequest&gt;&gt;()</c> returns <see langword="null"/>,
 /// the behavior simply forwards to <c>next</c>. This mirrors <c>Mediator.Validation</c>'s
@@ -33,23 +44,58 @@ namespace ZeroAlloc.Mediator.Authorization;
 [PipelineBehavior(Order = -1000)]
 public sealed class AuthorizationBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
         CancellationToken ct,
         Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
-        var sp = AuthorizationBehaviorState.ServiceProvider;
-        if (sp is null)
+        var services = PipelineBehaviorServices.Current;
+        return services is not null
+            ? AuthorizeAsync(services, request, ct, next)
+            : AuthorizeInOwnScopeAsync(request, ct, next);
+    }
+
+    // No IMediator dispatch, so no request scope to read. The container WithAuthorization was
+    // wired to is the root provider, and scoped services resolved from it are cached for the
+    // container's lifetime, so the request gets a scope of its own instead.
+    private static async ValueTask<TResponse> AuthorizeInOwnScopeAsync<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        var root = AuthorizationBehaviorState.ServiceProvider;
+        if (root is null)
             return await next(request, ct).ConfigureAwait(false);
 
-        var authorizer = sp.GetService<AuthorizerFor<TRequest>>();
+        // A request type without a dispatcher has no policies: skip opening a scope for it.
+        // IServiceProviderIsService answers from the registrations without creating anything.
+        if (root.GetService<IServiceProviderIsService>() is { } isService
+            && !isService.IsService(typeof(AuthorizerFor<TRequest>)))
+            return await next(request, ct).ConfigureAwait(false);
+
+        var scope = root.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            return await AuthorizeAsync(scope.ServiceProvider, request, ct, next).ConfigureAwait(false);
+        }
+    }
+
+    private static async ValueTask<TResponse> AuthorizeAsync<TRequest, TResponse>(
+        IServiceProvider services,
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        var authorizer = services.GetService<AuthorizerFor<TRequest>>();
         if (authorizer is null)
             return await next(request, ct).ConfigureAwait(false);
 
         // Resolve the security context once per request. AuthorizationOptions ensures exactly
         // one ISecurityContext source is registered (UseAnonymous / UseFactory / UseAccessor).
-        var ctx = sp.GetService<ISecurityContext>();
+        var ctx = services.GetService<ISecurityContext>();
         if (ctx is null)
         {
             throw new InvalidOperationException(

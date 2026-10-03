@@ -56,8 +56,10 @@ public static class MediatorAuthorizationServiceCollectionExtensions
         if (services.Any(d => d.ServiceType == typeof(AuthorizationBehaviorAccessor)))
             return builder;
 
-        // Stash the IServiceProvider into the behavior's static state. The first IMediator
-        // resolved from the container constructs the accessor through
+        // Requests dispatched through IMediator are authorized against the dispatching
+        // IMediator's own provider, the request's scope. This hands the container to the
+        // behavior for requests dispatched without IMediator, which get a scope of their own on
+        // it. The first IMediator resolved from the container constructs the accessor through
         // PipelineBehaviorStateActivation; resolving the accessor directly still works too.
         services.AddSingleton(sp => new AuthorizationBehaviorAccessor(sp));
         services.AddSingleton<IPipelineBehaviorStateInitializer>(sp => sp.GetRequiredService<AuthorizationBehaviorAccessor>());
