@@ -108,8 +108,10 @@ public class InterfaceRegisteredNotificationIntegrationTests
     {
         // The pre-fix diagnostic is preserved: a handler visible at compile time but registered
         // under neither contract is a misconfiguration, not a silent no-op.
+        // AddMediator() now registers every handler by concrete type, so register IMediator alone
+        // to model a handler that is registered nowhere.
         var services = new ServiceCollection();
-        services.AddMediator();
+        services.AddTransient<IMediator, MediatorService>();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();

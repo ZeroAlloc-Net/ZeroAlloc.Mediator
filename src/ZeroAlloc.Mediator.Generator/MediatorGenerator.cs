@@ -1181,7 +1181,7 @@ namespace ZeroAlloc.Mediator.Generator
             var handlerNames = string.Join(", ", allHandlers.Select(h => h.HandlerTypeName));
             sb.AppendLine(string.Format("                if ({0})", condition));
             sb.AppendLine(string.Format(
-                "                    throw new global::System.InvalidOperationException(\"No handler registered for {0}. Known handlers: {1}. Register them with services.AddMediator().RegisterHandlersFromAssembly(...), or register INotificationHandler<{0}> implementations directly.\");",
+                "                    throw new global::System.InvalidOperationException(\"No handler registered for {0}. Known handlers: {1}. Register them with services.AddMediator(), or register INotificationHandler<{0}> implementations directly.\");",
                 EscapeForLiteral(notificationType), EscapeForLiteral(handlerNames)));
         }
 
@@ -1407,7 +1407,7 @@ namespace ZeroAlloc.Mediator.Generator
             return hasParameterlessConstructor
                 ? string.Format("new {0}()", handlerTypeName)
                 : string.Format(
-                    "throw new global::System.InvalidOperationException(\"No factory registered for {0}. Inject IMediator (services.AddMediator().RegisterHandlersFromAssembly(...)) or call Mediator.Configure(c => c.SetFactory<{0}>(() => new {0}(...))).\")",
+                    "throw new global::System.InvalidOperationException(\"No factory registered for {0}. Inject IMediator (services.AddMediator()) or call Mediator.Configure(c => c.SetFactory<{0}>(() => new {0}(...))).\")",
                     handlerTypeName);
         }
 

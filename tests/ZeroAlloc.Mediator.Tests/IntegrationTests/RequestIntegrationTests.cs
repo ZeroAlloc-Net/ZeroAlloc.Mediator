@@ -74,7 +74,7 @@ public readonly record struct ScopedFlowQuery : IRequest<Guid>;
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "ZeroAlloc.Mediator", "ZAM008",
-    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+    Justification = "Test fixture exercised through DI (AddMediator); never via static Mediator.Send.")]
 public sealed class ScopedFlowHandler : IRequestHandler<ScopedFlowQuery, Guid>
 {
     private readonly IScopedFlowMarker _marker;
@@ -97,7 +97,7 @@ public readonly record struct ScopedFlowNoBehaviorQuery : IRequest<Guid>;
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "ZeroAlloc.Mediator", "ZAM008",
-    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+    Justification = "Test fixture exercised through DI (AddMediator); never via static Mediator.Send.")]
 public sealed class ScopedFlowNoBehaviorHandler : IRequestHandler<ScopedFlowNoBehaviorQuery, Guid>
 {
     private readonly IScopedFlowMarker _marker;
@@ -160,7 +160,7 @@ public class RequestIntegrationTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => Mediator.Send(new ThrowPing(0), CancellationToken.None).AsTask());
         Assert.Contains("ThrowPingHandler", ex.Message);
-        Assert.Contains("RegisterHandlersFromAssembly", ex.Message);
+        Assert.Contains("AddMediator", ex.Message);
     }
 
     [Fact]

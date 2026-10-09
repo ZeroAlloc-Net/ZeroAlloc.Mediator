@@ -41,8 +41,7 @@ public class StreamIntegrationTests
     public async Task CreateStream_ViaDi_ResolvesHandlerFromScope_AndYieldsValues()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(IntegrationCountToHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();
