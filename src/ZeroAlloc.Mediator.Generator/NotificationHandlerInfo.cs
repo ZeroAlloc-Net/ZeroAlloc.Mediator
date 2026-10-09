@@ -21,6 +21,11 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public LocationInfo? HandlerLocation { get; }
 
+        /// <summary>
+        /// The ServiceLifetime value from [HandlerLifetime] on the handler class, or null when the attribute is absent.
+        /// </summary>
+        public int? Lifetime { get; }
+
         public NotificationHandlerInfo(
             string notificationTypeName,
             string handlerTypeName,
@@ -28,7 +33,8 @@ namespace ZeroAlloc.Mediator.Generator
             bool isBaseHandler,
             string baseNotificationTypeNames,
             bool hasParameterlessConstructor,
-            LocationInfo? handlerLocation)
+            LocationInfo? handlerLocation,
+            int? lifetime)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
@@ -37,6 +43,7 @@ namespace ZeroAlloc.Mediator.Generator
             BaseNotificationTypeNames = baseNotificationTypeNames;
             HasParameterlessConstructor = hasParameterlessConstructor;
             HandlerLocation = handlerLocation;
+            Lifetime = lifetime;
         }
 
         public bool Equals(NotificationHandlerInfo? other)
@@ -48,14 +55,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && IsBaseHandler == other.IsBaseHandler
                 && BaseNotificationTypeNames == other.BaseNotificationTypeNames
                 && HasParameterlessConstructor == other.HasParameterlessConstructor
-                && Equals(HandlerLocation, other.HandlerLocation);
+                && Equals(HandlerLocation, other.HandlerLocation)
+                && Lifetime == other.Lifetime;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public NotificationHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null);
+                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null, Lifetime);
 
         public override bool Equals(object? obj)
         {
@@ -74,6 +82,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + BaseNotificationTypeNames.GetHashCode();
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
+                hash = hash * 31 + (Lifetime ?? -1);
                 return hash;
             }
         }

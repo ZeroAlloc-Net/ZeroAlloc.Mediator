@@ -166,7 +166,8 @@ namespace ZeroAlloc.Mediator.Generator
                 var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos, notificationTypeNames, activateBehaviorState);
                 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
 
-                var diSource = GenerateServiceCollectionExtensions(activateBehaviorState);
+                var handlerRegistrations = CollectHandlerRegistrations(requestInfos, notificationInfos, streamInfos);
+                var diSource = GenerateServiceCollectionExtensions(activateBehaviorState, handlerRegistrations);
                 spc.AddSource("ZeroAlloc.Mediator.ServiceCollection.g.cs", diSource);
             });
         }
@@ -185,6 +186,25 @@ namespace ZeroAlloc.Mediator.Generator
             // so the loop above already covers that case. The fallback branch handles the (rare)
             // case where a symbol has an empty InstanceConstructors list (synthetic types).
             return type.InstanceConstructors.IsDefaultOrEmpty;
+        }
+
+        /// <summary>
+        /// The ServiceLifetime value of [HandlerLifetime] on <paramref name="handler"/>, or null.
+        /// Read from the attribute's constant argument, so registration needs no reflection.
+        /// </summary>
+        private static int? GetHandlerLifetime(INamedTypeSymbol handler)
+        {
+            foreach (var attribute in handler.GetAttributes())
+            {
+                if (attribute.AttributeClass?.ToDisplayString() == "ZeroAlloc.Mediator.HandlerLifetimeAttribute"
+                    && attribute.ConstructorArguments.Length == 1
+                    && attribute.ConstructorArguments[0].Value is int lifetime)
+                {
+                    return lifetime;
+                }
+            }
+
+            return null;
         }
 
         private static bool IsAccessible(INamedTypeSymbol symbol)
@@ -228,7 +248,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location);
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol));
                 }
             }
 
@@ -284,7 +304,8 @@ namespace ZeroAlloc.Mediator.Generator
                         isBaseHandler,
                         string.Join(";", baseTypeNames),
                         hasParameterlessCtor,
-                        location);
+                        location,
+                        GetHandlerLifetime(symbol));
                 }
             }
 
@@ -364,7 +385,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location);
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol));
                 }
             }
 
@@ -558,8 +579,44 @@ namespace ZeroAlloc.Mediator.Generator
         private static IEnumerable<Location> ToLocations(IEnumerable<LocationInfo?> locations) =>
             locations.Where(l => l != null).Select(l => l!.ToLocation());
 
-        private static string GenerateServiceCollectionExtensions(bool activateBehaviorState)
+        /// <summary>
+        /// Every handler type across the three kinds once, in ordinal order, with its
+        /// [HandlerLifetime] value or null.
+        /// </summary>
+        private static List<KeyValuePair<string, int?>> CollectHandlerRegistrations(
+            ImmutableArray<RequestHandlerInfo?> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo?> streamHandlers)
         {
+            var byType = new SortedDictionary<string, int?>(StringComparer.Ordinal);
+            foreach (var h in requestHandlers)
+                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+            foreach (var h in notificationHandlers)
+                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+            foreach (var h in streamHandlers)
+                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+            return byType.ToList();
+        }
+
+        private static string LifetimeExpression(int? lifetime) => lifetime switch
+        {
+            0 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton",
+            1 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped",
+            2 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient",
+            _ => "defaultHandlerLifetime",
+        };
+
+        private static string GenerateServiceCollectionExtensions(bool activateBehaviorState, List<KeyValuePair<string, int?>> handlers)
+        {
+            var registrations = new StringBuilder();
+            foreach (var handler in handlers)
+            {
+                registrations
+                    .Append("            services.TryAdd(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(")
+                    .Append(handler.Key).Append("), typeof(").Append(handler.Key).Append("), ")
+                    .Append(LifetimeExpression(handler.Value)).Append("));\r\n");
+            }
+
             // Pipeline behaviors are static, so bridge packages keep their dependencies in static
             // state. The activation fills that state from this container: registering it here
             // lets the generated MediatorService resolve it without the app doing anything.
@@ -588,22 +645,32 @@ namespace ZeroAlloc.Mediator.Generator
                 "    internal static partial class MediatorServiceCollectionExtensions\r\n" +
                 "    {\r\n" +
                 "        /// <summary>\r\n" +
-                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> as transient resolving to the\r\n" +
-                "        /// generated <c>MediatorService</c> adapter, and returns an\r\n" +
+                "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> and every request, notification\r\n" +
+                "        /// and stream handler in this assembly, each as its concrete type with a transient lifetime\r\n" +
+                "        /// unless it carries <c>[HandlerLifetime]</c>. Returns an\r\n" +
                 "        /// <see cref=\"global::ZeroAlloc.Mediator.IMediatorBuilder\"/> for chaining bridge-package\r\n" +
                 "        /// registrations (<c>WithCache()</c>, <c>WithValidation()</c>, <c>WithResilience()</c>, etc.).\r\n" +
                 "        /// </summary>\r\n" +
                 "        /// <remarks>\r\n" +
-                "        /// The static <c>ZeroAlloc.Mediator.Mediator</c> dispatcher API is unaffected\r\n" +
-                "        /// by this registration. Calling <c>AddMediator()</c> is optional; it only\r\n" +
-                "        /// helps users who want to inject <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/>\r\n" +
-                "        /// via constructor parameters.\r\n" +
+                "        /// Registration is generated at compile time, so it is trim- and AOT-safe. Handlers are\r\n" +
+                "        /// added with TryAdd, so a handler you registered yourself keeps your registration.\r\n" +
+                "        /// The static <c>ZeroAlloc.Mediator.Mediator</c> dispatcher API is unaffected.\r\n" +
                 "        /// </remarks>\r\n" +
                 "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services)\r\n" +
+                "            => AddMediator(services, global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient);\r\n" +
+                "\r\n" +
+                "        /// <summary>\r\n" +
+                "        /// Same as <c>AddMediator()</c>, with <paramref name=\"defaultHandlerLifetime\"/> for handlers\r\n" +
+                "        /// that do not carry <c>[HandlerLifetime]</c>.\r\n" +
+                "        /// </summary>\r\n" +
+                "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
+                "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,\r\n" +
+                "            global::Microsoft.Extensions.DependencyInjection.ServiceLifetime defaultHandlerLifetime)\r\n" +
                 "        {\r\n" +
                 "            services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();\r\n" +
                 activationRegistration +
+                registrations +
                 "            return new global::ZeroAlloc.Mediator.MediatorBuilder(services);\r\n" +
                 "        }\r\n" +
                 "    }\r\n" +

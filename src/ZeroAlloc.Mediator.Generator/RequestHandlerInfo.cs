@@ -20,7 +20,12 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public LocationInfo? HandlerLocation { get; }
 
-        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, LocationInfo? handlerLocation)
+        /// <summary>
+        /// The ServiceLifetime value from [HandlerLifetime] on the handler class, or null when the attribute is absent.
+        /// </summary>
+        public int? Lifetime { get; }
+
+        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
@@ -28,13 +33,14 @@ namespace ZeroAlloc.Mediator.Generator
             IsRequestValueType = isRequestValueType;
             HasParameterlessConstructor = hasParameterlessConstructor;
             HandlerLocation = handlerLocation;
+            Lifetime = lifetime;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public RequestHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new RequestHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, IsRequestValueType, HasParameterlessConstructor, null);
+                : new RequestHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, IsRequestValueType, HasParameterlessConstructor, null, Lifetime);
 
         public bool Equals(RequestHandlerInfo? other)
         {
@@ -44,7 +50,8 @@ namespace ZeroAlloc.Mediator.Generator
                 && HandlerTypeName == other.HandlerTypeName
                 && IsRequestValueType == other.IsRequestValueType
                 && HasParameterlessConstructor == other.HasParameterlessConstructor
-                && Equals(HandlerLocation, other.HandlerLocation);
+                && Equals(HandlerLocation, other.HandlerLocation)
+                && Lifetime == other.Lifetime;
         }
 
         public override bool Equals(object? obj)
@@ -63,6 +70,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + IsRequestValueType.GetHashCode();
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
+                hash = hash * 31 + (Lifetime ?? -1);
                 return hash;
             }
         }
