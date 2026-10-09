@@ -7,7 +7,7 @@ namespace ZeroAlloc.Mediator.Tests.IntegrationTests;
 
 // Models ZeroAlloc.Saga#127 end to end: the handler is registered as
 // INotificationHandler<T> (what With{Saga}Saga() emits) and NOT by concrete type
-// (what RegisterHandlersFromAssembly emits). Before the fix, IMediator.Publish never
+// (what AddMediator emits). Before the fix, IMediator.Publish never
 // reached it.
 
 public readonly record struct SagaLikeTriggered(int Id) : INotification;
