@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.1.1...v6.2.0) (2026-10-09)
+
+
+### Features
+
+* honour ZeroAlloc.Inject lifetime attributes in generated handler registrations ([c15456c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c15456c91b7021425cb7461c4d8ca06cb307808c))
+* register handlers from the generated AddMediator ([c15456c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/c15456c91b7021425cb7461c4d8ca06cb307808c))
+
 ## [6.1.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.1.0...v6.1.1) (2026-10-02)
 
 
