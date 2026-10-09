@@ -221,6 +221,21 @@ namespace ZeroAlloc.Mediator.Generator
             return false;
         }
 
+        /// <summary>
+        /// Whether <paramref name="symbol"/> or a type it is nested in declares type parameters.
+        /// <c>Outer&lt;T&gt;.Handler</c> is not generic itself, but naming it still needs a
+        /// <c>T</c> the generated code does not have.
+        /// </summary>
+        private static bool IsOpenGeneric(INamedTypeSymbol symbol)
+        {
+            for (var current = symbol; current != null; current = current.ContainingType)
+            {
+                if (current.TypeParameters.Length > 0) return true;
+            }
+
+            return false;
+        }
+
         private static bool IsAccessible(INamedTypeSymbol symbol)
         {
             var current = symbol;
@@ -246,7 +261,7 @@ namespace ZeroAlloc.Mediator.Generator
             if (!IsAccessible(symbol)) return null;
             // Open generic handlers cannot be registered as factory fields because the type
             // parameter is unbound at code-emit time; the runtime scanner filters them out too.
-            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
+            if (IsOpenGeneric(symbol)) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
@@ -277,7 +292,7 @@ namespace ZeroAlloc.Mediator.Generator
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
             // Open generic handlers: see GetRequestHandlerInfo.
-            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
+            if (IsOpenGeneric(symbol)) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
@@ -348,9 +363,10 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             // Interfaces and abstract types reach handlers through base-handler matching rather
-            // than a Publish overload of their own; open generics cannot be dispatched.
+            // than a Publish overload of their own; open generics, including types nested in one,
+            // cannot be dispatched.
             if (symbol.TypeKind == TypeKind.Interface || symbol.IsAbstract) return null;
-            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
+            if (IsOpenGeneric(symbol)) return null;
             if (!IsAccessible(symbol)) return null;
 
             foreach (var iface in symbol.AllInterfaces)
@@ -391,7 +407,7 @@ namespace ZeroAlloc.Mediator.Generator
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
             // Open generic handlers: see GetRequestHandlerInfo.
-            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
+            if (IsOpenGeneric(symbol)) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {

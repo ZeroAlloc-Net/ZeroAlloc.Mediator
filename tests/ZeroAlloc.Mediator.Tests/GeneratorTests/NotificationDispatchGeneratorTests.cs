@@ -407,4 +407,26 @@ public class NotificationDispatchGeneratorTests
         Assert.Contains("Func<global::TestApp.UserCreatedHandler>", output);
         Assert.Contains("Func<global::TestApp.GlobalLogger>", output);
     }
+
+    [Fact]
+    public void Generator_SkipsNotificationNestedInAGenericType()
+    {
+        // Outer<T>.Happened is not generic itself, but a Publish overload naming it would need a T.
+        var source = """
+            using ZeroAlloc.Mediator;
+
+            namespace TestApp;
+
+            public class Outer<T>
+            {
+                public readonly record struct Happened(int X) : INotification;
+            }
+            """;
+
+        var (output, generatorDiagnostics, compilationDiagnostics) = GeneratorTestHelper.RunGeneratorAndCompile(source);
+
+        Assert.Empty(generatorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(compilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.DoesNotContain("Outer", output);
+    }
 }
