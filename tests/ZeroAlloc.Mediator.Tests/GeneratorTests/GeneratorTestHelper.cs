@@ -9,6 +9,48 @@ internal static class GeneratorTestHelper
     public static (string output, ImmutableArray<Diagnostic> diagnostics) RunGenerator(string source)
         => RunGenerator(source, []);
 
+    /// <summary>
+    /// Runs the generator and also returns the diagnostics of the output compilation, so a test
+    /// can assert that the generated code compiles.
+    /// </summary>
+    public static (string output, ImmutableArray<Diagnostic> generatorDiagnostics, ImmutableArray<Diagnostic> compilationDiagnostics) RunGeneratorAndCompile(string source)
+    {
+        var compilation = CSharpCompilation.Create(
+            "TestAssembly",
+            [CSharpSyntaxTree.ParseText(source)],
+            CompilableReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.MediatorGenerator());
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        var output = string.Join("\n", outputCompilation.SyntaxTrees
+            .Where(t => t.FilePath.Contains("ZeroAlloc"))
+            .Select(t => t.GetText().ToString()));
+        return (output, diagnostics, outputCompilation.GetDiagnostics());
+    }
+
+    // BaseReferences plus the platform assemblies that are not loaded yet. Type forwards such as
+    // System.IServiceProvider resolve only when the target assembly is referenced, which a
+    // compile-and-check test needs and a generator-only run does not.
+    private static List<MetadataReference> CompilableReferences()
+    {
+        var references = BaseReferences();
+        var known = new HashSet<string>(
+            references.OfType<PortableExecutableReference>()
+                .Select(r => System.IO.Path.GetFileName(r.FilePath) ?? string.Empty),
+            StringComparer.OrdinalIgnoreCase);
+        var platform = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty;
+        foreach (var path in platform.Split(System.IO.Path.PathSeparator))
+        {
+            var name = System.IO.Path.GetFileName(path);
+            if (name.StartsWith("System.", StringComparison.Ordinal) && known.Add(name))
+                references.Add(MetadataReference.CreateFromFile(path));
+        }
+
+        return references;
+    }
+
     public static (string output, ImmutableArray<Diagnostic> diagnostics) RunGenerator(
         string source, IEnumerable<MetadataReference> additionalReferences)
     {

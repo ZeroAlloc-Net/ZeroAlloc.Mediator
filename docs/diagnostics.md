@@ -168,7 +168,7 @@ public sealed class CachingBehavior : IPipelineBehavior { ... }
 `Mediator.Send/Publish/CreateStream` dispatch will throw `InvalidOperationException`
 at runtime unless you register a factory with `Mediator.Configure(...)` or
 register the handler in DI via
-`services.AddMediator().RegisterHandlersFromAssembly(...)` and inject `IMediator`.
+`services.AddMediator()` and inject `IMediator`.
 
 **Example that triggers it:**
 ```csharp
@@ -183,7 +183,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
 **Fix options:**
 
 1. **Inject `IMediator` (recommended for ASP.NET / hosted apps).** Add
-   `services.AddMediator().RegisterHandlersFromAssembly(typeof(Program).Assembly);`
+   `services.AddMediator();`
    at startup and inject `IMediator` instead of using the static `Mediator` class.
 2. **Add a parameterless constructor.** Suitable for stateless handlers.
 3. **Register a factory.** Call `Mediator.Configure(c => c.SetFactory<MyHandler>(...))`

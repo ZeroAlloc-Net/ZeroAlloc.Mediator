@@ -81,7 +81,6 @@ public static class CachedScenario
     public static async Task RunAsync()
     {
         var services = new ServiceCollection();
-        services.AddTransient<CachedThroughMediatorHandler>();
         services.AddMediator().WithCache();
         using var provider = services.BuildServiceProvider();
 

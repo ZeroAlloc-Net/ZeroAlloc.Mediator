@@ -5,9 +5,9 @@ namespace ZeroAlloc.Mediator;
 
 /// <summary>
 /// Overrides the default lifetime used by
-/// <c>services.AddMediator().RegisterHandlersFromAssembly(...)</c> for the decorated handler.
-/// Without this attribute, the lifetime supplied to <c>RegisterHandlersFromAssembly</c>
-/// (default <see cref="ServiceLifetime.Transient"/>) applies.
+/// <c>services.AddMediator()</c> and <c>AddMediator(ServiceLifetime)</c> for the decorated handler.
+/// Without this attribute, the lifetime supplied to <c>AddMediator(ServiceLifetime)</c>
+/// (default <see cref="ServiceLifetime.Transient"/>) applies; the attribute always wins.
 /// </summary>
 /// <remarks>
 /// The attribute must be applied directly to the concrete handler type;

@@ -162,21 +162,11 @@ sequenceDiagram
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
-// Handler uses DbContext via constructor injection
-builder.Services.AddTransient<PlaceOrderHandler>();
-builder.Services.AddTransient<CreateProductHandler>();
-
-// Register IMediator via the v2 fluent builder
+// Register IMediator and every handler in this assembly. Handlers such as PlaceOrderHandler
+// take the DbContext through constructor injection.
 builder.Services.AddMediator();
 
-// Wire factories so MediatorService can resolve handlers from DI
-var sp = builder.Services.BuildServiceProvider();
-Mediator.Configure(cfg =>
-{
-    cfg.SetFactory(() => sp.GetRequiredService<PlaceOrderHandler>());
-    cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
-    // ... other handlers
-});
+var app = builder.Build();
 
 // Middleware (must be before endpoint routing)
 app.Use(async (ctx, next) =>
@@ -184,6 +174,11 @@ app.Use(async (ctx, next) =>
     AmbientScope.Current = ctx.RequestServices;
     await next();
 });
+
+// The injected IMediator resolves the handler from the request scope, so the handler and
+// TransactionBehavior share the request's DbContext.
+app.MapPost("/orders", async (PlaceOrderCommand command, IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
 ```
 
 ## Publishing Events After Commit

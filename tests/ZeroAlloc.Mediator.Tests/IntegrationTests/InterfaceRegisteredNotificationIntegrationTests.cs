@@ -7,7 +7,7 @@ namespace ZeroAlloc.Mediator.Tests.IntegrationTests;
 
 // Models ZeroAlloc.Saga#127 end to end: the handler is registered as
 // INotificationHandler<T> (what With{Saga}Saga() emits) and NOT by concrete type
-// (what RegisterHandlersFromAssembly emits). Before the fix, IMediator.Publish never
+// (what AddMediator emits). Before the fix, IMediator.Publish never
 // reached it.
 
 public readonly record struct SagaLikeTriggered(int Id) : INotification;
@@ -108,8 +108,10 @@ public class InterfaceRegisteredNotificationIntegrationTests
     {
         // The pre-fix diagnostic is preserved: a handler visible at compile time but registered
         // under neither contract is a misconfiguration, not a silent no-op.
+        // AddMediator() now registers every handler by concrete type, so register IMediator alone
+        // to model a handler that is registered nowhere.
         var services = new ServiceCollection();
-        services.AddMediator();
+        services.AddTransient<IMediator, MediatorService>();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();

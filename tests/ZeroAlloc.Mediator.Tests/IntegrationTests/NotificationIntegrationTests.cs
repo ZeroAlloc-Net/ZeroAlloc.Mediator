@@ -55,8 +55,7 @@ public class NotificationIntegrationTests
     public async Task Publish_ViaDi_DispatchesToAllRegisteredHandlers()
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(IntegrationUserCreatedHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();

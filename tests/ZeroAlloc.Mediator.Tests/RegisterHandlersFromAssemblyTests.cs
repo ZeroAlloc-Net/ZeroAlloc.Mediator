@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
 
+#pragma warning disable CS0618 // Tests the obsolete scanner itself
+
 namespace ZeroAlloc.Mediator.Tests;
 
 public readonly record struct ScanPing(string Message) : IRequest<string>;
@@ -66,8 +68,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Registers_RequestHandlers_AsTransient_ByDefault()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly);
 
         var descriptor = services.Single(d => d.ServiceType == typeof(ScanPingHandler));
         Assert.Equal(ServiceLifetime.Transient, descriptor.Lifetime);
@@ -77,8 +78,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Registers_NotificationHandlers()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScanEventHandler).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(ScanEventHandler).Assembly);
 
         Assert.Contains(services, d => d.ServiceType == typeof(ScanEventHandler));
     }
@@ -87,8 +87,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Honors_HandlerLifetime_Attribute_OverDefault()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScopedHandlerWithAttribute).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(ScopedHandlerWithAttribute).Assembly);
 
         var descriptor = services.Single(d => d.ServiceType == typeof(ScopedHandlerWithAttribute));
         Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
@@ -98,8 +97,7 @@ public class RegisterHandlersFromAssemblyTests
     public void DefaultLifetime_Override_AppliesWhenNoAttribute()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly, ServiceLifetime.Singleton);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly, ServiceLifetime.Singleton);
 
         var descriptor = services.Single(d => d.ServiceType == typeof(ScanPingHandler));
         Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
@@ -109,8 +107,7 @@ public class RegisterHandlersFromAssemblyTests
     public void RegisterHandlersFromAssemblies_RegistersAllProvided()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssemblies(
+        new MediatorBuilder(services).RegisterHandlersFromAssemblies(
                 typeof(ScanPingHandler).Assembly,
                 typeof(RegisterHandlersFromAssemblyTests).Assembly);
 
@@ -122,8 +119,8 @@ public class RegisterHandlersFromAssemblyTests
     {
         var services = new ServiceCollection();
         var asm = typeof(ScanPingHandler).Assembly;
-        services.AddMediator().RegisterHandlersFromAssembly(asm);
-        services.AddMediator().RegisterHandlersFromAssembly(asm);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(asm);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(asm);
 
         var count = services.Count(d => d.ServiceType == typeof(ScanPingHandler));
         Assert.Equal(1, count);
@@ -133,8 +130,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Returns_BuilderForChaining()
     {
         var services = new ServiceCollection();
-        var builder = services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly);
+        var builder = new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(ScanPingHandler).Assembly);
 
         Assert.NotNull(builder);
         Assert.IsAssignableFrom<IMediatorBuilder>(builder);
@@ -144,8 +140,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Skips_OpenGeneric_HandlerTypes()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(OpenGenericNotificationHandler<>).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(OpenGenericNotificationHandler<>).Assembly);
 
         Assert.DoesNotContain(services,
             d => d.ServiceType == typeof(OpenGenericNotificationHandler<>));
@@ -155,8 +150,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Handler_ImplementingMultipleInterfaces_RegisteredOnce()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(MultiInterfaceHandler).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(MultiInterfaceHandler).Assembly);
 
         var count = services.Count(d => d.ServiceType == typeof(MultiInterfaceHandler));
         Assert.Equal(1, count);
@@ -166,8 +160,7 @@ public class RegisterHandlersFromAssemblyTests
     public void Skips_InternalHandlerTypes()
     {
         var services = new ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(InternalScanHandler).Assembly);
+        new MediatorBuilder(services).RegisterHandlersFromAssembly(typeof(InternalScanHandler).Assembly);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(InternalScanHandler));
     }

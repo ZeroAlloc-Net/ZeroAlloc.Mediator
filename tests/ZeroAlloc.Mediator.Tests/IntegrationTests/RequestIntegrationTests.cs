@@ -74,7 +74,7 @@ public readonly record struct ScopedFlowQuery : IRequest<Guid>;
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "ZeroAlloc.Mediator", "ZAM008",
-    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+    Justification = "Test fixture exercised through DI (AddMediator); never via static Mediator.Send.")]
 public sealed class ScopedFlowHandler : IRequestHandler<ScopedFlowQuery, Guid>
 {
     private readonly IScopedFlowMarker _marker;
@@ -97,7 +97,7 @@ public readonly record struct ScopedFlowNoBehaviorQuery : IRequest<Guid>;
 
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "ZeroAlloc.Mediator", "ZAM008",
-    Justification = "Test fixture exercised through DI (RegisterHandlersFromAssembly); never via static Mediator.Send.")]
+    Justification = "Test fixture exercised through DI (AddMediator); never via static Mediator.Send.")]
 public sealed class ScopedFlowNoBehaviorHandler : IRequestHandler<ScopedFlowNoBehaviorQuery, Guid>
 {
     private readonly IScopedFlowMarker _marker;
@@ -126,8 +126,7 @@ public class RequestIntegrationTests
     public async Task Send_ViaDi_ResolvesHandlerFromScope()
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(IntegrationPingHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();
@@ -142,8 +141,7 @@ public class RequestIntegrationTests
         PipelineDiObservingBehavior.InvocationCount = 0;
 
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(PipelineDiPingHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();
@@ -160,7 +158,7 @@ public class RequestIntegrationTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => Mediator.Send(new ThrowPing(0), CancellationToken.None).AsTask());
         Assert.Contains("ThrowPingHandler", ex.Message);
-        Assert.Contains("RegisterHandlersFromAssembly", ex.Message);
+        Assert.Contains("AddMediator", ex.Message);
     }
 
     [Fact]
@@ -168,8 +166,7 @@ public class RequestIntegrationTests
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScopedFlowHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();
@@ -193,8 +190,7 @@ public class RequestIntegrationTests
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScopedFlowNoBehaviorHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();

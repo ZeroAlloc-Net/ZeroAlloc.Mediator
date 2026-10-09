@@ -5,8 +5,7 @@ using ZeroAlloc.Mediator.AspNetSample;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IRequestContext, RequestContext>();
-builder.Services.AddMediator()
-    .RegisterHandlersFromAssembly(typeof(Program).Assembly);
+builder.Services.AddMediator();
 
 var app = builder.Build();
 
@@ -42,7 +41,7 @@ namespace ZeroAlloc.Mediator.AspNetSample
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "ZeroAlloc.Mediator",
         "ZAM008",
-        Justification = "Handler is resolved through DI (services.AddMediator().RegisterHandlersFromAssembly), " +
+        Justification = "Handler is resolved through DI (services.AddMediator()), " +
                         "not via the static Mediator.Send/Publish/CreateStream entry points.")]
     public sealed class GetRequestIdHandler : IRequestHandler<GetRequestId, Guid>
     {

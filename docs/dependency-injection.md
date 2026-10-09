@@ -12,7 +12,7 @@ ZeroAlloc.Mediator 3.0 exposes two parallel dispatch paths and lets you choose p
 
 ## Quickstart — ASP.NET Core
 
-Register the mediator and scan the entry-assembly for handlers:
+Register the mediator. The generated `AddMediator()` also registers every handler in the assembly:
 
 > This single-project shape calls `AddMediator()` from the host. That works because the handlers live in the same assembly. If your handlers are in a separate application assembly, see [`AddMediator()` is internal too](#addmediator-is-internal-too--registration-lives-with-the-handlers) — the call has to move there.
 
@@ -20,8 +20,7 @@ Register the mediator and scan the entry-assembly for handlers:
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IRequestContext, RequestContext>();
-builder.Services.AddMediator()
-    .RegisterHandlersFromAssembly(typeof(Program).Assembly);
+builder.Services.AddMediator();
 
 var app = builder.Build();
 
@@ -65,6 +64,47 @@ public sealed class OrderProcessingWorker : BackgroundService
 
 The `using` block bounds the scope to a single message — the same lifetime model ASP.NET Core uses for an HTTP request. Any `Scoped` handler or dependency is created on entry and disposed on exit.
 
+## Handler lifetimes
+
+The generated `AddMediator()` registers every request, notification and stream handler in the assembly, each as its concrete type. Handlers are **Transient** by default, matching MediatR.
+
+- `AddMediator(ServiceLifetime.Scoped)` changes the default for every handler.
+- `[HandlerLifetime(ServiceLifetime.X)]` on a handler wins over the default.
+- ZeroAlloc.Inject's `[Transient]`, `[Scoped]` and `[Singleton]` on a handler are honoured too. Mediator matches them by name, so it does not depend on ZeroAlloc.Inject.
+- The precedence is `[HandlerLifetime]`, then a ZeroAlloc.Inject lifetime attribute, then the `AddMediator` default. A handler that carries both kinds of attribute gets the `[HandlerLifetime]` lifetime.
+- Handlers are added with `TryAdd`, so only a registration you made *before* `AddMediator()` is kept. A `TryAdd` after it is a no-op, and that includes ZeroAlloc.Inject's generated `Add<Assembly>Services()`. Set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)` rather than by registering the handler again afterwards.
+- Internal handlers are registered too. Abstract handler classes, open-generic handlers and handlers without a public constructor are not. The container builds a type only through a public constructor, so register such a handler yourself, for example with a factory.
+- Registration happens at compile time, so it is trim- and AOT-safe.
+
+```csharp
+// Every handler is Scoped unless it says otherwise.
+builder.Services.AddMediator(ServiceLifetime.Scoped);
+
+// This one is Singleton, whatever the default is.
+[HandlerLifetime(ServiceLifetime.Singleton)]
+public sealed class GetSettingsHandler : IRequestHandler<GetSettings, Settings> { /* ... */ }
+```
+
+If your app builds its provider with `ValidateOnBuild` (the ASP.NET Core Development default), note that internal handlers are now registered. An internal handler whose constructor dependencies are not registered fails validation at startup.
+
+## Migrating from RegisterHandlersFromAssembly
+
+`RegisterHandlersFromAssembly` and `RegisterHandlersFromAssemblies` are `[Obsolete]`, are not trim- or AOT-safe, and will be removed in the next major version. To migrate:
+
+1. Delete the `.RegisterHandlersFromAssembly(...)` call. `AddMediator()` now registers the handlers.
+2. If you passed a lifetime, pass it to `AddMediator(lifetime)` instead.
+
+A scanner call left in place no longer sets the lifetime. The generated registration runs first, so the scanner's `TryAdd` is a no-op: a leftover `services.AddMediator().RegisterHandlersFromAssembly(asm, ServiceLifetime.Scoped)` yields Transient handlers, except those carrying `[HandlerLifetime]` or a ZeroAlloc.Inject lifetime attribute.
+
+```csharp
+// Before
+services.AddMediator()
+    .RegisterHandlersFromAssembly(typeof(Program).Assembly, ServiceLifetime.Scoped);
+
+// After
+services.AddMediator(ServiceLifetime.Scoped);
+```
+
 ## Lifetimes
 
 ### `IMediator`
@@ -73,14 +113,9 @@ Registered as **Transient**. The mediator instance itself is stateless; what mat
 
 ### Handlers
 
-The default lifetime for handlers registered through `RegisterHandlersFromAssembly` is **Transient**, matching MediatR. Override the project-wide default with the second argument:
+Handlers are **Transient** by default, matching MediatR. See [Handler lifetimes](#handler-lifetimes) for how to change the default or pick a lifetime per handler.
 
-```csharp
-services.AddMediator()
-    .RegisterHandlersFromAssembly(typeof(Program).Assembly, ServiceLifetime.Scoped);
-```
-
-Override per-handler with the `[HandlerLifetime]` attribute. The attribute always wins over the registration default:
+Override per-handler with the `[HandlerLifetime]` attribute. The attribute always wins over the `AddMediator` default:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
@@ -156,7 +191,6 @@ public static class ApplicationServiceCollectionExtensions
 {
     public static IServiceCollection AddApplication(this IServiceCollection services) =>
         services.AddMediator()                       // internal, same assembly — fine
-                .RegisterHandlersFromAssembly(typeof(ApplicationServiceCollectionExtensions).Assembly)
                 .Services;
 }
 
@@ -193,24 +227,23 @@ Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, 
 
 - **`IMediator` is now Transient (was Singleton).** Behaviorally identical: dispatch is stateless either way. The only thing that changes is reference equality across resolutions — if you cached the singleton instance and compared with `ReferenceEquals`, that no longer holds. Cached references still work; they just no longer match a fresh `GetRequiredService<IMediator>()` call.
 - **Drop the `null!` shim constructors.** Handlers that previously declared `internal MyHandler() : this(null!, null!) { }` purely to satisfy the unconditional `?? new T()` fallback can delete that ctor. ZAM008 will tell you if any remaining static-path call site still needs it.
-- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. You can adopt `RegisterHandlersFromAssembly` incrementally — both registration paths populate the same dispatch tables.
+- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. Handlers you register by hand before `AddMediator()` keep working, because `AddMediator()` uses `TryAdd` and both registration paths populate the same dispatch tables. Only registrations made *before* `AddMediator()` are kept: a `TryAdd` after it is a no-op, so set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)`.
 
 ## Bridge packages
 
-`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. `RegisterHandlersFromAssembly` is one such extension; cache, validation, resilience, and telemetry are others.
+`AddMediator()` returns an `IMediatorBuilder` that the bridge packages extend with `WithXxx()` helpers. Cache, validation, resilience, and telemetry are such extensions.
 
 Referencing a bridge package is what puts its behavior into the pipeline: the source generator finds the behavior in the referenced assembly, as described in [Behaviors from Referenced Assemblies](pipeline-behaviors.md#behaviors-from-referenced-assemblies). The `WithXxx()` call registers what the behavior needs at run time, so the two go together:
 
 ```csharp
 services.AddMediator()
-        .RegisterHandlersFromAssembly(typeof(Program).Assembly)
         .WithCache()
         .WithValidation()
         .WithResilience()
         .WithTelemetry();
 ```
 
-`AddMediator()` is idempotent (`TryAddTransient`); calling it more than once is safe.
+`AddMediator()` is idempotent (`TryAdd`); calling it more than once is safe, and the first call's handler lifetimes win. Only registrations made *before* the first `AddMediator()` are kept: a `TryAdd` after it is a no-op, so set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)`.
 
 ### How a bridge reaches your container
 
@@ -230,4 +263,4 @@ The state is process-wide. When one process builds several containers, for examp
 ## See also
 
 - **Analyzer reference** — [Compiler Diagnostics](diagnostics.md), including [ZAM008](diagnostics.md#zam008--handler-has-no-parameterless-constructor) for missing-parameterless-ctor handlers.
-- **Sample app** — `samples/ZeroAlloc.Mediator.AspNetSample/` is the canonical end-to-end ASP.NET Core example with assembly-scan registration and a scoped dependency flowing into a handler.
+- **Sample app** — `samples/ZeroAlloc.Mediator.AspNetSample/` is the canonical end-to-end ASP.NET Core example with generated handler registration and a scoped dependency flowing into a handler.

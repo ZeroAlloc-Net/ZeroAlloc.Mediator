@@ -48,7 +48,7 @@ public class NotificationDispatchBenchmarks
         var services = new ServiceCollection();
 
         // Mediator's contract: handlers registered by concrete type. This is exactly what
-        // MediatorBuilderExtensions.RegisterHandlersFromAssembly does today
+        // the generated AddMediator() does
         // (new ServiceDescriptor(type, type, lifetime)), and what generated Publish resolves.
         services.AddTransient<OneHandler>();
         services.AddTransient<ThreeHandlerA>();

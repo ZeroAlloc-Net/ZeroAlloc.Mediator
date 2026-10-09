@@ -214,6 +214,6 @@ public class RequestDispatchGeneratorTests
         Assert.DoesNotContain("?? new global::TestApp.PingHandler()", output);
         Assert.Contains("throw new global::System.InvalidOperationException", output);
         Assert.Contains("PingHandler", output);  // error message names the handler
-        Assert.Contains("RegisterHandlersFromAssembly", output);  // points users at the fix
+        Assert.Contains("Inject IMediator (services.AddMediator())", output);  // points users at the fix
     }
 }
