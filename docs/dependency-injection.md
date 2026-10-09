@@ -94,7 +94,7 @@ If your app builds its provider with `ValidateOnBuild` (the ASP.NET Core Develop
 1. Delete the `.RegisterHandlersFromAssembly(...)` call. `AddMediator()` now registers the handlers.
 2. If you passed a lifetime, pass it to `AddMediator(lifetime)` instead.
 
-Do not leave the scanner call in place to set a lifetime. A leftover `services.AddMediator().RegisterHandlersFromAssembly(asm, ServiceLifetime.Scoped)` now yields Transient handlers, unless a handler carries `[HandlerLifetime]`. The generated registration runs first, so the scanner's `TryAdd` is a no-op. The fix is to delete the scanner call and pass the lifetime to `AddMediator(ServiceLifetime.Scoped)`.
+A scanner call left in place no longer sets the lifetime. The generated registration runs first, so the scanner's `TryAdd` is a no-op: a leftover `services.AddMediator().RegisterHandlersFromAssembly(asm, ServiceLifetime.Scoped)` yields Transient handlers, except those carrying `[HandlerLifetime]` or a ZeroAlloc.Inject lifetime attribute.
 
 ```csharp
 // Before
