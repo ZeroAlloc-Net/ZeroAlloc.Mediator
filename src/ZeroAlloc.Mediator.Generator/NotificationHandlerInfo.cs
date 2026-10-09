@@ -26,6 +26,12 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public int? Lifetime { get; }
 
+        /// <summary>
+        /// Whether the handler class is abstract. An abstract handler still takes part in dispatch
+        /// and diagnostics, but cannot be instantiated, so it is not registered in the container.
+        /// </summary>
+        public bool IsAbstract { get; }
+
         public NotificationHandlerInfo(
             string notificationTypeName,
             string handlerTypeName,
@@ -34,7 +40,7 @@ namespace ZeroAlloc.Mediator.Generator
             string baseNotificationTypeNames,
             bool hasParameterlessConstructor,
             LocationInfo? handlerLocation,
-            int? lifetime)
+            int? lifetime, bool isAbstract)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
@@ -44,6 +50,7 @@ namespace ZeroAlloc.Mediator.Generator
             HasParameterlessConstructor = hasParameterlessConstructor;
             HandlerLocation = handlerLocation;
             Lifetime = lifetime;
+            IsAbstract = isAbstract;
         }
 
         public bool Equals(NotificationHandlerInfo? other)
@@ -56,14 +63,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && BaseNotificationTypeNames == other.BaseNotificationTypeNames
                 && HasParameterlessConstructor == other.HasParameterlessConstructor
                 && Equals(HandlerLocation, other.HandlerLocation)
-                && Lifetime == other.Lifetime;
+                && Lifetime == other.Lifetime
+                && IsAbstract == other.IsAbstract;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public NotificationHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null, Lifetime);
+                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null, Lifetime, IsAbstract);
 
         public override bool Equals(object? obj)
         {
@@ -83,6 +91,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
                 hash = hash * 31 + (Lifetime ?? -1);
+                hash = hash * 31 + IsAbstract.GetHashCode();
                 return hash;
             }
         }

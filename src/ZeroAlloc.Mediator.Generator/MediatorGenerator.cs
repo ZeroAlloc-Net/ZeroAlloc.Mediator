@@ -248,7 +248,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol));
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract);
                 }
             }
 
@@ -305,7 +305,8 @@ namespace ZeroAlloc.Mediator.Generator
                         string.Join(";", baseTypeNames),
                         hasParameterlessCtor,
                         location,
-                        GetHandlerLifetime(symbol));
+                        GetHandlerLifetime(symbol),
+                        symbol.IsAbstract);
                 }
             }
 
@@ -374,6 +375,8 @@ namespace ZeroAlloc.Mediator.Generator
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
             if (symbol == null) return null;
             if (!IsAccessible(symbol)) return null;
+            // Open generic handlers: see GetRequestHandlerInfo.
+            if (symbol.IsGenericType && symbol.TypeParameters.Length > 0) return null;
 
             foreach (var iface in symbol.AllInterfaces)
             {
@@ -385,7 +388,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol));
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract);
                 }
             }
 
@@ -580,8 +583,8 @@ namespace ZeroAlloc.Mediator.Generator
             locations.Where(l => l != null).Select(l => l!.ToLocation());
 
         /// <summary>
-        /// Every handler type across the three kinds once, in ordinal order, with its
-        /// [HandlerLifetime] value or null.
+        /// Every concrete handler type across the three kinds once, in ordinal order, with its
+        /// [HandlerLifetime] value or null. Abstract handlers cannot be built by a container.
         /// </summary>
         private static List<KeyValuePair<string, int?>> CollectHandlerRegistrations(
             ImmutableArray<RequestHandlerInfo?> requestHandlers,
@@ -590,11 +593,11 @@ namespace ZeroAlloc.Mediator.Generator
         {
             var byType = new SortedDictionary<string, int?>(StringComparer.Ordinal);
             foreach (var h in requestHandlers)
-                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in notificationHandlers)
-                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in streamHandlers)
-                if (h != null && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             return byType.ToList();
         }
 
@@ -603,7 +606,9 @@ namespace ZeroAlloc.Mediator.Generator
             0 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton",
             1 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped",
             2 => "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient",
-            _ => "defaultHandlerLifetime",
+            null => "defaultHandlerLifetime",
+            // An out-of-range value stays visible, so the container rejects it at runtime.
+            _ => "(global::Microsoft.Extensions.DependencyInjection.ServiceLifetime)" + lifetime.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
         };
 
         private static string GenerateServiceCollectionExtensions(bool activateBehaviorState, List<KeyValuePair<string, int?>> handlers)

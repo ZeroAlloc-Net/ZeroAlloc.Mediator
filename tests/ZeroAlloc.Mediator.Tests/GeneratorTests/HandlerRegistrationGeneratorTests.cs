@@ -21,8 +21,9 @@ public class HandlerRegistrationGeneratorTests
 
     private static string Run(string body)
     {
-        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(Header + body);
-        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        var (output, generatorDiagnostics, compilationDiagnostics) = GeneratorTestHelper.RunGeneratorAndCompile(Header + body);
+        Assert.Empty(generatorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(compilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         return output;
     }
 
@@ -141,5 +142,56 @@ public class HandlerRegistrationGeneratorTests
 
         Assert.Contains("services.TryAddTransient<global::ZeroAlloc.Mediator.IMediator, global::ZeroAlloc.Mediator.MediatorService>();", output);
         Assert.DoesNotContain("services.TryAdd(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor", output);
+    }
+
+    [Fact]
+    public void AddMediator_DoesNotRegisterAbstractHandlers()
+    {
+        var output = Run("""
+            public readonly record struct Happened(int X) : INotification;
+            public abstract class BaseHandler : INotificationHandler<Happened>
+            {
+                public ValueTask Handle(Happened notification, CancellationToken ct) => ValueTask.CompletedTask;
+            }
+            public class ConcreteHandler : BaseHandler;
+            """);
+
+        Assert.DoesNotContain("typeof(global::TestApp.BaseHandler)", output);
+        Assert.Contains(Registration("global::TestApp.ConcreteHandler", "defaultHandlerLifetime"), output);
+    }
+
+    [Fact]
+    public void AddMediator_SkipsOpenGenericStreamHandlers()
+    {
+        var output = Run("""
+            public readonly record struct Count(int To) : IStreamRequest<int>;
+            public class GenericCountHandler<T> : IStreamRequestHandler<Count, int>
+            {
+                public async IAsyncEnumerable<int> Handle(Count request, [EnumeratorCancellation] CancellationToken ct)
+                {
+                    yield return 1;
+                    await Task.CompletedTask;
+                }
+            }
+            """);
+
+        Assert.DoesNotContain("GenericCountHandler", output);
+    }
+
+    [Fact]
+    public void AddMediator_OutOfRangeHandlerLifetime_IsNotReplacedByTheDefault()
+    {
+        var output = Run("""
+            public readonly record struct Ping(int X) : IRequest<int>;
+            [HandlerLifetime((ServiceLifetime)7)]
+            public class PingHandler : IRequestHandler<Ping, int>
+            {
+                public ValueTask<int> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+            """);
+
+        Assert.Contains(
+            Registration("global::TestApp.PingHandler", "(global::Microsoft.Extensions.DependencyInjection.ServiceLifetime)7"),
+            output);
     }
 }

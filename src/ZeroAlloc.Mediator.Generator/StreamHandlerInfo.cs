@@ -20,7 +20,13 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public int? Lifetime { get; }
 
-        public StreamHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime)
+        /// <summary>
+        /// Whether the handler class is abstract. An abstract handler still takes part in dispatch
+        /// and diagnostics, but cannot be instantiated, so it is not registered in the container.
+        /// </summary>
+        public bool IsAbstract { get; }
+
+        public StreamHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime, bool isAbstract)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
@@ -28,6 +34,7 @@ namespace ZeroAlloc.Mediator.Generator
             HasParameterlessConstructor = hasParameterlessConstructor;
             HandlerLocation = handlerLocation;
             Lifetime = lifetime;
+            IsAbstract = isAbstract;
         }
 
         public bool Equals(StreamHandlerInfo? other)
@@ -38,14 +45,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && HandlerTypeName == other.HandlerTypeName
                 && HasParameterlessConstructor == other.HasParameterlessConstructor
                 && Equals(HandlerLocation, other.HandlerLocation)
-                && Lifetime == other.Lifetime;
+                && Lifetime == other.Lifetime
+                && IsAbstract == other.IsAbstract;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public StreamHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new StreamHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, HasParameterlessConstructor, null, Lifetime);
+                : new StreamHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, HasParameterlessConstructor, null, Lifetime, IsAbstract);
 
         public override bool Equals(object? obj)
         {
@@ -63,6 +71,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + HasParameterlessConstructor.GetHashCode();
                 hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
                 hash = hash * 31 + (Lifetime ?? -1);
+                hash = hash * 31 + IsAbstract.GetHashCode();
                 return hash;
             }
         }
