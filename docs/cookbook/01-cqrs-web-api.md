@@ -133,7 +133,7 @@ public class ListProductsHandler : IRequestHandler<ListProductsQuery, PagedResul
 
 ## Wiring Up (Program.cs)
 
-Register the repository, handlers, and `IMediator` in the DI container, then map each endpoint to the appropriate request type:
+Register the repository and call the generated `AddMediator()`, which registers `IMediator` and every handler in the assembly. Then map each endpoint to the appropriate request type, injecting `IMediator`:
 
 ```csharp
 using ZeroAlloc.Mediator;
@@ -143,24 +143,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Register repository
 builder.Services.AddSingleton<IProductRepository, InMemoryProductRepository>();
 
-// Register handlers
-builder.Services.AddTransient<CreateProductHandler>();
-builder.Services.AddTransient<ArchiveProductHandler>();
-builder.Services.AddTransient<GetProductHandler>();
-builder.Services.AddTransient<ListProductsHandler>();
-
-// Register IMediator via the v2 fluent builder
+// Register IMediator and every handler in this assembly. Handlers are Transient by default
+// and are resolved from the request scope of the injected IMediator.
 builder.Services.AddMediator();
-
-// Wire factories so MediatorService can resolve handlers from DI
-var sp = builder.Services.BuildServiceProvider();
-Mediator.Configure(cfg =>
-{
-    cfg.SetFactory(() => sp.GetRequiredService<CreateProductHandler>());
-    cfg.SetFactory(() => sp.GetRequiredService<ArchiveProductHandler>());
-    cfg.SetFactory(() => sp.GetRequiredService<GetProductHandler>());
-    cfg.SetFactory(() => sp.GetRequiredService<ListProductsHandler>());
-});
 
 var app = builder.Build();
 
