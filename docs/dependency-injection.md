@@ -92,6 +92,8 @@ If your app builds its provider with `ValidateOnBuild` (the ASP.NET Core Develop
 1. Delete the `.RegisterHandlersFromAssembly(...)` call. `AddMediator()` now registers the handlers.
 2. If you passed a lifetime, pass it to `AddMediator(lifetime)` instead.
 
+Do not leave the scanner call in place to set a lifetime. A leftover `services.AddMediator().RegisterHandlersFromAssembly(asm, ServiceLifetime.Scoped)` now yields Transient handlers, unless a handler carries `[HandlerLifetime]`. The generated registration runs first, so the scanner's `TryAdd` is a no-op. The fix is to delete the scanner call and pass the lifetime to `AddMediator(ServiceLifetime.Scoped)`.
+
 ```csharp
 // Before
 services.AddMediator()
@@ -223,7 +225,7 @@ Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, 
 
 - **`IMediator` is now Transient (was Singleton).** Behaviorally identical: dispatch is stateless either way. The only thing that changes is reference equality across resolutions — if you cached the singleton instance and compared with `ReferenceEquals`, that no longer holds. Cached references still work; they just no longer match a fresh `GetRequiredService<IMediator>()` call.
 - **Drop the `null!` shim constructors.** Handlers that previously declared `internal MyHandler() : this(null!, null!) { }` purely to satisfy the unconditional `?? new T()` fallback can delete that ctor. ZAM008 will tell you if any remaining static-path call site still needs it.
-- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. Handlers you register by hand keep working, because `AddMediator()` uses `TryAdd` and both registration paths populate the same dispatch tables.
+- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. Handlers you register by hand before `AddMediator()` keep working, because `AddMediator()` uses `TryAdd` and both registration paths populate the same dispatch tables.
 
 ## Bridge packages
 
