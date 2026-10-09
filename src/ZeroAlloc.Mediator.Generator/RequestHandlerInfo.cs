@@ -31,7 +31,14 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public bool IsAbstract { get; }
 
-        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime, bool isAbstract)
+        /// <summary>
+        /// Whether the handler class has at least one public instance constructor. Microsoft DI
+        /// builds a type only through a public constructor, so a handler without one is not
+        /// registered in the container.
+        /// </summary>
+        public bool HasPublicConstructor { get; }
+
+        public RequestHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool isRequestValueType, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime, bool isAbstract, bool hasPublicConstructor)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
@@ -41,13 +48,14 @@ namespace ZeroAlloc.Mediator.Generator
             HandlerLocation = handlerLocation;
             Lifetime = lifetime;
             IsAbstract = isAbstract;
+            HasPublicConstructor = hasPublicConstructor;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public RequestHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new RequestHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, IsRequestValueType, HasParameterlessConstructor, null, Lifetime, IsAbstract);
+                : new RequestHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, IsRequestValueType, HasParameterlessConstructor, null, Lifetime, IsAbstract, HasPublicConstructor);
 
         public bool Equals(RequestHandlerInfo? other)
         {
@@ -59,7 +67,8 @@ namespace ZeroAlloc.Mediator.Generator
                 && HasParameterlessConstructor == other.HasParameterlessConstructor
                 && Equals(HandlerLocation, other.HandlerLocation)
                 && Lifetime == other.Lifetime
-                && IsAbstract == other.IsAbstract;
+                && IsAbstract == other.IsAbstract
+                && HasPublicConstructor == other.HasPublicConstructor;
         }
 
         public override bool Equals(object? obj)
@@ -80,6 +89,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + (HandlerLocation?.GetHashCode() ?? 0);
                 hash = hash * 31 + (Lifetime ?? -1);
                 hash = hash * 31 + IsAbstract.GetHashCode();
+                hash = hash * 31 + HasPublicConstructor.GetHashCode();
                 return hash;
             }
         }

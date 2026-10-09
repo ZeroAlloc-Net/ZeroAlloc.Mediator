@@ -71,7 +71,7 @@ The generated `AddMediator()` registers every request, notification and stream h
 - `AddMediator(ServiceLifetime.Scoped)` changes the default for every handler.
 - `[HandlerLifetime(ServiceLifetime.X)]` on a handler wins over the default.
 - Handlers are added with `TryAdd`, so a registration you made before `AddMediator()` is kept.
-- Internal handlers are registered too. Abstract handler classes and open-generic handlers are not.
+- Internal handlers are registered too. Abstract handler classes, open-generic handlers and handlers without a public constructor are not. The container builds a type only through a public constructor, so register such a handler yourself, for example with a factory.
 - Registration happens at compile time, so it is trim- and AOT-safe.
 
 ```csharp

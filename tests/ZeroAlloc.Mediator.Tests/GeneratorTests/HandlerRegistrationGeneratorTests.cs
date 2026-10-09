@@ -194,4 +194,50 @@ public class HandlerRegistrationGeneratorTests
             Registration("global::TestApp.PingHandler", "(global::Microsoft.Extensions.DependencyInjection.ServiceLifetime)7"),
             output);
     }
+
+    [Fact]
+    public void AddMediator_DoesNotRegisterHandlersWithoutAPublicConstructor()
+    {
+        // Microsoft DI builds only through a public constructor, so registering these would make
+        // ValidateOnBuild fail even when the app supplies its own factory for them.
+        var output = Run("""
+            public readonly record struct Ping(int X) : IRequest<int>;
+            internal sealed class PingHandler : IRequestHandler<Ping, int>
+            {
+                internal PingHandler() { }
+                public ValueTask<int> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+
+            public readonly record struct Happened(int X) : INotification;
+            public class HappenedHandler : INotificationHandler<Happened>
+            {
+                private HappenedHandler() { }
+                public ValueTask Handle(Happened notification, CancellationToken ct) => ValueTask.CompletedTask;
+            }
+
+            public readonly record struct Count(int To) : IStreamRequest<int>;
+            public class CountHandler : IStreamRequestHandler<Count, int>
+            {
+                protected CountHandler() { }
+                public async IAsyncEnumerable<int> Handle(Count request, [EnumeratorCancellation] CancellationToken ct)
+                {
+                    yield return 1;
+                    await Task.CompletedTask;
+                }
+            }
+
+            public readonly record struct Other(int X) : IRequest<int>;
+            public class OtherHandler : IRequestHandler<Other, int>
+            {
+                private OtherHandler() { }
+                public OtherHandler(string dependency) { }
+                public ValueTask<int> Handle(Other request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+            """);
+
+        Assert.DoesNotContain("typeof(global::TestApp.PingHandler)", output);
+        Assert.DoesNotContain("typeof(global::TestApp.HappenedHandler)", output);
+        Assert.DoesNotContain("typeof(global::TestApp.CountHandler)", output);
+        Assert.Contains(Registration("global::TestApp.OtherHandler", "defaultHandlerLifetime"), output);
+    }
 }

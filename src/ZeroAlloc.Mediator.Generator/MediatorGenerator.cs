@@ -207,6 +207,20 @@ namespace ZeroAlloc.Mediator.Generator
             return null;
         }
 
+        /// <summary>
+        /// Whether <paramref name="type"/> has a public instance constructor, which Microsoft DI
+        /// needs to build it. The implicit default constructor counts.
+        /// </summary>
+        private static bool HasPublicConstructor(INamedTypeSymbol type)
+        {
+            foreach (var ctor in type.InstanceConstructors)
+            {
+                if (ctor.DeclaredAccessibility == Accessibility.Public) return true;
+            }
+
+            return false;
+        }
+
         private static bool IsAccessible(INamedTypeSymbol symbol)
         {
             var current = symbol;
@@ -248,7 +262,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract);
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol));
                 }
             }
 
@@ -306,7 +320,8 @@ namespace ZeroAlloc.Mediator.Generator
                         hasParameterlessCtor,
                         location,
                         GetHandlerLifetime(symbol),
-                        symbol.IsAbstract);
+                        symbol.IsAbstract,
+                        HasPublicConstructor(symbol));
                 }
             }
 
@@ -388,7 +403,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract);
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol));
                 }
             }
 
@@ -584,7 +599,8 @@ namespace ZeroAlloc.Mediator.Generator
 
         /// <summary>
         /// Every concrete handler type across the three kinds once, in ordinal order, with its
-        /// [HandlerLifetime] value or null. Abstract handlers cannot be built by a container.
+        /// [HandlerLifetime] value or null. Abstract handlers, and handlers without a public
+        /// constructor, cannot be built by a container, so they are left out.
         /// </summary>
         private static List<KeyValuePair<string, int?>> CollectHandlerRegistrations(
             ImmutableArray<RequestHandlerInfo?> requestHandlers,
@@ -593,13 +609,16 @@ namespace ZeroAlloc.Mediator.Generator
         {
             var byType = new SortedDictionary<string, int?>(StringComparer.Ordinal);
             foreach (var h in requestHandlers)
-                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in notificationHandlers)
-                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in streamHandlers)
-                if (h != null && !h.IsAbstract && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             return byType.ToList();
         }
+
+        private static bool IsRegistrable(bool isAbstract, bool hasPublicConstructor) =>
+            !isAbstract && hasPublicConstructor;
 
         private static string LifetimeExpression(int? lifetime) => lifetime switch
         {
