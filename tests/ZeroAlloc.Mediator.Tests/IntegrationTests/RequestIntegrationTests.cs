@@ -126,8 +126,7 @@ public class RequestIntegrationTests
     public async Task Send_ViaDi_ResolvesHandlerFromScope()
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(IntegrationPingHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();
@@ -142,8 +141,7 @@ public class RequestIntegrationTests
         PipelineDiObservingBehavior.InvocationCount = 0;
 
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(PipelineDiPingHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<IMediator>();
@@ -168,8 +166,7 @@ public class RequestIntegrationTests
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScopedFlowHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();
@@ -193,8 +190,7 @@ public class RequestIntegrationTests
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddScoped<IScopedFlowMarker, ScopedFlowMarker>();
-        services.AddMediator()
-            .RegisterHandlersFromAssembly(typeof(ScopedFlowNoBehaviorHandler).Assembly);
+        services.AddMediator();
 
         using var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();

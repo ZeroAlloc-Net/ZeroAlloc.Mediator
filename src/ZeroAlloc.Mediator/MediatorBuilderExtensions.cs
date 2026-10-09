@@ -27,7 +27,9 @@ public static class MediatorBuilderExtensions
     /// Uses reflection over <paramref name="assembly"/> and is therefore not safe under
     /// trimming or AOT publish. AOT consumers should register handlers explicitly via
     /// <see cref="IServiceCollection"/> instead of using this scanner.
+    /// Obsolete: the generated AddMediator() registers handlers at compile time.
     /// </remarks>
+    [Obsolete("AddMediator() now registers every handler in this assembly at compile time; use AddMediator(ServiceLifetime) to change the default lifetime. This reflection-based scanner is not trim- or AOT-safe and will be removed in the next major version.")]
     [RequiresUnreferencedCode("Assembly scanning enumerates types via reflection; handler types may be removed when trimming.")]
     [RequiresDynamicCode("Assembly scanning constructs ServiceDescriptor entries reflectively.")]
     public static IMediatorBuilder RegisterHandlersFromAssembly(
@@ -56,6 +58,7 @@ public static class MediatorBuilderExtensions
     /// using the default <see cref="ServiceLifetime.Transient"/> lifetime; call
     /// <see cref="RegisterHandlersFromAssembly"/> per-assembly if you need a different default per assembly.
     /// </summary>
+    [Obsolete("AddMediator() now registers every handler in this assembly at compile time; use AddMediator(ServiceLifetime) to change the default lifetime. This reflection-based scanner is not trim- or AOT-safe and will be removed in the next major version.")]
     [RequiresUnreferencedCode("Assembly scanning enumerates types via reflection; handler types may be removed when trimming.")]
     [RequiresDynamicCode("Assembly scanning constructs ServiceDescriptor entries reflectively.")]
     public static IMediatorBuilder RegisterHandlersFromAssemblies(
