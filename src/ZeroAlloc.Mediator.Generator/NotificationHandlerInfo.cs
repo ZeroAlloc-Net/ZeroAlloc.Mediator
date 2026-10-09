@@ -22,7 +22,8 @@ namespace ZeroAlloc.Mediator.Generator
         public LocationInfo? HandlerLocation { get; }
 
         /// <summary>
-        /// The ServiceLifetime value from [HandlerLifetime] on the handler class, or null when the attribute is absent.
+        /// The ServiceLifetime value the handler class asks for through [HandlerLifetime] or a
+        /// ZeroAlloc.Inject lifetime attribute, or null when it carries neither.
         /// </summary>
         public int? Lifetime { get; }
 

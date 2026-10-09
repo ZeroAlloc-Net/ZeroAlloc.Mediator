@@ -70,7 +70,9 @@ The generated `AddMediator()` registers every request, notification and stream h
 
 - `AddMediator(ServiceLifetime.Scoped)` changes the default for every handler.
 - `[HandlerLifetime(ServiceLifetime.X)]` on a handler wins over the default.
-- Handlers are added with `TryAdd`, so a registration you made before `AddMediator()` is kept.
+- ZeroAlloc.Inject's `[Transient]`, `[Scoped]` and `[Singleton]` on a handler are honoured too. Mediator matches them by name, so it does not depend on ZeroAlloc.Inject.
+- The precedence is `[HandlerLifetime]`, then a ZeroAlloc.Inject lifetime attribute, then the `AddMediator` default. A handler that carries both kinds of attribute gets the `[HandlerLifetime]` lifetime.
+- Handlers are added with `TryAdd`, so only a registration you made *before* `AddMediator()` is kept. A `TryAdd` after it is a no-op, and that includes ZeroAlloc.Inject's generated `Add<Assembly>Services()`. Set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)` rather than by registering the handler again afterwards.
 - Internal handlers are registered too. Abstract handler classes, open-generic handlers and handlers without a public constructor are not. The container builds a type only through a public constructor, so register such a handler yourself, for example with a factory.
 - Registration happens at compile time, so it is trim- and AOT-safe.
 
@@ -225,7 +227,7 @@ Registering `IOrderCommands` is an ordinary `services.AddScoped<IOrderCommands, 
 
 - **`IMediator` is now Transient (was Singleton).** Behaviorally identical: dispatch is stateless either way. The only thing that changes is reference equality across resolutions — if you cached the singleton instance and compared with `ReferenceEquals`, that no longer holds. Cached references still work; they just no longer match a fresh `GetRequiredService<IMediator>()` call.
 - **Drop the `null!` shim constructors.** Handlers that previously declared `internal MyHandler() : this(null!, null!) { }` purely to satisfy the unconditional `?? new T()` fallback can delete that ctor. ZAM008 will tell you if any remaining static-path call site still needs it.
-- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. Handlers you register by hand before `AddMediator()` keep working, because `AddMediator()` uses `TryAdd` and both registration paths populate the same dispatch tables.
+- **`Mediator.Configure(c => c.SetFactory<...>(...))` is unchanged.** Existing 3.0.x setups that wire factories manually keep working without modification. Handlers you register by hand before `AddMediator()` keep working, because `AddMediator()` uses `TryAdd` and both registration paths populate the same dispatch tables. Only registrations made *before* `AddMediator()` are kept: a `TryAdd` after it is a no-op, so set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)`.
 
 ## Bridge packages
 
@@ -241,7 +243,7 @@ services.AddMediator()
         .WithTelemetry();
 ```
 
-`AddMediator()` is idempotent (`TryAddTransient`); calling it more than once is safe.
+`AddMediator()` is idempotent (`TryAdd`); calling it more than once is safe, and the first call's handler lifetimes win. Only registrations made *before* the first `AddMediator()` are kept: a `TryAdd` after it is a no-op, so set lifetimes with `[HandlerLifetime]`, ZeroAlloc.Inject's lifetime attributes or `AddMediator(lifetime)`.
 
 ### How a bridge reaches your container
 

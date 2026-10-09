@@ -303,4 +303,60 @@ public class HandlerRegistrationGeneratorTests
         Assert.Empty(compilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         return output;
     }
+
+    [Theory]
+    [InlineData("Transient", "Transient")]
+    [InlineData("Scoped", "Scoped")]
+    [InlineData("Singleton", "Singleton")]
+    public void AddMediator_UsesInjectLifetimeAttribute_OverTheDefault(string injectAttribute, string lifetime)
+    {
+        var output = RunWithInjectAttributes($$"""
+            public readonly record struct Ping(int X) : IRequest<int>;
+            [ZeroAlloc.Inject.{{injectAttribute}}]
+            public class PingHandler : IRequestHandler<Ping, int>
+            {
+                public ValueTask<int> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+            """);
+
+        Assert.Contains(
+            Registration("global::TestApp.PingHandler", $"global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.{lifetime}"),
+            output);
+    }
+
+    [Theory]
+    [InlineData("[HandlerLifetime(ServiceLifetime.Singleton)]\n[ZeroAlloc.Inject.Scoped]")]
+    [InlineData("[ZeroAlloc.Inject.Scoped]\n[HandlerLifetime(ServiceLifetime.Singleton)]")]
+    public void AddMediator_HandlerLifetimeAttribute_WinsOverAnInjectAttribute(string attributes)
+    {
+        var output = RunWithInjectAttributes($$"""
+            public readonly record struct Ping(int X) : IRequest<int>;
+            {{attributes}}
+            public class PingHandler : IRequestHandler<Ping, int>
+            {
+                public ValueTask<int> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+            """);
+
+        Assert.Contains(
+            Registration("global::TestApp.PingHandler", "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton"),
+            output);
+    }
+
+    [Fact]
+    public void AddMediator_IgnoresSameNamedAttributesOutsideTheInjectNamespace()
+    {
+        var output = RunWithInjectAttributes("""
+            [System.AttributeUsage(System.AttributeTargets.Class)] public sealed class ScopedAttribute : System.Attribute { }
+
+            public readonly record struct Ping(int X) : IRequest<int>;
+            [Scoped]
+            public class PingHandler : IRequestHandler<Ping, int>
+            {
+                public ValueTask<int> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult(1);
+            }
+            """);
+
+        Assert.Contains(Registration("global::TestApp.PingHandler", "defaultHandlerLifetime"), output);
+    }
 }

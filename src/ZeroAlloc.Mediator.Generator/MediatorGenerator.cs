@@ -189,22 +189,44 @@ namespace ZeroAlloc.Mediator.Generator
         }
 
         /// <summary>
-        /// The ServiceLifetime value of [HandlerLifetime] on <paramref name="handler"/>, or null.
-        /// Read from the attribute's constant argument, so registration needs no reflection.
+        /// The ServiceLifetime value <paramref name="handler"/> asks for, or null to use the
+        /// <c>AddMediator</c> default. <c>[HandlerLifetime]</c> wins, then a ZeroAlloc.Inject
+        /// lifetime attribute. Read from the attributes themselves, so registration needs no
+        /// reflection.
         /// </summary>
+        /// <remarks>
+        /// The Inject attributes are matched by name, so Mediator takes no dependency on that
+        /// package. Honouring them matters because Inject's generated registration uses TryAdd:
+        /// called after <c>AddMediator()</c>, it cannot change the lifetime registered here.
+        /// </remarks>
         private static int? GetHandlerLifetime(INamedTypeSymbol handler)
         {
+            int? injectLifetime = null;
             foreach (var attribute in handler.GetAttributes())
             {
-                if (attribute.AttributeClass?.ToDisplayString() == "ZeroAlloc.Mediator.HandlerLifetimeAttribute"
-                    && attribute.ConstructorArguments.Length == 1
-                    && attribute.ConstructorArguments[0].Value is int lifetime)
+                switch (attribute.AttributeClass?.ToDisplayString())
                 {
-                    return lifetime;
+                    case "ZeroAlloc.Mediator.HandlerLifetimeAttribute":
+                        if (attribute.ConstructorArguments.Length == 1
+                            && attribute.ConstructorArguments[0].Value is int lifetime)
+                        {
+                            return lifetime;
+                        }
+                        break;
+                    // The values of Microsoft.Extensions.DependencyInjection.ServiceLifetime.
+                    case "ZeroAlloc.Inject.SingletonAttribute":
+                        injectLifetime ??= 0;
+                        break;
+                    case "ZeroAlloc.Inject.ScopedAttribute":
+                        injectLifetime ??= 1;
+                        break;
+                    case "ZeroAlloc.Inject.TransientAttribute":
+                        injectLifetime ??= 2;
+                        break;
                 }
             }
 
-            return null;
+            return injectLifetime;
         }
 
         /// <summary>
@@ -615,7 +637,7 @@ namespace ZeroAlloc.Mediator.Generator
 
         /// <summary>
         /// Every concrete handler type across the three kinds once, in ordinal order, with its
-        /// [HandlerLifetime] value or null. Abstract handlers, and handlers without a public
+        /// lifetime from <see cref="GetHandlerLifetime"/> or null. Abstract handlers, and handlers without a public
         /// constructor, cannot be built by a container, so they are left out.
         /// </summary>
         private static List<KeyValuePair<string, int?>> CollectHandlerRegistrations(
@@ -687,13 +709,14 @@ namespace ZeroAlloc.Mediator.Generator
                 "        /// <summary>\r\n" +
                 "        /// Registers <see cref=\"global::ZeroAlloc.Mediator.IMediator\"/> and every request, notification\r\n" +
                 "        /// and stream handler in this assembly, each as its concrete type with a transient lifetime\r\n" +
-                "        /// unless it carries <c>[HandlerLifetime]</c>. Returns an\r\n" +
+                "        /// unless it carries <c>[HandlerLifetime]</c> or a ZeroAlloc.Inject lifetime attribute. Returns an\r\n" +
                 "        /// <see cref=\"global::ZeroAlloc.Mediator.IMediatorBuilder\"/> for chaining bridge-package\r\n" +
                 "        /// registrations (<c>WithCache()</c>, <c>WithValidation()</c>, <c>WithResilience()</c>, etc.).\r\n" +
                 "        /// </summary>\r\n" +
                 "        /// <remarks>\r\n" +
                 "        /// Registration is generated at compile time, so it is trim- and AOT-safe. Handlers are\r\n" +
-                "        /// added with TryAdd, so a handler you registered yourself keeps your registration.\r\n" +
+                "        /// added with TryAdd, so a handler you registered yourself before this call keeps your\r\n" +
+                "        /// registration. A TryAdd after this call is a no-op.\r\n" +
                 "        /// The static <c>ZeroAlloc.Mediator.Mediator</c> dispatcher API is unaffected.\r\n" +
                 "        /// </remarks>\r\n" +
                 "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
@@ -702,7 +725,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "\r\n" +
                 "        /// <summary>\r\n" +
                 "        /// Same as <c>AddMediator()</c>, with <paramref name=\"defaultHandlerLifetime\"/> for handlers\r\n" +
-                "        /// that do not carry <c>[HandlerLifetime]</c>.\r\n" +
+                "        /// that carry neither <c>[HandlerLifetime]</c> nor a ZeroAlloc.Inject lifetime attribute.\r\n" +
                 "        /// </summary>\r\n" +
                 "        internal static global::ZeroAlloc.Mediator.IMediatorBuilder AddMediator(\r\n" +
                 "            this global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,\r\n" +
