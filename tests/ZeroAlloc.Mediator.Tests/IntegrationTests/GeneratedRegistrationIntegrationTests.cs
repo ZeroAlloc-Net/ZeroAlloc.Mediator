@@ -93,13 +93,21 @@ public class GeneratedRegistrationIntegrationTests
     public async Task HandlerLifetimeAttribute_WinsOverTheDefault()
     {
         var services = new ServiceCollection();
-        services.AddMediator(ServiceLifetime.Transient);
+        // A Scoped default, so a shared instance across scopes can only come from the attribute.
+        services.AddMediator(ServiceLifetime.Scoped);
         using var sp = services.BuildServiceProvider();
-        var mediator = sp.GetRequiredService<IMediator>();
 
-        Assert.Same(
-            await mediator.Send(new RegSingletonProbe(1), CancellationToken.None),
-            await mediator.Send(new RegSingletonProbe(2), CancellationToken.None));
+        RegSingletonProbeHandler a, b;
+        using (var scope = sp.CreateScope())
+        {
+            a = await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new RegSingletonProbe(1), CancellationToken.None);
+        }
+        using (var scope = sp.CreateScope())
+        {
+            b = await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new RegSingletonProbe(2), CancellationToken.None);
+        }
+
+        Assert.Same(a, b);
     }
 
     [Fact]

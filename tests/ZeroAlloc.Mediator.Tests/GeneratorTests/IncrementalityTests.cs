@@ -134,6 +134,53 @@ public class IncrementalityTests
         AssertAllCachedOrUnchanged("EmitInputs", result.Results[0].TrackedSteps["EmitInputs"]);
     }
 
+    [Fact]
+    public void HandlerLifetimeEdit_RegeneratesTheServiceCollectionSource()
+    {
+        const string source = """
+            using ZeroAlloc.Mediator;
+            using Microsoft.Extensions.DependencyInjection;
+            using System.Threading;
+            using System.Threading.Tasks;
+            namespace TestApp;
+
+            public readonly record struct Ping : IRequest<string>;
+
+            [HandlerLifetime(ServiceLifetime.Scoped)]
+            public class PingHandler : IRequestHandler<Ping, string>
+            {
+                public ValueTask<string> Handle(Ping request, CancellationToken ct) => default;
+            }
+            """;
+        const string hintName = "ZeroAlloc.Mediator.ServiceCollection.g.cs";
+        const string registration =
+            "services.TryAdd(new global::Microsoft.Extensions.DependencyInjection.ServiceDescriptor(typeof(global::TestApp.PingHandler), "
+            + "typeof(global::TestApp.PingHandler), global::Microsoft.Extensions.DependencyInjection.ServiceLifetime.";
+
+        var app = CSharpSyntaxTree.ParseText(source, path: "/src/App.cs");
+        var compilation = GeneratorTestHelper.CreateCompilation([app]);
+
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            [new Generator.MediatorGenerator().AsSourceGenerator()],
+            driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true));
+        driver = driver.RunGenerators(compilation);
+        var before = GeneratedText(driver.GetRunResult(), hintName);
+
+        var edited = app.WithChangedText(SourceText.From(
+            source.Replace("ServiceLifetime.Scoped", "ServiceLifetime.Singleton", StringComparison.Ordinal)));
+        driver = driver.RunGenerators(compilation.ReplaceSyntaxTree(app, edited));
+        var after = GeneratedText(driver.GetRunResult(), hintName);
+
+        Assert.Contains(registration + "Scoped));", before, StringComparison.Ordinal);
+        Assert.False(string.Equals(before, after, StringComparison.Ordinal), $"{hintName} did not change.");
+        Assert.Contains(registration + "Singleton));", after, StringComparison.Ordinal);
+        Assert.DoesNotContain(registration + "Scoped));", after, StringComparison.Ordinal);
+    }
+
+    private static string GeneratedText(GeneratorDriverRunResult result, string hintName) =>
+        Assert.Single(result.Results[0].GeneratedSources, s => string.Equals(s.HintName, hintName, StringComparison.Ordinal))
+            .SourceText.ToString();
+
     private static void AssertAllCachedOrUnchanged(string stepName, ImmutableArray<IncrementalGeneratorRunStep> runSteps)
     {
         foreach (var runStep in runSteps)
