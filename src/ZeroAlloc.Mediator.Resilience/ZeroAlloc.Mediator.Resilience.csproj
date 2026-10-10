@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Resilience</PackageId>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Pipeline behavior that applies [MediatorRetry], [MediatorCircuitBreaker], and [MediatorTimeout] declared on request types. Composes ZeroAlloc.Resilience policies directly in the Mediator pipeline — no source generation required at the call site.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

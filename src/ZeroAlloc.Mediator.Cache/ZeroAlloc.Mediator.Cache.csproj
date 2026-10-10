@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Cache</PackageId>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Pipeline behavior that caches IRequest&lt;T&gt; responses when the request type carries [Cache]. Zero-alloc key derivation via interpolated strings on value-type requests.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
