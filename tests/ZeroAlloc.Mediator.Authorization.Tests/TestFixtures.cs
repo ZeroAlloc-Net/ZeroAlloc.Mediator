@@ -117,6 +117,9 @@ public sealed record GetThingResultAllow(int Id) : IAuthorizedRequest<int>;
 [RequirePolicy("AlwaysDeny")]
 public sealed record GetThingResultDeny(int Id) : IAuthorizedRequest<int>;
 
+[RequirePolicy("AlwaysDeny")]
+public sealed record GetThingUnitDeny(int Id) : IRequest<UnitResult<AuthorizationFailure>>;
+
 // Stacked policies (AND). [RequirePolicy("AdminOnly")] is evaluated before [RequirePolicy("Premium")].
 [RequirePolicy("AdminOnly")]
 [RequirePolicy("Premium")]
@@ -153,6 +156,8 @@ public sealed class StubGetThingResultAllowHandler : IRequestHandler<GetThingRes
 public sealed class StubGetThingResultDenyHandler : IRequestHandler<GetThingResultDeny, Result<int, AuthorizationFailure>>
 { public ValueTask<Result<int, AuthorizationFailure>> Handle(GetThingResultDeny r, CancellationToken ct)
     => ValueTask.FromResult<Result<int, AuthorizationFailure>>(0); }
+public sealed class StubGetThingUnitDenyHandler : IRequestHandler<GetThingUnitDeny, UnitResult<AuthorizationFailure>>
+{ public ValueTask<UnitResult<AuthorizationFailure>> Handle(GetThingUnitDeny r, CancellationToken ct) => new(UnitResult<AuthorizationFailure>.Success()); }
 public sealed class StubGetThingAdminPremiumHandler : IRequestHandler<GetThingAdminPremium, int>
 { public ValueTask<int> Handle(GetThingAdminPremium r, CancellationToken ct) => ValueTask.FromResult(0); }
 public sealed class StubGetThingCancellableHandler : IRequestHandler<GetThingCancellable, int>

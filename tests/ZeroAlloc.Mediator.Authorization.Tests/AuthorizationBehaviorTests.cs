@@ -67,6 +67,23 @@ public sealed class AuthorizationBehaviorTests
     }
 
     [Fact]
+    public async Task Deny_OnUnitResultResponse_ReturnsFailureResult()
+    {
+        using var sp = BuildProvider(TestSecurityContexts.With());
+        using var scope = sp.CreateScope();
+        var nextCalled = false;
+        ValueTask<UnitResult<AuthorizationFailure>> Next(GetThingUnitDeny r, CancellationToken c)
+        { nextCalled = true; return new(UnitResult<AuthorizationFailure>.Success()); }
+
+        var result = await Invoke<GetThingUnitDeny, UnitResult<AuthorizationFailure>>(
+            scope, new GetThingUnitDeny(5), Next);
+
+        Assert.False(nextCalled);
+        Assert.True(result.IsFailure);
+        Assert.Equal(AuthorizationFailure.DefaultDenyCode, result.Error.Code);
+    }
+
+    [Fact]
     public async Task Allow_OnIAuthorizedRequest_ReturnsSuccessPayload()
     {
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));

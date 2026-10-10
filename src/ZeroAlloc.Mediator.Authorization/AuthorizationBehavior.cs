@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,22 +25,14 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// <list type="bullet">
 ///   <item>plain <see cref="IRequest{TResponse}"/> ⇒ throws <see cref="AuthorizationDeniedException"/>;</item>
 ///   <item><c>Result&lt;T, AuthorizationFailure&gt;</c>-shaped response (incl.
-///         <see cref="IAuthorizedRequest{TResponse}"/>) ⇒ returns
-///         <c>Result&lt;T, AuthorizationFailure&gt;.Failure(...)</c>.</item>
+///         <see cref="IAuthorizedRequest{TResponse}"/>) or <c>UnitResult&lt;AuthorizationFailure&gt;</c> ⇒
+///         returns a failed result carrying the <see cref="AuthorizationFailure"/>.</item>
 /// </list>
 /// Order <c>-1000</c> so authorization runs before validation/cache/resilience.</para>
 /// </remarks>
 [PipelineBehavior(Order = -1000)]
 public sealed class AuthorizationBehavior : IPipelineBehavior
 {
-    // IL2091: AuthorizationFailureFactory<TResponse> requires TResponse to satisfy
-    // [DynamicallyAccessedMembers(PublicMethods)] so the trimmer preserves Result<,>.Failure(...).
-    // Handle's TResponse can't carry that annotation without forcing every consumer of IPipelineBehavior
-    // to declare it. Safe to suppress because FailureFactory does a runtime shape check and only
-    // proceeds when TResponse is exactly Result<T, AuthorizationFailure>; otherwise Create is null and
-    // we fall through to the throw path that doesn't touch TResponse reflectively.
-    [UnconditionalSuppressMessage("Trimming", "IL2091:Target generic argument does not satisfy DynamicallyAccessedMemberTypes",
-        Justification = "FailureFactory does a runtime shape check; Result<,> is in a referenced assembly and its Failure method is preserved by trimming roots.")]
     public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request,
         CancellationToken ct,

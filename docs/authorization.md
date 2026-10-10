@@ -99,6 +99,8 @@ if (result.IsFailure) return Forbid(result.Error.Code);
 
 The handler still returns plain `T` — the wrap is symmetric, hidden in the behavior.
 
+A request that declares `IRequest<UnitResult<AuthorizationFailure>>` gets the same treatment: a denied call returns a failed `UnitResult` instead of throwing. Both shapes build the failure without reflection, so the behaviour is identical under Native AOT.
+
 ## Multiple policies (AND)
 
 Stacking `[RequirePolicy]` attributes is implicit AND with short-circuit on first deny:
