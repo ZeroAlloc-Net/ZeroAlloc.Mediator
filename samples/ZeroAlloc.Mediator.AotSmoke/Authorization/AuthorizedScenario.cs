@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +57,34 @@ public sealed class AotResultDenyHandler : IRequestHandler<AotResultDeny, Result
         => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id);
 }
 
+public sealed record AotPayload(int Id);
+public readonly record struct AotValuePayload(int Id);
+
+[RequirePolicy("AotAdmin")]
+public sealed record AotClassDeny(int Id) : IRequest<Result<AotPayload, AuthorizationFailure>>;
+
+[RequirePolicy("AotAdmin")]
+public sealed record AotStructDeny(int Id) : IRequest<Result<AotValuePayload, AuthorizationFailure>>;
+
+[RequirePolicy("AotAdmin")]
+public sealed record AotUnitDeny(int Id) : IRequest<UnitResult<AuthorizationFailure>>;
+
+public sealed class AotClassDenyHandler : IRequestHandler<AotClassDeny, Result<AotPayload, AuthorizationFailure>>
+{
+    public ValueTask<Result<AotPayload, AuthorizationFailure>> Handle(AotClassDeny r, CancellationToken ct)
+        => ValueTask.FromResult<Result<AotPayload, AuthorizationFailure>>(new AotPayload(r.Id));
+}
+public sealed class AotStructDenyHandler : IRequestHandler<AotStructDeny, Result<AotValuePayload, AuthorizationFailure>>
+{
+    public ValueTask<Result<AotValuePayload, AuthorizationFailure>> Handle(AotStructDeny r, CancellationToken ct)
+        => ValueTask.FromResult<Result<AotValuePayload, AuthorizationFailure>>(new AotValuePayload(r.Id));
+}
+public sealed class AotUnitDenyHandler : IRequestHandler<AotUnitDeny, UnitResult<AuthorizationFailure>>
+{
+    public ValueTask<UnitResult<AuthorizationFailure>> Handle(AotUnitDeny r, CancellationToken ct)
+        => ValueTask.FromResult(UnitResult<AuthorizationFailure>.Success());
+}
+
 internal sealed record AotCtx(string Id, IReadOnlySet<string> Roles, IReadOnlyDictionary<string, string> Claims) : ISecurityContext;
 
 internal sealed class AotCtxAccessor(ISecurityContext current) : ISecurityContextAccessor
@@ -68,16 +95,6 @@ internal sealed class AotCtxAccessor(ISecurityContext current) : ISecurityContex
 
 internal static class AuthorizedScenario
 {
-    // AOT trim preservation: AuthorizationFailureFactory<Result<int, AuthorizationFailure>> reflects on
-    // Result<int, AuthorizationFailure>.Failure(AuthorizationFailure) at runtime. Without an explicit
-    // static reference the trimmer strips the closed-type method (the handlers only use the implicit
-    // int → Result<int,_> Success conversion). [DynamicDependency] forces preservation.
-    //
-    // Consumers using IAuthorizedRequest<TPayload> in AOT publish must apply the same pattern for their
-    // own TPayload — see docs/authorization.md "AOT publish" section. Tracking a library-side fix as
-    // a v2.1 enhancement (would require a generator-emitted registration of the closed-type Failure
-    // delegate per [RequirePolicy]-decorated IAuthorizedRequest type).
-    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Result<int, AuthorizationFailure>))]
     public static void Run()
     {
         var adminCtx = new AotCtx("alice",
@@ -149,22 +166,35 @@ internal static class AuthorizedScenario
                 throw new InvalidOperationException("result-allow regressed");
         }
 
-        // Deny — Result<T,AuthorizationFailure>.Failure.
-        using (var sp = BuildProvider(anonCtx))
-        using (var scope = sp.CreateScope())
-        {
-            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-            // AuthorizationBehaviorState.ServiceProvider as a side effect.
-            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
-            var resultDeny = AuthorizationBehavior.Handle<AotResultDeny, Result<int, AuthorizationFailure>>(
-                new AotResultDeny(5), CancellationToken.None,
-                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id))
-                .GetAwaiter().GetResult();
-            if (resultDeny.IsSuccess)
-                throw new InvalidOperationException("result-deny did not return Failure");
-            if (!string.Equals(resultDeny.Error.Code, AuthorizationFailure.DefaultDenyCode, StringComparison.Ordinal))
-                throw new InvalidOperationException("result-deny code regressed");
-        }
+        // Deny: a failed result for every response shape (int, class and struct payload, unit).
+        VerifyDeny("result-deny", anonCtx, new AotResultDeny(5),
+            static (Result<int, AuthorizationFailure> r) => (r.IsSuccess, r.IsSuccess ? null : r.Error.Code));
+        VerifyDeny("class-deny", anonCtx, new AotClassDeny(5),
+            static (Result<AotPayload, AuthorizationFailure> r) => (r.IsSuccess, r.IsSuccess ? null : r.Error.Code));
+        VerifyDeny("struct-deny", anonCtx, new AotStructDeny(5),
+            static (Result<AotValuePayload, AuthorizationFailure> r) => (r.IsSuccess, r.IsSuccess ? null : r.Error.Code));
+        VerifyDeny("unit-deny", anonCtx, new AotUnitDeny(5),
+            static (UnitResult<AuthorizationFailure> r) => (r.IsSuccess, r.IsSuccess ? null : r.Error.Code));
+    }
+
+    private static void VerifyDeny<TRequest, TResponse>(
+        string name, AotCtx anonCtx, TRequest request, Func<TResponse, (bool IsSuccess, string? Code)> inspect)
+        where TRequest : IRequest<TResponse>
+    {
+        using var sp = BuildProvider(anonCtx);
+        using var scope = sp.CreateScope();
+        // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
+        // AuthorizationBehaviorState.ServiceProvider as a side effect.
+        _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+        var response = AuthorizationBehavior.Handle<TRequest, TResponse>(
+            request, CancellationToken.None,
+            static (_, _) => throw new InvalidOperationException("next must not run"))
+            .GetAwaiter().GetResult();
+        var (isSuccess, code) = inspect(response);
+        if (isSuccess)
+            throw new InvalidOperationException($"{name} did not return Failure");
+        if (!string.Equals(code, AuthorizationFailure.DefaultDenyCode, StringComparison.Ordinal))
+            throw new InvalidOperationException($"{name} code regressed");
     }
 
     private static void VerifyAllocationBudget(AotCtx adminCtx)
