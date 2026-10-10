@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.3.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.2.0...v6.3.0) (2026-10-10)
+
+
+### Features
+
+* mark the Mediator bridge packages as AOT-compatible ([#281](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/281)) ([2806c31](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/2806c31ec14cfd158c710eb35a7d7681a3b1b94c))
+
 ## [6.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.1.1...v6.2.0) (2026-10-09)
 
 
