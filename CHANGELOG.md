@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.4.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.3.0...v6.4.0) (2026-10-10)
+
+
+### Features
+
+* return a failed UnitResult from the validation and authorization behaviours ([429f956](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/429f956374be2bce1213e37ba22281b113b0bbf7))
+
+
+### Bug Fixes
+
+* build validation and authorization failures without reflection ([429f956](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/429f956374be2bce1213e37ba22281b113b0bbf7))
+
 ## [6.3.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.2.0...v6.3.0) (2026-10-10)
 
 
