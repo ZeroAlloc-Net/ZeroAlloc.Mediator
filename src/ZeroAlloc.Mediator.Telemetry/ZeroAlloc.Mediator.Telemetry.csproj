@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Telemetry</PackageId>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Pipeline behavior emitting OpenTelemetry spans, counters, and histograms per IRequest&lt;T&gt;.Send call.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Authorization</PackageId>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Pipeline behavior that authorizes IRequest&lt;T&gt; (or IAuthorizedRequest&lt;T&gt;) via ZeroAlloc.Authorization before dispatch. Source-generated per-request policy lookup; deny throws AuthorizationDeniedException or returns Result&lt;T, AuthorizationFailure&gt; depending on the request marker.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
