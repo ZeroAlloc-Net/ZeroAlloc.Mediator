@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
-using ZeroAlloc.Results;
 using ZeroAlloc.Validation;
 
 namespace ZeroAlloc.Mediator.Validation;

@@ -3,7 +3,7 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Validation</PackageId>
     <IsAotCompatible>true</IsAotCompatible>
-    <Description>Pipeline behavior that validates IRequest&lt;T&gt; via ZeroAlloc.Validation before dispatch. Validation failures surface as Result&lt;T, ValidationError&gt; — no exceptions on the hot path.</Description>
+    <Description>Pipeline behavior that validates IRequest&lt;T&gt; via ZeroAlloc.Validation before dispatch. Validation failures surface as Result&lt;T, ValidationError&gt; or UnitResult&lt;ValidationError&gt; — no exceptions on the hot path.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
