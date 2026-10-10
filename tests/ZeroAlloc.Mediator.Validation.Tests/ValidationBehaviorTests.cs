@@ -11,6 +11,7 @@ namespace ZeroAlloc.Mediator.Validation.Tests;
 public readonly record struct ValidatedRequest(string Name) : IRequest<Result<string, ValidationError>>;
 public readonly record struct UnvalidatedRequest(int Value) : IRequest<int>;
 public readonly record struct ThrowingRequest(string Name) : IRequest<string>;
+public readonly record struct UnitValidatedRequest(string Name) : IRequest<UnitResult<ValidationError>>;
 
 // Stub handlers — exist only to satisfy the source generator's ZAM001 diagnostic
 // (every IRequest<T> needs a registered handler). The actual validation tests bypass
@@ -32,6 +33,12 @@ public sealed class ThrowingRequestHandler : IRequestHandler<ThrowingRequest, st
     public ValueTask<string> Handle(ThrowingRequest request, CancellationToken ct) => ValueTask.FromResult(string.Empty);
 }
 
+public sealed class UnitValidatedRequestHandler : IRequestHandler<UnitValidatedRequest, UnitResult<ValidationError>>
+{
+    public ValueTask<UnitResult<ValidationError>> Handle(UnitValidatedRequest request, CancellationToken ct) =>
+        ValueTask.FromResult(UnitResult<ValidationError>.Success());
+}
+
 // Manual ValidatorFor<T> — no generator needed in tests.
 public sealed class ValidatedRequestValidator : ValidatorFor<ValidatedRequest>
 {
@@ -47,6 +54,17 @@ public sealed class ValidatedRequestValidator : ValidatorFor<ValidatedRequest>
 public sealed class ThrowingRequestValidator : ValidatorFor<ThrowingRequest>
 {
     public override ValidationResult Validate(ThrowingRequest instance)
+    {
+        if (string.IsNullOrWhiteSpace(instance.Name))
+            return new ValidationResult([new ValidationFailure { PropertyName = "Name", ErrorMessage = "must not be empty" }]);
+
+        return new ValidationResult([]);
+    }
+}
+
+public sealed class UnitValidatedRequestValidator : ValidatorFor<UnitValidatedRequest>
+{
+    public override ValidationResult Validate(UnitValidatedRequest instance)
     {
         if (string.IsNullOrWhiteSpace(instance.Name))
             return new ValidationResult([new ValidationFailure { PropertyName = "Name", ErrorMessage = "must not be empty" }]);
@@ -224,5 +242,27 @@ public class ValidationBehaviorTests : IDisposable
         Assert.Single(ex.Error.Failures);
         Assert.Equal("Name", ex.Error.Failures[0].PropertyName);
         Assert.Equal("must not be empty", ex.Error.Failures[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ValidationFails_UnitResultResponse_ReturnsFailureResult()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ValidatorFor<UnitValidatedRequest>, UnitValidatedRequestValidator>();
+        ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
+
+        var nextCalled = false;
+        ValueTask<UnitResult<ValidationError>> Next(UnitValidatedRequest r, CancellationToken c)
+        {
+            nextCalled = true;
+            return ValueTask.FromResult(UnitResult<ValidationError>.Success());
+        }
+
+        var result = await ValidationBehavior.Handle(
+            new UnitValidatedRequest(""), CancellationToken.None, Next);
+
+        Assert.False(nextCalled);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Name", Assert.Single(result.Error.Failures).PropertyName);
     }
 }
