@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ZeroAlloc.Mediator\ZeroAlloc.Mediator.csproj" />
-    <PackageReference Include="ZeroAlloc.Cache" Version="1.1.60" />
+    <PackageReference Include="ZeroAlloc.Cache" Version="1.1.61" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ZeroAlloc.Mediator.Cache.Tests" />
