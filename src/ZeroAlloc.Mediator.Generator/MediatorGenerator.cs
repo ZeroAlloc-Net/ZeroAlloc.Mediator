@@ -151,6 +151,29 @@ namespace ZeroAlloc.Mediator.Generator
                     LocationInfo.ToLocation(info.Location),
                     info.RequestTypeName)));
 
+            // ZAM011: [CacheResponse] records with a printed member whose text is its type name.
+            var cachedRecordMemberKeys = context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    CachedRequestKeyInfo.AttributeMetadataName,
+                    predicate: static (node, _) => node is RecordDeclarationSyntax,
+                    transform: static (ctx, ct) => CachedRecordMemberKeyInfo.From(ctx, ct))
+                .Where(static x => x != null)
+                .Select(static (x, _) => x!)
+                .WithTrackingName(TrackingNames.CachedRecordMemberKeys);
+
+            context.RegisterSourceOutput(cachedRecordMemberKeys, static (spc, info) =>
+            {
+                foreach (var member in info.Members)
+                {
+                    spc.ReportDiagnostic(Diagnostic.Create(
+                        DiagnosticDescriptors.CachedRecordMemberWithoutValueText,
+                        LocationInfo.ToLocation(member.Location),
+                        member.Path,
+                        info.RequestTypeName,
+                        member.TypeName));
+                }
+            });
+
             // Whether the referenced ZeroAlloc.Mediator runtime has PipelineBehaviorStateActivation.
             // The generator ships separately from the runtime, so an older runtime is possible;
             // the activation hook is emitted only when the type is there to call.

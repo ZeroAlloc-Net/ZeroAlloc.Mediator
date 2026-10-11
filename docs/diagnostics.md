@@ -2,7 +2,7 @@
 id: diagnostics
 title: Compiler Diagnostics
 slug: /docs/diagnostics
-description: ZAM001–ZAM010 Roslyn analyzer rules with triggers, severities, and fix guidance.
+description: ZAM001–ZAM011 Roslyn analyzer rules with triggers, severities, and fix guidance.
 sidebar_position: 7
 ---
 
@@ -24,6 +24,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
 | ZAM009 | Warning | Pipeline behavior does not implement IPipelineBehavior | A `[PipelineBehavior]` class is static or does not implement `IPipelineBehavior`, so it never runs |
 | ZAM010 | Error | Cached request type has no per-instance cache key | A `[CacheResponse]` request is a class or struct with instance state whose text is its type name, so all its instances share one cache entry |
+| ZAM011 | Error | Cached record request has a member that prints as its type name | A `[CacheResponse]` record prints a member, such as an array or `List<T>`, as its type name, so requests that differ only in it share one cache entry |
 
 ## ZAM001 — No Handler for Request
 
@@ -290,9 +291,70 @@ public readonly struct GetUser : IRequest<User>, ISpanFormattable
 - A type without instance state, such as `public sealed class GetAllCountries : IRequest<Country[]> { }`. All its instances are the same request, so one cache entry is right. Instance state is an instance field, an auto-implemented property, a property that uses the `field` keyword, or a primary constructor parameter, on the type or a base class. A property of a base class from another assembly counts as state, because the generator cannot see whether it has a backing field.
 - A type without `[CacheResponse]`, and a `[CacheResponse]` type that does not implement `IRequest<TResponse>`.
 
-ZAM010 checks the request type, not its members. A record with an array or `List<T>` member prints that member as its type name, such as `System.Int32[]`, so requests that differ only in it still share an entry. Format such a member yourself in a `ToString()` override.
+ZAM010 checks the request type, not its members, and does not report records. A record member that prints as its type name is [ZAM011](#zam011--cached-record-request-has-a-member-that-prints-as-its-type-name).
 
 ZAM010 is an error, not a warning, because the behavior it reports is always wrong: the cache answers requests with another request's response. A build that compiled before ZAM010 can fail with it; that build was returning wrong cached responses.
+
+## ZAM011 — Cached Record Request Has a Member That Prints as Its Type Name
+
+**Severity:** Error
+
+**What it means:** a record's compiler-written `ToString()` prints each member through the member's own `ToString()`. A member whose type keeps `object.ToString()`, such as an array or a `List<T>`, prints as its type name, for example `System.Int32[]`. `CacheBehavior` keys an entry by the request's text, so two requests that differ only in that member get the same key, and the second gets the first one's response.
+
+**Example that triggers it:**
+```csharp
+// ❌ Triggers ZAM011 at Ids — GetUsers([1]) and GetUsers([2]) both key as
+// "TestApp.GetUsers:GetUsers { Ids = System.Int32[] }"
+[CacheResponse(TtlMs = 60_000)]
+public readonly record struct GetUsers(int[] Ids) : IRequest<User[]>;
+```
+
+**Error message:** `ZAM011: Member 'Ids' of [CacheResponse] request 'global::TestApp.GetUsers' has type 'int[]', which the record's ToString prints as its type name, so requests that differ only in it share one cache entry and get the first response; override ToString or PrintMembers on the request to format it, or use a type whose ToString prints its value`
+
+**Fix:** make the member print its value. Either format it on the request, or give it a type that does:
+
+```csharp
+// ✅ PrintMembers on the request: the compiler-written ToString still adds the type name and braces
+[CacheResponse(TtlMs = 60_000)]
+public readonly record struct GetUsers(int[] Ids) : IRequest<User[]>
+{
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("Ids = ").AppendJoin(',', Ids);
+        return true;
+    }
+}
+
+// ✅ A member type whose ToString prints its value, such as a record of scalars or a type
+// with its own ToString override
+public readonly record struct UserRange(int From, int To);
+
+[CacheResponse(TtlMs = 60_000)]
+public readonly record struct GetUsers(UserRange Range) : IRequest<User[]>;
+```
+
+A `ToString()` override on the request works too. A sealed record or a record struct declares `PrintMembers` as `private`; a non-sealed record class declares it `protected virtual`.
+
+**Which members are checked:** the ones the compiler-written `PrintMembers` prints: public instance fields, and public instance properties with a getter that are not indexers or overrides, including those of base records. A base record that declares its own `PrintMembers` prints its members, and its bases' members, its own way, so they are not checked.
+
+**Which member types are reported:**
+- arrays;
+- interfaces that extend `IEnumerable`, such as `IReadOnlyList<T>`;
+- classes and structs that are not records and have no `ToString()` override on themselves or on a base class other than `object` or `ValueType`. This includes collections such as `List<T>` and `Dictionary<TKey, TValue>`, and delegates;
+- `Memory<T>` and `ReadOnlyMemory<T>` when `T` is not `char`: their `ToString()` prints only the length.
+
+A member of a record type is checked member by member with the same rule, and reported at the outer member with the path to the inner one, such as `Filter.Tags`. A record that refers to itself is checked once. `Nullable<T>` is checked as `T`, and a tuple or a `KeyValuePair<TKey, TValue>` element by element.
+
+**Not reported:**
+- primitives, `string`, enums, and any type that overrides `ToString()`, which includes every `IFormattable` type in the BCL, such as `Guid`, `DateTime` and `decimal`;
+- a record request that declares `ToString()` or `PrintMembers`, inherits a sealed `ToString()` from a base record, or implements `IFormattable`, which the key interpolation uses instead of `ToString()`;
+- a member typed as `object`, `dynamic`, or an interface that does not extend `IEnumerable`: its text depends on the runtime type;
+- a member typed as a type parameter, whatever its constraints. No constraint makes it certain to print as a type name: a class constraint admits a derived class that overrides `ToString()`, and an interface constraint admits a type that does. A generic type built from it, such as `List<T>`, is still reported;
+- non-public, static, write-only and indexer members, which `PrintMembers` does not print.
+
+Implementing `IFormattable` does not exempt a **member** type: `PrintMembers` appends a member with `ToString()`, not through `IFormattable`, so a struct that implements `IFormattable` without overriding `ToString()` still prints as its type name and is reported.
+
+ZAM011 is an error for the same reason as ZAM010: requests that differ only in such a member get another request's cached response. A build that compiled before ZAM011 can fail with it; that build was returning wrong cached responses. If every request is known to hold the same value in such a member, suppress it with `#pragma` around the member.
 
 ## Removed diagnostics
 
@@ -319,6 +381,7 @@ Every diagnostic points at the code it is about, so the IDE can take you there a
 | ZAM008 | The handler's class name |
 | ZAM009 | The behavior's class name |
 | ZAM010 | The request type's name, in the declaration that carries `[CacheResponse]` |
+| ZAM011 | The member's name: the positional parameter, property or field, which may be in a base record. A member of a base record from another assembly is reported at the request type's name |
 
 ## Suppressing Warnings
 

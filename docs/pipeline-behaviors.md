@@ -184,7 +184,7 @@ The entry key is `"<request type full name>:<request>"`. The request part is the
 
 A class or struct that does none of these formats as its type name, so every instance gets the same key and the response to the first request is returned for all later ones. [ZAM010](diagnostics.md#zam010--cached-request-type-has-no-per-instance-cache-key) makes that a compile error. A type without instance state is not reported: all its instances are the same request, and one entry is right for them.
 
-A member's own text counts too. A record member whose type does not override `ToString()`, such as an array or a `List<T>`, prints as its type name, so requests that differ only in that member share an entry. ZAM010 does not check members; format such a member yourself in a `ToString()` override.
+A member's own text counts too. A record member whose type does not override `ToString()`, such as an array or a `List<T>`, prints as its type name, so requests that differ only in that member share an entry. [ZAM011](diagnostics.md#zam011--cached-record-request-has-a-member-that-prints-as-its-type-name) makes that a compile error; format such a member in a `ToString()` or `PrintMembers` override on the request, or give it a type whose `ToString()` prints its value.
 
 ## How Inlining Works (Conceptual)
 
