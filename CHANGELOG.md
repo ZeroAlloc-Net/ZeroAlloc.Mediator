@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.4.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.0...v6.4.1) (2026-10-11)
+
+
+### Tests
+
+* run MediatorBuilderTests outside the parallel test collections ([#293](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/293)) ([b0ec16d](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/b0ec16dd27ec88be86dd588e9cb161ad27907513)), closes [#276](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/276)
+
 ## [6.4.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.3.0...v6.4.0) (2026-10-10)
 
 
