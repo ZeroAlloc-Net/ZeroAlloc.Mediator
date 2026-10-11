@@ -1,4 +1,5 @@
 #nullable enable
+static ZeroAlloc.Mediator.Cache.CacheBehavior.Handle<TRequest, TResponse>(TRequest request, System.IServiceProvider! services, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
 static ZeroAlloc.Mediator.Cache.CacheBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
 static ZeroAlloc.Mediator.Cache.MediatorCacheServiceCollectionExtensions.WithCache(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
 ZeroAlloc.Mediator.Cache.CacheBehavior
