@@ -74,5 +74,16 @@ namespace ZeroAlloc.Mediator.Generator
                 "ZeroAlloc.Mediator",
                 DiagnosticSeverity.Error,
                 isEnabledByDefault: true);
+
+        // An Error, like ZAM010: requests that differ only in such a member share one cache entry,
+        // so all but the first get another request's response.
+        public static readonly DiagnosticDescriptor CachedRecordMemberWithoutValueText =
+            new DiagnosticDescriptor(
+                "ZAM011",
+                "Cached record request has a member that prints as its type name",
+                "Member '{0}' of [CacheResponse] request '{1}' has type '{2}', which the record's ToString prints as its type name, so requests that differ only in it share one cache entry and get the first response; override ToString or PrintMembers on the request to format it, or use a type whose ToString prints its value",
+                "ZeroAlloc.Mediator",
+                DiagnosticSeverity.Error,
+                isEnabledByDefault: true);
     }
 }

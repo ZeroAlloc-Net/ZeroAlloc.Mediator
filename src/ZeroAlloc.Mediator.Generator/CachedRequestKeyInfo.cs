@@ -53,7 +53,7 @@ namespace ZeroAlloc.Mediator.Generator
                 LocationInfo.From(declaration.Identifier.GetLocation()));
         }
 
-        private static bool IsRequest(INamedTypeSymbol type) =>
+        internal static bool IsRequest(INamedTypeSymbol type) =>
             type.AllInterfaces.Any(static i =>
                 i.TypeArguments.Length == 1
                 && i.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.IRequest<TResponse>");
@@ -145,7 +145,7 @@ namespace ZeroAlloc.Mediator.Generator
             return false;
         }
 
-        private static bool IsRootType(INamedTypeSymbol type) =>
+        internal static bool IsRootType(INamedTypeSymbol type) =>
             type.SpecialType == SpecialType.System_Object || type.SpecialType == SpecialType.System_ValueType;
 
         public bool Equals(CachedRequestKeyInfo? other) =>

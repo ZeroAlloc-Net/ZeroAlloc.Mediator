@@ -13,6 +13,7 @@ namespace ZeroAlloc.Mediator.Generator
         public const string RequestTypes = nameof(RequestTypes);
         public const string NotificationTypes = nameof(NotificationTypes);
         public const string CachedRequestKeys = nameof(CachedRequestKeys);
+        public const string CachedRecordMemberKeys = nameof(CachedRecordMemberKeys);
         public const string EmitInputs = nameof(EmitInputs);
         public const string DiagnosticInputs = nameof(DiagnosticInputs);
     }

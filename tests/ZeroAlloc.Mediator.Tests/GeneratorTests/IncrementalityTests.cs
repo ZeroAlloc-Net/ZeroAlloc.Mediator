@@ -61,6 +61,14 @@ public class IncrementalityTests
         {
             public ValueTask<string> Handle(Cached request, CancellationToken ct) => default;
         }
+
+        [ZeroAlloc.Mediator.Cache.CacheResponse]
+        public readonly record struct CachedIds(int[] Ids) : IRequest<string>;
+
+        public class CachedIdsHandler : IRequestHandler<CachedIds, string>
+        {
+            public ValueTask<string> Handle(CachedIds request, CancellationToken ct) => default;
+        }
         """;
 
     // Stands in for ZeroAlloc.Mediator.Cache, which the base references leave out so its behavior
@@ -74,7 +82,8 @@ public class IncrementalityTests
     private static readonly string[] GeneratorStepNames =
     [
         "RequestHandlers", "NotificationHandlers", "StreamHandlers", "SourceBehaviors",
-        "RequestTypes", "NotificationTypes", "CachedRequestKeys", "EmitInputs", "DiagnosticInputs",
+        "RequestTypes", "NotificationTypes", "CachedRequestKeys", "CachedRecordMemberKeys", "EmitInputs",
+        "DiagnosticInputs",
     ];
 
     [Fact]
@@ -119,6 +128,7 @@ public class IncrementalityTests
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM008", StringComparison.Ordinal));
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM009", StringComparison.Ordinal));
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM010", StringComparison.Ordinal));
+        Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM011", StringComparison.Ordinal));
     }
 
     [Fact]

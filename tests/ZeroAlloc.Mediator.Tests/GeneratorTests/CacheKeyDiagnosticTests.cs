@@ -144,10 +144,11 @@ public class CacheKeyDiagnosticTests
         """;
 
     // The generator output goes through the compilation's filter, so a #pragma marks it suppressed.
-    private static ImmutableArray<Diagnostic> Run(string source)
+    internal static ImmutableArray<Diagnostic> Run(string source, params MetadataReference[] extraReferences)
     {
         var references = GeneratorTestHelper.CompilableReferences();
         references.Add(MetadataReference.CreateFromFile(typeof(CacheResponseAttribute).Assembly.Location));
+        references.AddRange(extraReferences);
         var compilation = CSharpCompilation.Create(
             "TestAssembly",
             [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview), path: GeneratorTestHelper.TestFilePath)],
