@@ -3,6 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ZeroAlloc.Mediator.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- Optimized even in Debug, so the allocation tests measure the async state machine the
+         way Release and AOT run it rather than the Debug-mode box. -->
+    <Optimize>true</Optimize>
     <!-- NU1608/NU1701: transitive CodeAnalysis testing packages lack net10 TFM but work fine. -->
     <!-- MA0074: Assert.Contains is an xUnit method, not a string Contains — no StringComparison needed. -->
     <!-- MA0006: string == comparisons in LINQ predicates in test helpers are fine. -->
@@ -35,5 +38,9 @@
                       ReferenceOutputAssembly="true" />
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.6.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>contentfiles;build</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

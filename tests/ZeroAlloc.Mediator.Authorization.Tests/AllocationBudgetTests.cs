@@ -65,36 +65,36 @@ public sealed class AllocationBudgetTests
     // ---- v2 behavior allocation budgets ----
 
     [Fact]
-    public void Allow_HappyPath_ZeroAlloc()
+    public void Allow_HappyPath_AllocatesOnlyTheResourceContext()
     {
         // [RequirePolicy("AlwaysAllow")] GetThingThrowAllow + policy returning Success. End-to-end
-        // happy-path through AuthorizationBehavior.Handle. Budget rationale:
-        //   Release / AOT:  0 B/call (async state machine elided by the JIT optimizer).
-        //   Debug path:     ~248 B/call (Debug-mode async state machine box). 512 B absorbs the
-        //                   Debug box without masking real regressions.
+        // happy-path through AuthorizationBehavior.Handle. The budget is the one allocation the
+        // behavior makes per call: the 32 B ResourceSecurityContextAdapter that hands the request
+        // to the policies. The async state machine completes synchronously and is not boxed.
+        // Measured in Release, as CI runs it; a Debug build of the bridge boxes its state machine.
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
         var req = new GetThingThrowAllow(7);
 
-        AllocationGate.AssertBudgetValueTask(512, 1000,
+        AllocationGate.AssertBudgetValueTask(32, 1000,
             () => AuthorizationBehavior.Handle<GetThingThrowAllow, int>(req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (allow happy path)");
     }
 
     [Fact]
-    public void IAuthorizedRequest_DenyPath_ZeroAlloc()
+    public void IAuthorizedRequest_DenyPath_AllocatesOnlyTheResourceContext()
     {
         // IAuthorizedRequest deny path returns Result<T, AuthorizationFailure>.Failure(...) via
-        // the AuthorizationFailureFactory<TResponse> shape detector — no exception, no throw,
-        // no allocation. Budget rationale identical to Allow_HappyPath_ZeroAlloc.
+        // the AuthorizationFailureFactory<TResponse> shape detector — no exception, no throw.
+        // Budget rationale identical to Allow_HappyPath_AllocatesOnlyTheResourceContext.
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
         var req = new GetThingResultDeny(1);
 
-        AllocationGate.AssertBudgetValueTask(512, 1000,
+        AllocationGate.AssertBudgetValueTask(32, 1000,
             () => AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
                 req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id)),

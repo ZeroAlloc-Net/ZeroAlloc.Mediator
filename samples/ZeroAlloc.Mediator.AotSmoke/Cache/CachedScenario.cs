@@ -74,8 +74,8 @@ public sealed class CachedNullableStructHandler : IRequestHandler<CachedNullable
 
 // Drives CacheBehavior with value-type responses. The first call is a miss that stores the
 // response; the second must be a hit that returns the stored value without calling next.
-// The hit goes through IMemoryCache.TryGetValue<TResponse>, which does a generic type test
-// that hangs under NativeAOT when TResponse is a Nullable<T>: dotnet/runtime#134799.
+// The hit tests the stored entry against TResponse, a generic type test that hangs under
+// NativeAOT when TResponse is a Nullable<T>: dotnet/runtime#134799.
 public static class CachedScenario
 {
     public static async Task RunAsync()

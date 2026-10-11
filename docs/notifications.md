@@ -72,7 +72,7 @@ sequenceDiagram
 
 ## Parallel Notifications
 
-Use `[ParallelNotification]` when handlers are independent of one another and latency matters. All handlers run concurrently via `Task.WhenAll`, so the total dispatch time is bounded by the slowest handler rather than the sum of all handlers.
+Use `[ParallelNotification]` when handlers are independent of one another and latency matters. Every handler is started before any is awaited, and the ones still running are awaited together with `Task.WhenAll`, so the total dispatch time is bounded by the slowest handler rather than the sum of all handlers. A handler that already completed successfully is consumed in place, so a publish whose handlers all complete synchronously allocates nothing.
 
 ```csharp
 [ParallelNotification]
@@ -189,7 +189,7 @@ If two parallel handlers write to the same `List<T>` or counter, you will get ra
 
 **Pitfall 2 — Exception handling in parallel dispatch**
 
-`Task.WhenAll` collects ALL exceptions. If `SendPaymentReceiptHandler` and `UpdateFinancialLedgerHandler` both throw, both exceptions are wrapped in an `AggregateException`. Handle this at the publish call site rather than assuming only a single exception can propagate.
+Every handler runs even when another one fails, but `await Publish(...)` throws only one exception. If `SendPaymentReceiptHandler` and `UpdateFinancialLedgerHandler` both fail, the publish rethrows the first failure `Task.WhenAll` recorded, which is the first to complete, not necessarily the first registered, and the other one is not reported. There is no `AggregateException`. A failed handler wins over a canceled one. A handler that throws before it returns a `ValueTask` stops the publish there: the handlers after it are not started. If every failure matters, catch and log inside each handler.
 
 **Pitfall 3 — Polymorphic handlers are automatic**
 

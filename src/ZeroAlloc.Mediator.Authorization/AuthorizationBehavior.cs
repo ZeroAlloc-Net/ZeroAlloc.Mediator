@@ -130,7 +130,7 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
 
         // Wrap the resolved caller-identity context so resource-based policies
         // (ctx is IResourceSecurityContext<TRequest> rc) light up automatically.
-        // ~16 B/dispatch; absorbed by the existing allocation budget.
+        // One allocation per dispatch: 32 B for a reference-type or small struct request.
         var resourceCtx = new ResourceSecurityContextAdapter<TRequest>(ctx, request);
         var result = await authorizer.EvaluateAsync(resourceCtx, ct).ConfigureAwait(false);
         if (result.IsSuccess)

@@ -10,9 +10,10 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// </summary>
 /// <remarks>
 /// <para>Constructed inside <see cref="AuthorizationBehavior.Handle{TRequest, TResponse}"/>
-/// once per dispatch. Cost is one ~16 B class allocation (object header + 2 reference
-/// fields) — small enough to be absorbed by <see cref="AuthorizationBehavior"/>'s existing
-/// allocation budget; see <c>AllocationBudgetTests</c>.</para>
+/// once per dispatch. Cost is one class allocation: the 16 B object header and method table,
+/// 8 B for the inner context, and the request stored in <see cref="Resource"/>, rounded up to
+/// 8 B. That is 32 B for a reference-type request or a value-type request of up to 8 B, and
+/// more for a larger struct; see <c>AllocationBudgetTests</c>.</para>
 /// <para>Internal-only by design: consumer policies type-check the public
 /// <see cref="IResourceSecurityContext{TResource}"/> interface, never the adapter type.</para>
 /// </remarks>

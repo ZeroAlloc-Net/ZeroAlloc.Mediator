@@ -3,7 +3,7 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>ZeroAlloc.Mediator.Cache</PackageId>
     <IsAotCompatible>true</IsAotCompatible>
-    <Description>Pipeline behavior that caches IRequest&lt;T&gt; responses when the request type carries [Cache]. Zero-alloc key derivation via interpolated strings on value-type requests.</Description>
+    <Description>Pipeline behavior that caches IRequest&lt;T&gt; responses when the request type carries [Cache]. A cache hit formats its key on the stack instead of building a string; on .NET 9 and later a request that implements ISpanFormattable is answered from the cache without allocating.</Description>
     <Version>0.0.0-local</Version>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>

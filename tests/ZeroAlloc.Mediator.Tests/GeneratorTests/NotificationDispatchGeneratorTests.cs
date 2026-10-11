@@ -69,6 +69,46 @@ public class NotificationDispatchGeneratorTests
         Assert.Contains("Task.WhenAll", output);
     }
 
+    // The parallel fan-out hands only results that did not complete successfully to
+    // Task.WhenAll, through helpers emitted next to each Publish. A parallel notification whose
+    // only handlers are registered in DI, invisible here, has no compile-time handler at all.
+    [Fact]
+    public void Generator_ParallelPublish_CompilesWithAndWithoutCompileTimeHandlers()
+    {
+        var source = """
+            using ZeroAlloc.Mediator;
+            using System.Threading;
+            using System.Threading.Tasks;
+
+            namespace TestApp;
+
+            [ParallelNotification]
+            public readonly record struct OrderPlaced(int OrderId) : INotification;
+
+            [ParallelNotification]
+            public readonly record struct OrderShipped(int OrderId) : INotification;
+
+            public class AnalyticsHandler : INotificationHandler<OrderPlaced>
+            {
+                public ValueTask Handle(OrderPlaced notification, CancellationToken ct)
+                    => ValueTask.CompletedTask;
+            }
+
+            public class EmailHandler : INotificationHandler<OrderPlaced>
+            {
+                public ValueTask Handle(OrderPlaced notification, CancellationToken ct)
+                    => ValueTask.CompletedTask;
+            }
+            """;
+
+        var (output, generatorDiagnostics, compilationDiagnostics) = GeneratorTestHelper.RunGeneratorAndCompile(source);
+
+        Assert.Empty(generatorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(compilationDiagnostics.Where(d => d.Severity >= DiagnosticSeverity.Warning));
+        Assert.Contains("__TrackParallelHandler", output);
+        Assert.DoesNotContain("List<global::System.Threading.Tasks.Task>", output);
+    }
+
     [Fact]
     public void Generator_IncludesBaseHandler_InConcretePublish()
     {

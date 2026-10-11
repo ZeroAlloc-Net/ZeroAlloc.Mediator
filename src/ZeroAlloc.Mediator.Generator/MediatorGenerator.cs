@@ -972,24 +972,21 @@ namespace ZeroAlloc.Mediator.Generator
                     sb.AppendLine("            try");
                     sb.AppendLine("            {");
 
-                    // Use Task.WhenAll for parallel execution
-                    var taskExprs = new List<string>();
+                    // Only handlers that did not complete successfully reach Task.WhenAll, so a
+                    // publish whose handlers all complete synchronously allocates nothing.
+                    sb.AppendLine("                global::System.Threading.Tasks.Task[]? __pending = null;");
+                    sb.AppendLine("                var __pendingCount = 0;");
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
-                        taskExprs.Add(string.Format(
-                            "({0}?.Invoke() ?? {1}).Handle(notification, ct).AsTask()",
-                            fieldName, fallback));
+                        sb.AppendLine(string.Format(
+                            "                __TrackParallelHandler(({0}?.Invoke() ?? {1}).Handle(notification, ct), ref __pending, ref __pendingCount, {2});",
+                            fieldName, fallback, allHandlers.Count));
                     }
 
-                    sb.AppendLine("                await Task.WhenAll(");
-                    for (int i = 0; i < taskExprs.Count; i++)
-                    {
-                        var comma = i < taskExprs.Count - 1 ? "," : "";
-                        sb.AppendLine(string.Format("                    {0}{1}", taskExprs[i], comma));
-                    }
-                    sb.AppendLine("                );");
+                    sb.AppendLine("                if (__pending is not null)");
+                    sb.AppendLine("                    await Task.WhenAll(__PendingTasks(__pending, __pendingCount));");
                     sb.AppendLine("            }");
                     EmitSpanErrorCatch(sb);
                     sb.AppendLine("        }");
@@ -1021,6 +1018,39 @@ namespace ZeroAlloc.Mediator.Generator
 
                 sb.AppendLine();
             }
+
+            if (grouped.Any(g => g.Any(h => h.IsParallel)))
+                EmitParallelPublishHelpers(sb);
+        }
+
+        /// <summary>
+        /// Emits the helpers a [ParallelNotification] Publish fans out through. A handler whose
+        /// ValueTask already completed successfully adds no exception, no cancellation and no wait
+        /// to Task.WhenAll, so it is consumed in place, which also releases a pooled
+        /// IValueTaskSource. Only faulted, canceled or pending results become a Task, in handler
+        /// order, so what the publish throws and when it completes are unchanged. When every
+        /// handler completes synchronously, the publish allocates nothing.
+        /// </summary>
+        private static void EmitParallelPublishHelpers(StringBuilder sb)
+        {
+            sb.AppendLine("        private static void __TrackParallelHandler(global::System.Threading.Tasks.ValueTask task, ref global::System.Threading.Tasks.Task[]? pending, ref int count, int capacity)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            if (task.IsCompletedSuccessfully)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                task.GetAwaiter().GetResult();");
+            sb.AppendLine("                return;");
+            sb.AppendLine("            }");
+            sb.AppendLine("            if (pending is null) pending = new global::System.Threading.Tasks.Task[capacity];");
+            sb.AppendLine("            else if (count == pending.Length) global::System.Array.Resize(ref pending, count * 2);");
+            sb.AppendLine("            pending[count++] = task.AsTask();");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+            sb.AppendLine("        private static global::System.Threading.Tasks.Task[] __PendingTasks(global::System.Threading.Tasks.Task[] pending, int count)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            if (count != pending.Length) global::System.Array.Resize(ref pending, count);");
+            sb.AppendLine("            return pending;");
+            sb.AppendLine("        }");
+            sb.AppendLine();
         }
 
         private static void EmitCreateStreamMethod(StringBuilder sb, StreamHandlerInfo handler)
@@ -1232,16 +1262,18 @@ namespace ZeroAlloc.Mediator.Generator
                     "                    if (__h{0} is not null && __ih is {1}) continue;",
                     i, allHandlers[i].HandlerTypeName));
             }
+            if (tracksDispatch)
+            {
+                sb.AppendLine("                    __dispatched = true;");
+            }
             if (parallel)
             {
-                sb.AppendLine("                    __tasks.Add(__ih.Handle(notification, ct).AsTask());");
+                sb.AppendLine(string.Format(
+                    "                    __TrackParallelHandler(__ih.Handle(notification, ct), ref __pending, ref __pendingCount, {0});",
+                    allHandlers.Count + 4));
             }
             else
             {
-                if (tracksDispatch)
-                {
-                    sb.AppendLine("                    __dispatched = true;");
-                }
                 sb.AppendLine("                    await __ih.Handle(notification, ct).ConfigureAwait(false);");
             }
             sb.AppendLine("                }");
@@ -1450,28 +1482,35 @@ namespace ZeroAlloc.Mediator.Generator
                         i, allHandlers[i].HandlerTypeName));
                 }
 
+                // __dispatched only exists to feed the no-handler guard, which is emitted only
+                // when this compilation knows of a handler. Declaring it otherwise would leave an
+                // unread local in the generated source.
+                var tracksDispatch = allHandlers.Count > 0;
+                if (tracksDispatch)
+                {
+                    sb.AppendLine("                var __dispatched = false;");
+                }
+
                 if (isParallel)
                 {
-                    sb.AppendLine("                var __tasks = new global::System.Collections.Generic.List<global::System.Threading.Tasks.Task>();");
+                    // Only handlers that did not complete successfully reach Task.WhenAll, so a
+                    // publish whose handlers all complete synchronously allocates nothing.
+                    var capacity = allHandlers.Count + 4;
+                    sb.AppendLine("                global::System.Threading.Tasks.Task[]? __pending = null;");
+                    sb.AppendLine("                var __pendingCount = 0;");
                     for (var i = 0; i < allHandlers.Count; i++)
                     {
                         sb.AppendLine(string.Format(
-                            "                if (__h{0} is not null) __tasks.Add(__h{0}.Handle(notification, ct).AsTask());", i));
+                            "                if (__h{0} is not null) {{ __dispatched = true; __TrackParallelHandler(__h{0}.Handle(notification, ct), ref __pending, ref __pendingCount, {1}); }}",
+                            i, capacity));
                     }
-                    EmitInterfaceEnumeration(sb, notificationType, allHandlers, parallel: true, tracksDispatch: false);
-                    EmitNoHandlerGuard(sb, notificationType, allHandlers, "__tasks.Count == 0");
-                    sb.AppendLine("                await global::System.Threading.Tasks.Task.WhenAll(__tasks).ConfigureAwait(false);");
+                    EmitInterfaceEnumeration(sb, notificationType, allHandlers, parallel: true, tracksDispatch: tracksDispatch);
+                    EmitNoHandlerGuard(sb, notificationType, allHandlers, "!__dispatched");
+                    sb.AppendLine("                if (__pending is not null)");
+                    sb.AppendLine("                    await global::System.Threading.Tasks.Task.WhenAll(__PendingTasks(__pending, __pendingCount)).ConfigureAwait(false);");
                 }
                 else
                 {
-                    // __dispatched only exists to feed the no-handler guard, which is emitted
-                    // only when this compilation knows of a handler. Declaring it otherwise
-                    // would leave an unread local in the generated source.
-                    var tracksDispatch = allHandlers.Count > 0;
-                    if (tracksDispatch)
-                    {
-                        sb.AppendLine("                var __dispatched = false;");
-                    }
                     for (var i = 0; i < allHandlers.Count; i++)
                     {
                         sb.AppendLine(string.Format(
@@ -1486,6 +1525,9 @@ namespace ZeroAlloc.Mediator.Generator
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
+
+            if (publishableNotifications.Any(t => t.IsParallel))
+                EmitParallelPublishHelpers(sb);
 
             foreach (var handler in streamHandlers)
             {

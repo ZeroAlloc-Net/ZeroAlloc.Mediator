@@ -135,7 +135,7 @@ public sealed record DeleteUserCommand(string UserId) : IRequest<Unit>;
 
 The resource exposed to the policy IS the dispatched request. To access a sub-property (e.g. `request.Order.OwnerId`), pull it inside the policy body via `rc.Resource.Order.OwnerId` — no marker interface, no extractor delegate.
 
-Policies that don't need the resource ignore the adapter; the `ISecurityContext` members (`Id`, `Roles`, `Claims`) forward through. The per-dispatch cost is one ~16 B class allocation, absorbed by the existing `AuthorizationBehavior.Handle` allocation budget.
+Policies that don't need the resource ignore the adapter; the `ISecurityContext` members (`Id`, `Roles`, `Claims`) forward through. The per-dispatch cost is one class allocation that holds the caller's context and a copy of the request: 32 B for a reference-type request or a struct of up to 8 B, plus the size of a larger struct. When `IMediator.Send` hands the behavior its scope and the policies complete synchronously, it is the only allocation the behavior makes, and `AllocationBudgetTests` holds it to 32 B.
 
 See [`ZeroAlloc.Authorization`'s `resource-based-authorization.md`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization/blob/main/docs/core-concepts/resource-based-authorization.md) for the underlying contract and the design discussion behind it.
 
