@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.4.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.2...v6.4.3) (2026-10-11)
+
+
+### Performance Improvements
+
+* skip the PipelineBehaviorServices.Current write when no behavior reads it ([#299](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/299)) ([43d3db5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/43d3db50ef5eb1969538ae7b91eb92f13771be07)), closes [#297](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/297)
+
 ## [6.4.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.1...v6.4.2) (2026-10-11)
 
 
