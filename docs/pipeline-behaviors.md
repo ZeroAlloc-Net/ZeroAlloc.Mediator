@@ -182,6 +182,8 @@ public static ValueTask<OrderId> Send(PlaceOrderCommand request, CancellationTok
 
 Zero allocation. No list. No delegates stored on the heap. No virtual calls.
 
+That is the static `Mediator` class. The generated `IMediator.Send` resolves the handler from its own provider, so its lambdas capture that provider and are not static: it allocates one `next` delegate per behavior per `Send`. It also hands the behaviors the provider, as a `Handle` argument to a behavior that takes one and through `PipelineBehaviorServices.Current` otherwise, which costs another 72 B per `Send`. A behavior that reads no services avoids that by declaring `[PipelineBehavior(UsesPipelineBehaviorServices = false)]`. See [How a bridge reaches your container](dependency-injection.md#how-a-bridge-reaches-your-container).
+
 ## Common Pitfalls
 
 **Pitfall 1 — Static class, or no `IPipelineBehavior` (ZAM009)**

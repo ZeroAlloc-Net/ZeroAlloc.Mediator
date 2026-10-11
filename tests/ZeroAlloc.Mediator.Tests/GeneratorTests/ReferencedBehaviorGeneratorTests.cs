@@ -181,4 +181,69 @@ public class ReferencedBehaviorGeneratorTests
 
         Assert.Contains(diagnostics, d => d.Id == "ZAM006");
     }
+
+    // A consumer with no behavior of its own, so the referenced ones alone decide whether
+    // IMediator.Send sets PipelineBehaviorServices.Current.
+    private const string BareConsumer = """
+        using ZeroAlloc.Mediator;
+        using System.Threading;
+        using System.Threading.Tasks;
+
+        namespace TestApp;
+
+        public readonly record struct Ping(string Message) : IRequest<string>;
+
+        public class PingHandler : IRequestHandler<Ping, string>
+        {
+            public ValueTask<string> Handle(Ping request, CancellationToken ct) => ValueTask.FromResult("Pong");
+        }
+        """;
+
+    private const string CurrentAssignment = "PipelineBehaviorServices.Current = _services;";
+
+    [Fact]
+    public void ReferencedBehaviors_ThatTakeTheProviderOrOptOut_DoNotMakeSendSetCurrent()
+    {
+        var bridge = CompileLibrary(Library($$"""
+            [PipelineBehavior(Order = -500, UsesPipelineBehaviorServices = false)]
+            public sealed class OptedOutBridge : IPipelineBehavior
+            {
+            {{HandleMethod}}
+            }
+
+            [PipelineBehavior(Order = -400)]
+            public sealed class ScopedBridge : IPipelineBehavior
+            {
+            {{HandleMethod}}
+
+                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+                    TRequest request, IServiceProvider services, CancellationToken ct,
+                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                    where TRequest : IRequest<TResponse>
+                    => next(request, ct);
+            }
+            """));
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(BareConsumer, [bridge]);
+
+        Assert.Empty(diagnostics.Where(d => d.Severity >= DiagnosticSeverity.Warning));
+        Assert.DoesNotContain(CurrentAssignment, output, StringComparison.Ordinal);
+        Assert.Contains("r1, _services, c1,", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReferencedBehavior_ThatMayReadCurrent_MakesSendSetIt()
+    {
+        var bridge = CompileLibrary(Library($$"""
+            [PipelineBehavior(Order = -500)]
+            public sealed class ClassicBridge : IPipelineBehavior
+            {
+            {{HandleMethod}}
+            }
+            """));
+
+        var (output, _) = GeneratorTestHelper.RunGenerator(BareConsumer, [bridge]);
+
+        Assert.Contains(CurrentAssignment, output, StringComparison.Ordinal);
+    }
 }

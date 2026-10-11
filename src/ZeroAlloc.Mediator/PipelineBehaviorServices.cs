@@ -5,24 +5,34 @@ namespace ZeroAlloc.Mediator;
 
 /// <summary>
 /// The service provider of the request that is running through the pipeline. Pipeline behaviors
-/// are static, so this is how they reach the services of the request they handle.
+/// are static, so this is one way they reach the services of the request they handle.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The generated <c>IMediator</c> sets <see cref="Current"/> to its own provider at the start of
-/// every <c>Send</c> that has pipeline behaviors. <c>IMediator</c> is transient, so when it is
-/// resolved from a scope, such as an ASP.NET Core request's, that provider is the scope's, and a
-/// behavior resolves scoped services, such as the caller's security context, from the request
-/// that is being dispatched.
+/// a <c>Send</c> whose pipeline has a behavior that may read it. <c>IMediator</c> is transient, so
+/// when it is resolved from a scope, such as an ASP.NET Core request's, that provider is the
+/// scope's, and a behavior resolves scoped services, such as the caller's security context, from
+/// the request that is being dispatched.
 /// </para>
 /// <para>
-/// The value flows with the async call: it is visible to every behavior and handler of that
-/// <c>Send</c>, including after an <c>await</c>, and it reverts when <c>Send</c> returns. Two
-/// requests dispatched concurrently, or by two containers in one process, each see their own.
+/// Setting <see cref="Current"/> is an <see cref="AsyncLocal{T}"/> write, which allocates on
+/// every <c>Send</c>. It is skipped when every behavior in the pipeline either takes the provider
+/// as a <c>Handle(request, IServiceProvider services, ct, next)</c> argument, which
+/// <c>IMediator</c> then passes directly, or declares
+/// <see cref="PipelineBehaviorAttribute.UsesPipelineBehaviorServices"/> <see langword="false"/>.
+/// Prefer the argument: it costs nothing. <see cref="Current"/> is meant for behaviors; a
+/// handler injects the services it needs.
+/// </para>
+/// <para>
+/// The value flows with the async call: it is visible to every behavior of that <c>Send</c>,
+/// including after an <c>await</c>, and it reverts when <c>Send</c> returns. Two requests
+/// dispatched concurrently, or by two containers in one process, each see their own.
 /// </para>
 /// <para>
 /// It is <see langword="null"/> when the request was not dispatched through <c>IMediator</c>, for
-/// example through the static <c>Mediator</c> class. A behavior then has no request scope.
+/// example through the static <c>Mediator</c> class. A behavior then has no request scope. Inside
+/// an <c>IMediator.Send</c> that skips the write, it keeps whatever value the caller had.
 /// </para>
 /// </remarks>
 public static class PipelineBehaviorServices

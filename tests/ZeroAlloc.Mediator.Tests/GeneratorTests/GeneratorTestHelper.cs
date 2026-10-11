@@ -112,6 +112,10 @@ internal static class GeneratorTestHelper
     // behaviors to every test's output. A test that wants a referenced behavior passes it in.
     public static List<MetadataReference> BaseReferences()
     {
+        // System.IServiceProvider is forwarded from System.ComponentModel, which nothing may have
+        // loaded yet when a test compiles a behavior that takes one.
+        _ = System.Reflection.Assembly.Load("System.ComponentModel");
+
         var references = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
             .Where(a => !(a.GetName().Name ?? string.Empty).StartsWith("ZeroAlloc.Mediator.", StringComparison.Ordinal))

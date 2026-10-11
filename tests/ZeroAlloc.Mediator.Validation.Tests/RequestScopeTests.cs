@@ -106,6 +106,25 @@ public sealed class RequestScopeTests : IDisposable
         Assert.Equal(2, constructions.Count);
     }
 
+    [Fact]
+    public async Task The_handle_without_a_provider_validates_against_PipelineBehaviorServices_Current()
+    {
+        // IMediator.Send passes its provider to the Handle overload that takes one. The other
+        // overload, which older generators call, reads it from PipelineBehaviorServices.Current
+        // and must still validate against that scope, not a scope of its own.
+        using var root = BuildProvider(new ValidatorConstructions());
+        _ = root.GetRequiredService<PipelineBehaviorStateActivation>();
+        using var scope = root.CreateScope();
+        scope.ServiceProvider.GetRequiredService<TenantRules>().ForbiddenName = "Alice";
+
+        PipelineBehaviorServices.Current = scope.ServiceProvider;
+        var result = await ValidationBehavior.Handle<TenantRequest, Result<string, ValidationError>>(
+            new TenantRequest("Alice"), CancellationToken.None,
+            static (r, _) => ValueTask.FromResult(Result<string, ValidationError>.Success(r.Name)));
+
+        Assert.True(result.IsFailure);
+    }
+
     private static async Task<Result<string, ValidationError>> SendInScope(
         ServiceProvider root, string forbiddenName, string name)
     {

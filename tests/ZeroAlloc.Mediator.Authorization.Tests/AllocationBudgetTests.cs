@@ -12,10 +12,10 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 
 // Allocation budgets for the documented hot paths of AuthorizationBehavior in v2. Each
 // budgeted test wires the DI container the production way (services.AddZeroAllocAuthorization()
-// + services.AddMediator().WithAuthorization(...)) and drives AuthorizationBehavior.Handle
-// directly, so the gate measures the behavior alone rather than the dispatcher around it. The
-// test sets PipelineBehaviorServices.Current to the request scope, exactly as the generated
-// IMediator.Send does before it enters the pipeline.
+// + services.AddMediator().WithAuthorization(...)). The behavior budgets drive
+// AuthorizationBehavior.Handle directly, passing the request scope the way the generated
+// IMediator.Send does, so the gate measures the behavior alone. The IMediator.Send budget
+// measures the whole dispatch around it.
 //
 // Throw-path deny intentionally is NOT budgeted: throwing an exception allocates the
 // Exception object + stack trace, which is unavoidable and dwarfs any pipeline overhead.
@@ -74,11 +74,11 @@ public sealed class AllocationBudgetTests
         //                   Debug box without masking real regressions.
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
         using var scope = sp.CreateScope();
-        PipelineBehaviorServices.Current = scope.ServiceProvider;
+        var services = scope.ServiceProvider;
         var req = new GetThingThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
-            () => AuthorizationBehavior.Handle<GetThingThrowAllow, int>(req, CancellationToken.None,
+            () => AuthorizationBehavior.Handle<GetThingThrowAllow, int>(req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (allow happy path)");
     }
@@ -91,14 +91,37 @@ public sealed class AllocationBudgetTests
         // no allocation. Budget rationale identical to Allow_HappyPath_ZeroAlloc.
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
-        PipelineBehaviorServices.Current = scope.ServiceProvider;
+        var services = scope.ServiceProvider;
         var req = new GetThingResultDeny(1);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
             () => AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
-                req, CancellationToken.None,
+                req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id)),
             "AuthorizationBehavior.Handle (IAuthorizedRequest deny path)");
+    }
+
+    [Fact]
+    public void IMediator_Send_ThroughThePipeline_Budget()
+    {
+        // The full generated IMediator.Send, with AuthorizationBehavior and
+        // CountingDownstreamBehavior in the chain. Nothing touches PipelineBehaviorServices here:
+        // however Send hands the pipeline its scope, that cost is inside the measured call. Both
+        // behaviors take the provider as a Handle argument, so Send must not set
+        // PipelineBehaviorServices.Current, an AsyncLocal write that costs 72 B per call.
+        // Budget rationale, per call:
+        //   128 B  one next delegate per behavior. The lambdas read _services, so the compiler
+        //          cannot cache them; ZeroAlloc.Pipeline#121 removes this in the next major.
+        //    24 B  the transient IntegrationTestHandler.
+        //    32 B  AuthorizationBehavior's ResourceSecurityContextAdapter.
+        using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
+        using var scope = sp.CreateScope();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        var req = new IntegrationTestRequest(7);
+
+        AllocationGate.AssertBudgetValueTask(184, 1000,
+            () => mediator.Send(req, CancellationToken.None),
+            "IMediator.Send (authorization pipeline, allow path)");
     }
 
     [Fact]
@@ -120,6 +143,7 @@ public sealed class AllocationBudgetTests
         var services = new ServiceCollection();
         services.AddZeroAllocAuthorization();
         services.AddScoped<ISecurityContextAccessor>(_ => new TestSecurityContextAccessor { Current = ctx });
+        services.AddTransient<IntegrationTestHandler>();
         services.AddMediator().WithAuthorization(o => o.UseAccessor<ISecurityContextAccessor>());
         return services.BuildServiceProvider();
     }

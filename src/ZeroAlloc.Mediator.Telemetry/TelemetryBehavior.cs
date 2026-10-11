@@ -40,7 +40,7 @@ namespace ZeroAlloc.Mediator.Telemetry;
 /// <c>mediator.publish</c> and <c>mediator.stream</c> spans but no metrics from this behavior.
 /// </para>
 /// </remarks>
-[PipelineBehavior(Order = -3000)]
+[PipelineBehavior(Order = -3000, UsesPipelineBehaviorServices = false)]
 public sealed class TelemetryBehavior : IPipelineBehavior
 {
     private static readonly Meter _meter = new("ZeroAlloc.Mediator");

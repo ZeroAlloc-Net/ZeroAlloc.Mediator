@@ -116,6 +116,26 @@ public sealed class RequestScopeTests
         Assert.Equal(6, await Mediator.Send(new IntegrationTestRequest(3)));
     }
 
+    [Fact]
+    public async Task The_handle_without_a_provider_authorizes_against_PipelineBehaviorServices_Current()
+    {
+        // IMediator.Send passes its provider to the Handle overload that takes one. The other
+        // overload, which older generators call, reads it from PipelineBehaviorServices.Current
+        // and must still authorize with that scope's identity, not a scope of its own.
+        using var root = BuildPerScopeIdentityProvider();
+        _ = root.GetRequiredService<PipelineBehaviorStateActivation>();
+        using var scope = root.CreateScope();
+        scope.ServiceProvider.GetRequiredService<TestSecurityContextAccessor>().Current =
+            TestSecurityContexts.With("Admin");
+
+        PipelineBehaviorServices.Current = scope.ServiceProvider;
+        var result = await AuthorizationBehavior.Handle<IntegrationTestRequest, int>(
+            new IntegrationTestRequest(4), CancellationToken.None,
+            static (r, _) => ValueTask.FromResult(r.Value * 2));
+
+        Assert.Equal(8, result);
+    }
+
     // The identity is set on the scope before the request is dispatched, as authentication
     // middleware does for an HTTP request.
     private static async Task<int> SendInScope(ServiceProvider root, ISecurityContext identity, int value)

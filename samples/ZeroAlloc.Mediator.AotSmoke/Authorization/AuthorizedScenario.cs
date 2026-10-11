@@ -119,8 +119,6 @@ internal static class AuthorizedScenario
         VerifyAllocationBudget(adminCtx);
         Console.WriteLine("Mediator.Authorization: AllocationGate OK");
 
-        PipelineBehaviorServices.Current = null;
-
         VerifyPerScopeIdentity(adminCtx, anonCtx);
         Console.WriteLine("Mediator.Authorization: per-scope identity through IMediator.Send OK");
 
@@ -133,9 +131,8 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            UseRequestScope(scope);
             var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
-                new AotThrowAllow(7), CancellationToken.None,
+                new AotThrowAllow(7), scope.ServiceProvider, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
             if (allowResult != 14) throw new InvalidOperationException("throw-allow regressed");
         }
@@ -144,11 +141,10 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(anonCtx))
         using (var scope = sp.CreateScope())
         {
-            UseRequestScope(scope);
             try
             {
                 _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
-                    new AotThrowDeny(7), CancellationToken.None,
+                    new AotThrowDeny(7), scope.ServiceProvider, CancellationToken.None,
                     static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
                 throw new InvalidOperationException("throw-deny did not throw");
             }
@@ -162,9 +158,8 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            UseRequestScope(scope);
             var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
-                new AotResultAllow(5), CancellationToken.None,
+                new AotResultAllow(5), scope.ServiceProvider, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
                 .GetAwaiter().GetResult();
             if (!resultAllow.IsSuccess || resultAllow.Value != 10)
@@ -188,9 +183,8 @@ internal static class AuthorizedScenario
     {
         using var sp = BuildProvider(anonCtx);
         using var scope = sp.CreateScope();
-        UseRequestScope(scope);
         var response = AuthorizationBehavior.Handle<TRequest, TResponse>(
-            request, CancellationToken.None,
+            request, scope.ServiceProvider, CancellationToken.None,
             static (_, _) => throw new InvalidOperationException("next must not run"))
             .GetAwaiter().GetResult();
         var (isSuccess, code) = inspect(response);
@@ -206,11 +200,11 @@ internal static class AuthorizedScenario
         // absorbs the Debug-mode async state machine box; Release/AOT path is 0 B/call.
         using var sp = BuildProvider(adminCtx);
         using var scope = sp.CreateScope();
-        UseRequestScope(scope);
+        var services = scope.ServiceProvider;
         var req = new AotThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
-            () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, CancellationToken.None,
+            () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
     }
@@ -243,11 +237,6 @@ internal static class AuthorizedScenario
         return scope.ServiceProvider.GetRequiredService<IMediator>()
             .Send(new AotThrowAllow(7), CancellationToken.None).AsTask().GetAwaiter().GetResult();
     }
-
-    // Stands in for the generated IMediator.Send, which hands the pipeline the scope its
-    // IMediator was resolved from. The scenario drives AuthorizationBehavior.Handle directly.
-    private static void UseRequestScope(IServiceScope scope) =>
-        PipelineBehaviorServices.Current = scope.ServiceProvider;
 
     private static ServiceProvider BuildProvider(AotCtx ctx)
     {
