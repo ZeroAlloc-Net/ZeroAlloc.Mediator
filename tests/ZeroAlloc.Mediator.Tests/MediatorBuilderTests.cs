@@ -7,6 +7,17 @@ using ZeroAlloc.Mediator.Validation;
 
 namespace ZeroAlloc.Mediator.Tests;
 
+// Resolving IMediator from a container wired with WithCache or WithValidation points the bridge
+// packages' process-wide behavior state at that container, and disposing it leaves any dispatch
+// already holding the reference with a disposed provider. A collection without parallelization
+// runs alone after every parallel test, so no other test dispatches while this one owns the state.
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class PipelineBehaviorStateCollection
+{
+    public const string Name = "pipeline-behavior-state";
+}
+
+[Collection(PipelineBehaviorStateCollection.Name)]
 public class MediatorBuilderTests
 {
     [Fact]
