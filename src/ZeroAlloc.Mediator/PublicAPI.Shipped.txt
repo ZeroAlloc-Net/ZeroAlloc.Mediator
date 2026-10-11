@@ -3,6 +3,8 @@ override ZeroAlloc.Mediator.Unit.GetHashCode() -> int
 static readonly ZeroAlloc.Mediator.Unit.Value -> ZeroAlloc.Mediator.Unit
 static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssemblies(this ZeroAlloc.Mediator.IMediatorBuilder! builder, params System.Reflection.Assembly![]! assemblies) -> ZeroAlloc.Mediator.IMediatorBuilder!
 static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssembly(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Reflection.Assembly! assembly, Microsoft.Extensions.DependencyInjection.ServiceLifetime defaultLifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient) -> ZeroAlloc.Mediator.IMediatorBuilder!
+static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.get -> System.IServiceProvider?
+static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.set -> void
 static ZeroAlloc.Mediator.Unit.operator !=(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 static ZeroAlloc.Mediator.Unit.operator ==(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 ZeroAlloc.Mediator.HandlerLifetimeAttribute
@@ -31,6 +33,7 @@ ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
 ZeroAlloc.Mediator.PipelineBehaviorAttribute.PipelineBehaviorAttribute(int order = 0) -> void
+ZeroAlloc.Mediator.PipelineBehaviorServices
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation.PipelineBehaviorStateActivation(System.Collections.Generic.IEnumerable<ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer!>! initializers) -> void
 ZeroAlloc.Mediator.Unit
