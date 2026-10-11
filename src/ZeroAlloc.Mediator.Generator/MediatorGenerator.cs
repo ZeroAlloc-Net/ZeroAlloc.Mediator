@@ -134,6 +134,23 @@ namespace ZeroAlloc.Mediator.Generator
                 .WithTrackingName(TrackingNames.NotificationTypes)
                 .Collect();
 
+            // ZAM010: [CacheResponse] request types whose cache key is their type name. The
+            // attribute lives in ZeroAlloc.Mediator.Cache; without that package nothing matches.
+            var cachedRequestKeys = context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    CachedRequestKeyInfo.AttributeMetadataName,
+                    predicate: static (node, _) => node is TypeDeclarationSyntax,
+                    transform: static (ctx, ct) => CachedRequestKeyInfo.From(ctx, ct))
+                .Where(static x => x != null)
+                .Select(static (x, _) => x!)
+                .WithTrackingName(TrackingNames.CachedRequestKeys);
+
+            context.RegisterSourceOutput(cachedRequestKeys, static (spc, info) =>
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.CachedRequestWithoutValueKey,
+                    LocationInfo.ToLocation(info.Location),
+                    info.RequestTypeName)));
+
             // Whether the referenced ZeroAlloc.Mediator runtime has PipelineBehaviorStateActivation.
             // The generator ships separately from the runtime, so an older runtime is possible;
             // the activation hook is emitted only when the type is there to call.

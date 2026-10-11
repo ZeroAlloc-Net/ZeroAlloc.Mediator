@@ -2,7 +2,7 @@
 id: diagnostics
 title: Compiler Diagnostics
 slug: /docs/diagnostics
-description: ZAM001–ZAM009 Roslyn analyzer rules with triggers, severities, and fix guidance.
+description: ZAM001–ZAM010 Roslyn analyzer rules with triggers, severities, and fix guidance.
 sidebar_position: 7
 ---
 
@@ -23,6 +23,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
 | ZAM009 | Warning | Pipeline behavior does not implement IPipelineBehavior | A `[PipelineBehavior]` class is static or does not implement `IPipelineBehavior`, so it never runs |
+| ZAM010 | Error | Cached request type has no per-instance cache key | A `[CacheResponse]` request is a class or struct with instance state whose text is its type name, so all its instances share one cache entry |
 
 ## ZAM001 — No Handler for Request
 
@@ -238,6 +239,61 @@ public sealed class LoggingBehavior : IPipelineBehavior
 
 ZAM009 is a warning rather than an error because such a class compiled without complaint before it was added. The class still stays out of the pipeline; ZAM005 and ZAM006 are not reported for it.
 
+## ZAM010 — Cached Request Type Has No Per-Instance Cache Key
+
+**Severity:** Error
+
+**What it means:** `CacheBehavior` from `ZeroAlloc.Mediator.Cache` stores a response under the key `"<request type full name>:<request>"`, where the request part is the request's text: its `IFormattable` or `ISpanFormattable` formatting when it implements one, its `ToString()` otherwise. A class or struct that is not a record, does not override `ToString()` and does not implement `IFormattable` formats as its type name. Every instance then has the same key, so the response to the first request is cached and returned for every later request of that type, whatever its values.
+
+**Example that triggers it:**
+```csharp
+// ❌ Triggers ZAM010 — every GetUser formats as "TestApp.GetUser", whatever its Id
+[CacheResponse(TtlMs = 60_000)]
+public sealed class GetUser : IRequest<User>
+{
+    public int Id { get; init; }
+}
+```
+
+**Error message:** `ZAM010: Request type 'global::TestApp.GetUser' has [CacheResponse], but its cache key is its type name, so every instance shares one cache entry and gets the first response; make it a record, override ToString, or implement ISpanFormattable so the key identifies the request`
+
+**Fix:** give the request a text that identifies it. Any one of these does:
+
+```csharp
+// ✅ A record: the compiler-written ToString prints every member
+[CacheResponse(TtlMs = 60_000)]
+public readonly record struct GetUser(int Id) : IRequest<User>;
+
+// ✅ A ToString override, on the type or a base class
+[CacheResponse(TtlMs = 60_000)]
+public sealed class GetUser : IRequest<User>
+{
+    public int Id { get; init; }
+    public override string ToString() => Id.ToString(CultureInfo.InvariantCulture);
+}
+
+// ✅ ISpanFormattable, which the key interpolation uses instead of ToString, and which also
+// makes a cache hit allocation-free. Implementing IFormattable alone works too.
+[CacheResponse(TtlMs = 60_000)]
+public readonly struct GetUser : IRequest<User>, ISpanFormattable
+{
+    public GetUser(int id) => Id = id;
+    public int Id { get; }
+    public override string ToString() => Id.ToString(CultureInfo.InvariantCulture);
+    public string ToString(string? format, IFormatProvider? provider) => Id.ToString(format, provider);
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+        => Id.TryFormat(destination, out charsWritten, format, provider);
+}
+```
+
+**Not reported:**
+- A type without instance state, such as `public sealed class GetAllCountries : IRequest<Country[]> { }`. All its instances are the same request, so one cache entry is right. Instance state is an instance field, an auto-implemented property, a property that uses the `field` keyword, or a primary constructor parameter, on the type or a base class. A property of a base class from another assembly counts as state, because the generator cannot see whether it has a backing field.
+- A type without `[CacheResponse]`, and a `[CacheResponse]` type that does not implement `IRequest<TResponse>`.
+
+ZAM010 checks the request type, not its members. A record with an array or `List<T>` member prints that member as its type name, such as `System.Int32[]`, so requests that differ only in it still share an entry. Format such a member yourself in a `ToString()` override.
+
+ZAM010 is an error, not a warning, because the behavior it reports is always wrong: the cache answers requests with another request's response. A build that compiled before ZAM010 can fail with it; that build was returning wrong cached responses.
+
 ## Removed diagnostics
 
 ZAM004 and ZAM007 were declared by the generator but never reported, and 6.0 removes them. A handler whose `Handle` method does not match its interface does not compile, so the C# compiler already catches both cases:
@@ -262,6 +318,7 @@ Every diagnostic points at the code it is about, so the IDE can take you there a
 | ZAM006 | The later `[PipelineBehavior]` attribute, with the other tied behaviors in this project as additional locations. A tie between behaviors from referenced assemblies only has no location in your code. |
 | ZAM008 | The handler's class name |
 | ZAM009 | The behavior's class name |
+| ZAM010 | The request type's name, in the declaration that carries `[CacheResponse]` |
 
 ## Suppressing Warnings
 
