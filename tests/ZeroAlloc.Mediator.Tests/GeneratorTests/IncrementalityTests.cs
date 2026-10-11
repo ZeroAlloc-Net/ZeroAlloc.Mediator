@@ -53,13 +53,37 @@ public class IncrementalityTests
 
         [PipelineBehavior(Order = 5)]
         public static class StaticBehavior { }
+
+        [ZeroAlloc.Mediator.Cache.CacheResponse]
+        public class Cached : IRequest<string> { public int Id { get; init; } }
+
+        public class CachedHandler : IRequestHandler<Cached, string>
+        {
+            public ValueTask<string> Handle(Cached request, CancellationToken ct) => default;
+        }
+
+        [ZeroAlloc.Mediator.Cache.CacheResponse]
+        public readonly record struct CachedIds(int[] Ids) : IRequest<string>;
+
+        public class CachedIdsHandler : IRequestHandler<CachedIds, string>
+        {
+            public ValueTask<string> Handle(CachedIds request, CancellationToken ct) => default;
+        }
+        """;
+
+    // Stands in for ZeroAlloc.Mediator.Cache, which the base references leave out so its behavior
+    // stays out of the emitted pipeline. The generator matches the attribute by its name.
+    private const string CacheAttributeSource = """
+        namespace ZeroAlloc.Mediator.Cache;
+        public sealed class CacheResponseAttribute : System.Attribute { }
         """;
 
     // The tracking names the generator gives its steps, in ZeroAlloc.Mediator.Generator.TrackingNames.
     private static readonly string[] GeneratorStepNames =
     [
         "RequestHandlers", "NotificationHandlers", "StreamHandlers", "SourceBehaviors",
-        "RequestTypes", "NotificationTypes", "EmitInputs", "DiagnosticInputs",
+        "RequestTypes", "NotificationTypes", "CachedRequestKeys", "CachedRecordMemberKeys", "EmitInputs",
+        "DiagnosticInputs",
     ];
 
     [Fact]
@@ -68,7 +92,8 @@ public class IncrementalityTests
         var app = CSharpSyntaxTree.ParseText(AppSource, path: "/src/App.cs");
         var unrelated = CSharpSyntaxTree.ParseText(
             "namespace TestApp; public class Unrelated { public int M() => 1; }", path: "/src/Unrelated.cs");
-        var compilation = GeneratorTestHelper.CreateCompilation([app, unrelated]);
+        var cache = CSharpSyntaxTree.ParseText(CacheAttributeSource, path: "/src/Cache.cs");
+        var compilation = GeneratorTestHelper.CreateCompilation([app, unrelated, cache]);
 
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
             [new Generator.MediatorGenerator().AsSourceGenerator()],
@@ -102,6 +127,8 @@ public class IncrementalityTests
         Assert.Equal(Describe(first.Diagnostics), Describe(second.Diagnostics));
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM008", StringComparison.Ordinal));
         Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM009", StringComparison.Ordinal));
+        Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM010", StringComparison.Ordinal));
+        Assert.Contains(second.Diagnostics, d => string.Equals(d.Id, "ZAM011", StringComparison.Ordinal));
     }
 
     [Fact]

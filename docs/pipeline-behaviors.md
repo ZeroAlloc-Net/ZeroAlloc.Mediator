@@ -167,6 +167,25 @@ The bridge behaviors use fixed orders with gaps between them, all below your own
 
 Give your own behavior an order between two of these to run it there. ZAM006 reports an order that ties with a referenced behavior, as it does for two of your own.
 
+## Caching Responses
+
+`CacheBehavior` from `ZeroAlloc.Mediator.Cache` answers a request marked `[CacheResponse]` from an `IMemoryCache`:
+
+```csharp
+[CacheResponse(TtlMs = 60_000)]
+public readonly record struct GetProductQuery(Guid ProductId) : IRequest<ProductDto>;
+```
+
+The entry key is `"<request type full name>:<request>"`. The request part is the request's text: an `IFormattable` or `ISpanFormattable` request is formatted through that interface, any other through `ToString()`. Two requests with the same text share one entry, so **the text has to identify the request.** Any of these does:
+
+- a `record` or `record struct`, whose compiler-written `ToString()` prints every member;
+- a `ToString()` override, on the type or a base class;
+- an `ISpanFormattable` implementation, which also makes a cache hit allocation-free; see [Performance](performance.md).
+
+A class or struct that does none of these formats as its type name, so every instance gets the same key and the response to the first request is returned for all later ones. [ZAM010](diagnostics.md#zam010--cached-request-type-has-no-per-instance-cache-key) makes that a compile error. A type without instance state is not reported: all its instances are the same request, and one entry is right for them.
+
+A member's own text counts too. A record member whose type does not override `ToString()`, such as an array or a `List<T>`, prints as its type name, so requests that differ only in that member share an entry. [ZAM011](diagnostics.md#zam011--cached-record-request-has-a-member-that-prints-as-its-type-name) makes that a compile error; format such a member in a `ToString()` or `PrintMembers` override on the request, or give it a type whose `ToString()` prints its value.
+
 ## How Inlining Works (Conceptual)
 
 Instead of building a `List<IPipelineBehavior>` at runtime and iterating it, the generator emits code like:

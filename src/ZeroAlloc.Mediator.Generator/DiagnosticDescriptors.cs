@@ -63,5 +63,27 @@ namespace ZeroAlloc.Mediator.Generator
                 "ZeroAlloc.Mediator",
                 DiagnosticSeverity.Warning,
                 isEnabledByDefault: true);
+    
+        // An Error: every instance of such a type shares one cache entry, so all but the first
+        // request get another request's response. A type without instance state is not reported.
+        public static readonly DiagnosticDescriptor CachedRequestWithoutValueKey =
+            new DiagnosticDescriptor(
+                "ZAM010",
+                "Cached request type has no per-instance cache key",
+                "Request type '{0}' has [CacheResponse], but its cache key is its type name, so every instance shares one cache entry and gets the first response; make it a record, override ToString, or implement ISpanFormattable so the key identifies the request",
+                "ZeroAlloc.Mediator",
+                DiagnosticSeverity.Error,
+                isEnabledByDefault: true);
+
+        // An Error, like ZAM010: requests that differ only in such a member share one cache entry,
+        // so all but the first get another request's response.
+        public static readonly DiagnosticDescriptor CachedRecordMemberWithoutValueText =
+            new DiagnosticDescriptor(
+                "ZAM011",
+                "Cached record request has a member that prints as its type name",
+                "Member '{0}' of [CacheResponse] request '{1}' has type '{2}', which the record's ToString prints as its type name, so requests that differ only in it share one cache entry and get the first response; override ToString or PrintMembers on the request to format it, or use a type whose ToString prints its value",
+                "ZeroAlloc.Mediator",
+                DiagnosticSeverity.Error,
+                isEnabledByDefault: true);
     }
 }
