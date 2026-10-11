@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.4.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.1...v6.4.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* resolve pipeline behavior services from the request scope, not the root provider ([#295](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/295)) ([718fd32](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/718fd322ee6ca05207cc8b83197f07ba38b6303a))
+
 ## [6.4.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.0...v6.4.1) (2026-10-11)
 
 
