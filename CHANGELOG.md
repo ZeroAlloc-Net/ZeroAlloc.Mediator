@@ -1,5 +1,18 @@
 # Changelog
 
+## [6.5.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.3...v6.5.0) (2026-10-11)
+
+
+### Features
+
+* report a cached record member that prints as its type name as ZAM011 ([#312](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/312)) ([4c14385](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/4c143855c13c93d27460412fb14662436d0407b2)), closes [#309](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/309)
+* report a cached request whose cache key is its type name as ZAM010 ([#310](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/310)) ([2c893ee](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/2c893eec518cea5f28df73756c23e560b1a1da05)), closes [#305](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/305)
+
+
+### Performance Improvements
+
+* drop per-call allocations from cache hits and synchronous parallel publish ([#306](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/306)) ([800595f](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/800595f9d0e2ce0b6de5c5feab27cd7f0c17f122)), closes [#298](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/298)
+
 ## [6.4.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.2...v6.4.3) (2026-10-11)
 
 
