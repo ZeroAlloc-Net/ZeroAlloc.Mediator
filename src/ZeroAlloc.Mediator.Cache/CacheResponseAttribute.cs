@@ -5,6 +5,14 @@ namespace ZeroAlloc.Mediator.Cache;
 /// <see cref="CacheBehavior"/> caches its response for the configured duration.
 /// Apply to the request type (struct or class), not to a service interface.
 /// </summary>
+/// <remarks>
+/// The cache key is <c>"&lt;request type full name&gt;:&lt;request&gt;"</c>, where the request is
+/// formatted through <see cref="IFormattable"/> when it implements it, and through
+/// <see cref="object.ToString"/> otherwise, so that text has to identify the request. A record, a
+/// <see cref="object.ToString"/> override or an <see cref="ISpanFormattable"/> implementation does.
+/// A class or struct with instance state that has none of these formats as its type name, so all
+/// its instances would share one entry; the generator reports it as ZAM010.
+/// </remarks>
 // Inherited = false: each request type must declare [CacheResponse] independently.
 // Inheriting would give subclasses identical cache keys, which is almost always wrong.
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class, Inherited = false)]

@@ -33,7 +33,7 @@ internal static class GeneratorTestHelper
     // BaseReferences plus the platform assemblies that are not loaded yet. Type forwards such as
     // System.IServiceProvider resolve only when the target assembly is referenced, which a
     // compile-and-check test needs and a generator-only run does not.
-    private static List<MetadataReference> CompilableReferences()
+    internal static List<MetadataReference> CompilableReferences()
     {
         var references = BaseReferences();
         var known = new HashSet<string>(
