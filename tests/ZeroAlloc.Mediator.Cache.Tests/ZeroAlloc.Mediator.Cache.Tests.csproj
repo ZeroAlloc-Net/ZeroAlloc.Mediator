@@ -2,6 +2,13 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <!-- Optimized even in Debug, so the allocation tests measure the async state machine the
+         way Release and AOT run it rather than the Debug-mode box. -->
+    <Optimize>true</Optimize>
+    <!-- Fully optimized from the first call, as NativeAOT runs it. Tier-0 code boxes a struct
+         request where string interpolation tests it for ISpanFormattable; the optimizing JIT
+         removes that box, so without this the cache-hit allocation test measures warm-up. -->
+    <TieredCompilation>false</TieredCompilation>
     <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long. -->
     <NoWarn>$(NoWarn);MA0048;MA0051</NoWarn>
   </PropertyGroup>
@@ -25,5 +32,9 @@
                       ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.6.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>contentfiles;build</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

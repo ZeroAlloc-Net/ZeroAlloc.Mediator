@@ -8,7 +8,7 @@ using ZeroAlloc.Mediator.AotSmoke;
 //   * Mediator.Send              — request/response
 //   * Mediator.Publish           — notification
 //   * Mediator.CreateStream      — streaming
-// plus the Telemetry, Cache, Validation and Authorization bridges.
+// plus the Telemetry, Cache, Validation, Resilience and Authorization bridges.
 
 var pong = await Mediator.Send(new Ping("ok"), CancellationToken.None).ConfigureAwait(false);
 if (!string.Equals(pong, "Pong: ok", StringComparison.Ordinal))
@@ -18,6 +18,14 @@ UserCreatedHandler.Seen = 0;
 await Mediator.Publish(new UserCreated(1), CancellationToken.None).ConfigureAwait(false);
 if (UserCreatedHandler.Seen != 1)
     return Fail($"Publish<UserCreated> expected 1 handler invocation, got {UserCreatedHandler.Seen}");
+
+// [ParallelNotification]: one handler completes synchronously, the other asynchronously, so
+// both the in-place fast path and the Task.WhenAll path of the parallel fan-out run.
+OrderShippedSyncHandler.Seen = 0;
+OrderShippedAsyncHandler.Seen = 0;
+await Mediator.Publish(new OrderShipped(1), CancellationToken.None).ConfigureAwait(false);
+if (OrderShippedSyncHandler.Seen != 1 || OrderShippedAsyncHandler.Seen != 1)
+    return Fail($"Publish<OrderShipped> expected each parallel handler once, got {OrderShippedSyncHandler.Seen} and {OrderShippedAsyncHandler.Seen}");
 
 var total = 0;
 await foreach (var n in Mediator.CreateStream(new CountTo(3), CancellationToken.None).ConfigureAwait(false))
@@ -34,6 +42,8 @@ await ZeroAlloc.Mediator.AotSmoke.Telemetry.TracedScenario.RunAsync().ConfigureA
 await ZeroAlloc.Mediator.AotSmoke.Cache.CachedScenario.RunAsync().ConfigureAwait(false);
 
 ZeroAlloc.Mediator.AotSmoke.Validation.ValidatedScenario.Run();
+
+await ZeroAlloc.Mediator.AotSmoke.Resilience.ResilientScenario.RunAsync().ConfigureAwait(false);
 
 ZeroAlloc.Mediator.AotSmoke.Authorization.AuthorizedScenario.Run();
 
@@ -54,7 +64,32 @@ namespace ZeroAlloc.Mediator.AotSmoke
     public readonly record struct Ping(string Message) : IRequest<string>;
     public readonly record struct UserCreated(int Id) : INotification;
     public readonly record struct CountTo(int Max) : IStreamRequest<int>;
+
+    [ParallelNotification]
+    public readonly record struct OrderShipped(int Id) : INotification;
 #pragma warning restore MA0048
+
+    public sealed class OrderShippedSyncHandler : INotificationHandler<OrderShipped>
+    {
+        internal static int Seen;
+
+        public ValueTask Handle(OrderShipped notification, CancellationToken ct)
+        {
+            Interlocked.Increment(ref Seen);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed class OrderShippedAsyncHandler : INotificationHandler<OrderShipped>
+    {
+        internal static int Seen;
+
+        public async ValueTask Handle(OrderShipped notification, CancellationToken ct)
+        {
+            await Task.Yield();
+            Interlocked.Increment(ref Seen);
+        }
+    }
 
     public sealed class PingHandler : IRequestHandler<Ping, string>
     {

@@ -28,7 +28,9 @@ public sealed class ResilienceBehavior : IPipelineBehavior
                 ResiliencePolicy.CircuitBreaker,
                 $"Circuit breaker for {typeof(TRequest).Name} is open.");
 
-        // Total-operation timeout CTS (wraps all retries + backoff).
+        // Total-operation timeout CTS (wraps all retries + backoff). One per call, 144 B with its
+        // timer: the token reaches handler code, which may keep it or its registrations after the
+        // call, so the source is not pooled with TryReset. See #304.
         CancellationTokenSource? totalCts = null;
         if (timeout is not null)
         {

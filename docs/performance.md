@@ -163,4 +163,6 @@ If your profiler or allocation tracker does not show the mediator as a hotspot, 
 
 4. **Keep pipeline behaviors stateless and `static`** — no instance allocation per request. A `static` behavior method captured in a lambda does not close over any heap object.
 
-5. **Use `[ParallelNotification]` for independent notification handlers** — reduces wall-clock time on multi-handler notifications by dispatching handlers concurrently rather than sequentially.
+5. **Use `[ParallelNotification]` for independent notification handlers** — reduces wall-clock time on multi-handler notifications by dispatching handlers concurrently rather than sequentially. A parallel publish whose handlers all complete synchronously allocates nothing; each handler that is still running, or that failed, costs a `Task`, and together they cost one `Task[]` and the `Task.WhenAll` that awaits them.
+
+6. **Implement `ISpanFormattable` on `[CacheResponse]` requests** — the cache key is `"<request type full name>:<request>"`. A cache hit formats it into a stack buffer and looks it up as a span, on .NET 9 and later with the default `MemoryCache`, so the key string is built only on a miss. The request's own text is the remaining cost: a record formats itself through `ToString`, which allocates on every hit, while a request that implements `ISpanFormattable` writes into the buffer and makes the hit allocation-free. On .NET 8, with another `IMemoryCache`, or for a key over 256 characters, a hit builds the key string.

@@ -196,14 +196,15 @@ internal static class AuthorizedScenario
 
     private static void VerifyAllocationBudget(AotCtx adminCtx)
     {
-        // Allow happy path through the full AuthorizationBehavior.Handle pipeline. 512 B budget
-        // absorbs the Debug-mode async state machine box; Release/AOT path is 0 B/call.
+        // Allow happy path through the full AuthorizationBehavior.Handle pipeline. The budget is
+        // the 32 B ResourceSecurityContextAdapter that hands the request to the policies, the one
+        // allocation the behavior makes per call; its async state machine is not boxed.
         using var sp = BuildProvider(adminCtx);
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
         var req = new AotThrowAllow(7);
 
-        AllocationGate.AssertBudgetValueTask(512, 1000,
+        AllocationGate.AssertBudgetValueTask(32, 1000,
             () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, services, CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
