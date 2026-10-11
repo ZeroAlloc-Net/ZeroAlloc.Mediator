@@ -33,6 +33,8 @@ ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
 ZeroAlloc.Mediator.PipelineBehaviorAttribute.PipelineBehaviorAttribute(int order = 0) -> void
+ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.get -> bool
+ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.set -> void
 ZeroAlloc.Mediator.PipelineBehaviorServices
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation.PipelineBehaviorStateActivation(System.Collections.Generic.IEnumerable<ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer!>! initializers) -> void

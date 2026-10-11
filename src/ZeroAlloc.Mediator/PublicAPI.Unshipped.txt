@@ -1,3 +1,1 @@
 #nullable enable
-ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.get -> bool
-ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.set -> void

@@ -1,2 +1,1 @@
 #nullable enable
-static ZeroAlloc.Mediator.Validation.ValidationBehavior.Handle<TRequest, TResponse>(TRequest request, System.IServiceProvider! services, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
