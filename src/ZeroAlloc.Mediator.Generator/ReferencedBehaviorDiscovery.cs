@@ -38,7 +38,7 @@ namespace ZeroAlloc.Mediator.Generator
             if (marker == null || attributeBase == null)
                 return BehaviorList.Empty;
 
-            var found = ImmutableArray.CreateBuilder<PipelineBehaviorInfo>();
+            var found = ImmutableArray.CreateBuilder<(PipelineBehaviorInfo Info, BehaviorServicesInfo Services)>();
             foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols)
             {
                 ct.ThrowIfCancellationRequested();
@@ -50,9 +50,10 @@ namespace ZeroAlloc.Mediator.Generator
 
             // Symbol enumeration order is not part of any contract; sort so the generated source
             // is stable. The pipeline is ordered by Order afterwards, with this as the tiebreak.
-            return new BehaviorList(found
-                .OrderBy(static b => b.BehaviorTypeName, StringComparer.Ordinal)
-                .ToImmutableArray());
+            var sorted = found.OrderBy(static b => b.Info.BehaviorTypeName, StringComparer.Ordinal).ToList();
+            return new BehaviorList(
+                sorted.Select(static b => b.Info).ToImmutableArray(),
+                sorted.Select(static b => b.Services).ToImmutableArray());
         }
 
         private static bool ReferencesMediator(IAssemblySymbol assembly)
@@ -72,7 +73,7 @@ namespace ZeroAlloc.Mediator.Generator
             INamespaceSymbol ns,
             INamedTypeSymbol marker,
             INamedTypeSymbol attributeBase,
-            ImmutableArray<PipelineBehaviorInfo>.Builder found,
+            ImmutableArray<(PipelineBehaviorInfo Info, BehaviorServicesInfo Services)>.Builder found,
             CancellationToken ct)
         {
             foreach (var member in ns.GetMembers())
@@ -89,16 +90,16 @@ namespace ZeroAlloc.Mediator.Generator
             INamedTypeSymbol type,
             INamedTypeSymbol marker,
             INamedTypeSymbol attributeBase,
-            ImmutableArray<PipelineBehaviorInfo>.Builder found)
+            ImmutableArray<(PipelineBehaviorInfo Info, BehaviorServicesInfo Services)>.Builder found)
         {
             // Accessibility is checked per level, so a nested type is only reached through a
             // public container.
             if (type.DeclaredAccessibility != Accessibility.Public)
                 return;
 
-            var info = TryCreateInfo(type, marker, attributeBase);
+            var info = TryCreateInfo(type, marker, attributeBase, out var attribute);
             if (info != null)
-                found.Add(info);
+                found.Add((info, BehaviorServicesInfo.From(type, attribute)));
 
             foreach (var nested in type.GetTypeMembers())
                 CollectFromType(nested, marker, attributeBase, found);
@@ -107,14 +108,15 @@ namespace ZeroAlloc.Mediator.Generator
         private static PipelineBehaviorInfo? TryCreateInfo(
             INamedTypeSymbol type,
             INamedTypeSymbol marker,
-            INamedTypeSymbol attributeBase)
+            INamedTypeSymbol attributeBase,
+            out AttributeData? attribute)
         {
+            attribute = null;
             if (type.TypeKind != TypeKind.Class || type.IsGenericType)
                 return null;
             if (!type.AllInterfaces.Contains(marker, SymbolEqualityComparer.Default))
                 return null;
 
-            AttributeData? attribute = null;
             foreach (var candidate in type.GetAttributes())
             {
                 if (InheritsFrom(candidate.AttributeClass, attributeBase))
@@ -195,14 +197,23 @@ namespace ZeroAlloc.Mediator.Generator
     /// </summary>
     internal sealed class BehaviorList : IEquatable<BehaviorList>
     {
-        public static readonly BehaviorList Empty = new BehaviorList(ImmutableArray<PipelineBehaviorInfo>.Empty);
+        public static readonly BehaviorList Empty = new BehaviorList(
+            ImmutableArray<PipelineBehaviorInfo>.Empty,
+            ImmutableArray<BehaviorServicesInfo>.Empty);
 
-        public BehaviorList(ImmutableArray<PipelineBehaviorInfo> items) => Items = items;
+        public BehaviorList(ImmutableArray<PipelineBehaviorInfo> items, ImmutableArray<BehaviorServicesInfo> services)
+        {
+            Items = items;
+            Services = services;
+        }
 
         public ImmutableArray<PipelineBehaviorInfo> Items { get; }
 
+        /// <summary>How each of <see cref="Items"/> reaches the request's services.</summary>
+        public ImmutableArray<BehaviorServicesInfo> Services { get; }
+
         public bool Equals(BehaviorList? other)
-            => other != null && Items.SequenceEqual(other.Items);
+            => other != null && Items.SequenceEqual(other.Items) && Services.SequenceEqual(other.Services);
 
         public override bool Equals(object? obj) => Equals(obj as BehaviorList);
 
@@ -212,6 +223,8 @@ namespace ZeroAlloc.Mediator.Generator
             {
                 var hash = 17;
                 foreach (var item in Items)
+                    hash = (hash * 31) + item.GetHashCode();
+                foreach (var item in Services)
                     hash = (hash * 31) + item.GetHashCode();
                 return hash;
             }

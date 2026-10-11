@@ -102,6 +102,18 @@ namespace ZeroAlloc.Mediator.Generator
                         .OrderBy(static b => b.Order)
                         .ToImmutableArray());
 
+            // How each behavior reaches the request's services, which decides whether
+            // IMediator.Send sets PipelineBehaviorServices.Current and which Handle it calls.
+            var behaviorServices = sourceBehaviorsBase.Collect()
+                .Combine(sourceBehaviorsMediator.Collect())
+                .Combine(referencedBehaviors)
+                .Select(static (pair, _) => new BehaviorServicesMap(
+                    pair.Left.Left.AddRange(pair.Left.Right)
+                        .Where(static x => x.Services != null)
+                        .Select(static x => x.Services!)
+                        .ToImmutableArray()
+                        .AddRange(pair.Right.Services)));
+
             var requestTypes = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is TypeDeclarationSyntax tds && tds.BaseList != null,
                 transform: static (ctx, ct) => GetRequestTypeInfo(ctx, ct))
@@ -139,7 +151,7 @@ namespace ZeroAlloc.Mediator.Generator
             var combined = requestHandlers
                 .Combine(notificationHandlers)
                 .Combine(streamHandlers)
-                .Combine(pipelineBehaviors)
+                .Combine(pipelineBehaviors.Combine(behaviorServices))
                 .Combine(notificationTypes)
                 .Combine(hasStateActivation.Combine(hasPipelineServices))
                 .WithTrackingName(TrackingNames.EmitInputs);
@@ -169,12 +181,13 @@ namespace ZeroAlloc.Mediator.Generator
                 var requestInfos = data.Left.Left.Left.Left.Left;
                 var notificationInfos = data.Left.Left.Left.Left.Right;
                 var streamInfos = data.Left.Left.Left.Right;
-                var pipelineInfos = data.Left.Left.Right;
+                var pipelineInfos = data.Left.Left.Right.Left;
+                var servicesMap = data.Left.Left.Right.Right;
                 var notificationTypeNames = data.Left.Right;
                 var activateBehaviorState = data.Right.Left;
                 var flowPipelineServices = data.Right.Right;
 
-                var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos, notificationTypeNames, activateBehaviorState, flowPipelineServices);
+                var source = GenerateMediatorClass(requestInfos, notificationInfos, streamInfos, pipelineInfos, servicesMap, notificationTypeNames, activateBehaviorState, flowPipelineServices);
                 spc.AddSource("ZeroAlloc.Mediator.g.cs", source);
 
                 var handlerRegistrations = CollectHandlerRegistrations(requestInfos, notificationInfos, streamInfos);
@@ -756,6 +769,7 @@ namespace ZeroAlloc.Mediator.Generator
             ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
             ImmutableArray<StreamHandlerInfo?> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
+            BehaviorServicesMap behaviorServices,
             ImmutableArray<NotificationTypeInfo?> notificationTypes,
             bool activateBehaviorState,
             bool flowPipelineServices)
@@ -847,7 +861,7 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
 
             // Emit MediatorService class
-            EmitMediatorService(sb, validRequests, validNotifications, publishableNotifications, validStreams, validPipelines, activateBehaviorState, flowPipelineServices);
+            EmitMediatorService(sb, validRequests, validNotifications, publishableNotifications, validStreams, validPipelines, behaviorServices, activateBehaviorState, flowPipelineServices);
 
             sb.AppendLine("}");
 
@@ -1306,6 +1320,7 @@ namespace ZeroAlloc.Mediator.Generator
             List<PublishTarget> publishableNotifications,
             List<StreamHandlerInfo> streamHandlers,
             List<PipelineBehaviorInfo> pipelineBehaviors,
+            BehaviorServicesMap behaviorServices,
             bool activateBehaviorState,
             bool flowPipelineServices)
         {
@@ -1360,31 +1375,35 @@ namespace ZeroAlloc.Mediator.Generator
                 }
                 else
                 {
-                    if (flowPipelineServices)
+                    var servicesInfos = applicablePipelines
+                        .Select(p => behaviorServices.Get(p.BehaviorTypeName))
+                        .ToList();
+
+                    // Pipeline behaviors are static, so they get the services of the request they
+                    // handle from this MediatorService's provider, which is the request's scope
+                    // when IMediator came from one. Never a process-wide provider, which would be
+                    // the root and would serve every request the scoped services of whichever
+                    // request resolved them first. A behavior with a Handle overload that takes
+                    // the provider gets it as an argument. One that may read
+                    // PipelineBehaviorServices.Current gets it there; that is an AsyncLocal write,
+                    // which allocates, so it is emitted only when such a behavior is in the
+                    // pipeline. Send is async, so the value reverts when it returns.
+                    if (flowPipelineServices && servicesInfos.Any(static s => s.NeedsCurrent))
                     {
-                        // Pipeline behaviors are static, so this is how they get the services of
-                        // the request they handle: the provider this MediatorService was resolved
-                        // from, which is the request's scope when IMediator came from one. Never a
-                        // process-wide provider, which would be the root and would serve every
-                        // request the scoped services of whichever request resolved them first.
-                        // Send is async, so the value reverts when it returns.
                         sb.AppendLine("                global::ZeroAlloc.Mediator.PipelineBehaviorServices.Current = _services;");
                     }
 
                     var handlerTypeName = handler.HandlerTypeName;
-                    // EmitStaticLambdas=false (Pipeline 1.2.0+) lets the innermost lambda body
-                    // capture _services directly — no AsyncLocal threading needed.
-                    var shape = new PipelineShape
-                    {
-                        TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
-                        OuterParameterNames = new[] { "request", "ct" },
-                        LambdaParameterPrefixes = new[] { "r", "c" },
-                        EmitStaticLambdas = false,
-                        InnermostBodyFactory = depth => string.Format(
+                    // The lambdas are not static: the innermost body and the services arguments
+                    // read _services. This costs one delegate per behavior per Send until
+                    // ZeroAlloc.Pipeline#121 threads state through next.
+                    var chain = EmitServicesChain(
+                        applicablePipelines,
+                        servicesInfos,
+                        new[] { handler.RequestTypeName, handler.ResponseTypeName },
+                        depth => string.Format(
                             "{{ var handler = global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services); return handler.Handle(r{1}, c{1}); }}",
-                            handlerTypeName, depth),
-                    };
-                    var chain = PipelineEmitter.EmitChain(applicablePipelines, shape);
+                            handlerTypeName, depth));
                     sb.AppendLine(string.Format("                return await {0}.ConfigureAwait(false);", chain));
                 }
 
@@ -1482,6 +1501,42 @@ namespace ZeroAlloc.Mediator.Generator
             }
 
             sb.AppendLine("    }");
+        }
+
+        /// <summary>
+        /// The pipeline call chain of <c>MediatorService.Send</c>: the chain
+        /// <see cref="PipelineEmitter.EmitChain(IReadOnlyList{PipelineBehaviorInfo}, PipelineShape)"/>
+        /// emits with non-static lambdas, except that a behavior with the
+        /// <c>Handle(request, IServiceProvider services, ct, next)</c> overload is called with
+        /// <c>_services</c>. The static <c>Mediator</c> class has no provider and keeps using
+        /// <see cref="PipelineEmitter"/>.
+        /// </summary>
+        private static string EmitServicesChain(
+            List<PipelineBehaviorInfo> behaviors,
+            List<BehaviorServicesInfo> services,
+            string[] typeArguments,
+            Func<int, string> innermostBodyFactory)
+        {
+            const string Indent1 = "\n                ";
+            const string Indent2 = "\n                    ";
+
+            var depth = behaviors.Count;
+            var typeArgs = "<" + string.Join(", ", typeArguments) + ">";
+            var result = string.Format("(r{0}, c{0}) =>{1}{2}", depth, Indent2, innermostBodyFactory(depth));
+
+            for (var i = depth - 1; i >= 0; i--)
+            {
+                var request = i == 0 ? "request" : "r" + i;
+                var ct = i == 0 ? "ct" : "c" + i;
+                var arguments = services[i].TakesServices
+                    ? request + ", _services, " + ct
+                    : request + ", " + ct;
+                var indent = i == 0 ? Indent1 : Indent2;
+                var call = string.Format("{0}.Handle{1}({2}{3}, {4})", behaviors[i].BehaviorTypeName, typeArgs, indent, arguments, result);
+                result = i == 0 ? call : string.Format("(r{0}, c{0}) =>{1}{2}", i, Indent1, call);
+            }
+
+            return result;
         }
 
         private static string GetFallbackExpression(string handlerTypeName, bool hasParameterlessConstructor)

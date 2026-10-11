@@ -268,7 +268,9 @@ public class ZBenchStreamHandler : ZeroAlloc.Mediator.IStreamRequestHandler<ZBen
 // ZeroAlloc.Mediator Pipeline Behavior
 // ============================================================
 
-[ZeroAlloc.Mediator.PipelineBehavior(Order = 0, AppliesTo = typeof(ZBenchCreateUser))]
+// It reads no services, and says so, so IMediator.Send skips setting
+// PipelineBehaviorServices.Current for it.
+[ZeroAlloc.Mediator.PipelineBehavior(Order = 0, AppliesTo = typeof(ZBenchCreateUser), UsesPipelineBehaviorServices = false)]
 public class ZBenchLoggingBehavior : ZeroAlloc.Mediator.IPipelineBehavior
 {
     public static ValueTask<TResponse> Handle<TRequest, TResponse>(

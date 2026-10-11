@@ -31,9 +31,74 @@ public sealed class ServicesProbeBehavior : IPipelineBehavior
     }
 }
 
+public readonly record struct ServicesArgumentProbe : IRequest<int>;
+
+public sealed class ServicesArgumentProbeHandler : IRequestHandler<ServicesArgumentProbe, int>
+{
+    public ValueTask<int> Handle(ServicesArgumentProbe request, CancellationToken ct) => ValueTask.FromResult(1);
+}
+
+// Takes the provider as a Handle argument. Every other behavior on this request, the bridges
+// this test project references, either takes it too or opts out, so IMediator.Send passes it in
+// and leaves PipelineBehaviorServices.Current alone.
+[PipelineBehavior(Order = 3, AppliesTo = typeof(ServicesArgumentProbe))]
+public sealed class ServicesArgumentProbeBehavior : IPipelineBehavior
+{
+    internal static IServiceProvider? Received;
+    internal static IServiceProvider? ObservedCurrent;
+
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        Received = null;
+        return next(request, ct);
+    }
+
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, IServiceProvider services, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        await Task.Yield();
+        Received = services;
+        ObservedCurrent = PipelineBehaviorServices.Current;
+        return await next(request, ct).ConfigureAwait(false);
+    }
+}
+
 [Collection("pipeline-behavior-services")]
 public sealed class PipelineBehaviorServicesIntegrationTests
 {
+    [Fact]
+    public async Task IMediator_from_a_scope_passes_that_scope_to_a_behavior_that_takes_it()
+    {
+        var services = new ServiceCollection();
+        services.AddTransient<ServicesArgumentProbeHandler>();
+        services.AddMediator();
+        using var root = services.BuildServiceProvider();
+        using var scope = root.CreateScope();
+        ServicesArgumentProbeBehavior.Received = null;
+        ServicesArgumentProbeBehavior.ObservedCurrent = root;
+
+        await scope.ServiceProvider.GetRequiredService<IMediator>().Send(new ServicesArgumentProbe(), CancellationToken.None);
+
+        Assert.Same(scope.ServiceProvider, ServicesArgumentProbeBehavior.Received);
+        // No behavior on this request reads Current, so Send skipped the AsyncLocal write.
+        Assert.Null(ServicesArgumentProbeBehavior.ObservedCurrent);
+    }
+
+    [Fact]
+    public async Task Static_Send_calls_the_overload_without_a_provider()
+    {
+        ServicesArgumentProbeBehavior.Received = new ServiceCollection().BuildServiceProvider();
+
+        await Mediator.Send(new ServicesArgumentProbe(), CancellationToken.None);
+
+        Assert.Null(ServicesArgumentProbeBehavior.Received);
+    }
+
     [Fact]
     public async Task IMediator_from_a_scope_hands_that_scope_to_the_pipeline()
     {

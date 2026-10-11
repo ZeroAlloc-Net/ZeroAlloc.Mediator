@@ -201,14 +201,20 @@ internal sealed class InvocationCounter { public int Count; }
 [PipelineBehavior(Order = -500)]
 public sealed class CountingDownstreamBehavior : IPipelineBehavior
 {
+    // A static Mediator.Send has no request scope, and nothing to count.
     public static ValueTask<TResponse> Handle<TRequest, TResponse>(
         TRequest request, CancellationToken ct,
         Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
+        => next(request, ct);
+
+    // The services of the request being dispatched, which IMediator.Send passes in.
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, IServiceProvider services, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
     {
-        // The services of the request being dispatched, which IMediator.Send hands to the
-        // pipeline. A static Mediator.Send has none, and nothing to count.
-        var counter = PipelineBehaviorServices.Current?.GetService<InvocationCounter>();
+        var counter = services.GetService<InvocationCounter>();
         if (counter is not null)
             counter.Count++;
         return next(request, ct);

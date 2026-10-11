@@ -16,11 +16,13 @@ namespace ZeroAlloc.Mediator.Generator
         public SourceBehaviorInfo(
             PipelineBehaviorCandidateInfo candidate,
             PipelineBehaviorInfo? info,
+            BehaviorServicesInfo? services,
             LocationInfo? typeLocation,
             LocationInfo? attributeLocation)
         {
             Candidate = candidate;
             Info = info;
+            Services = services;
             TypeLocation = typeLocation;
             AttributeLocation = attributeLocation;
         }
@@ -33,6 +35,9 @@ namespace ZeroAlloc.Mediator.Generator
         /// with a behavior joins the pipeline.
         /// </summary>
         public PipelineBehaviorInfo? Info { get; }
+
+        /// <summary>How the behavior reaches the request's services; null when <see cref="Info"/> is.</summary>
+        public BehaviorServicesInfo? Services { get; }
 
         /// <summary>The class identifier, for ZAM005 and ZAM009.</summary>
         public LocationInfo? TypeLocation { get; }
@@ -54,13 +59,17 @@ namespace ZeroAlloc.Mediator.Generator
             var attributeLocation = context.Attributes.Length > 0
                 ? LocationInfo.From(context.Attributes[0].ApplicationSyntaxReference)
                 : null;
-            return new SourceBehaviorInfo(candidate, info, typeLocation, attributeLocation);
+            var services = info != null && context.TargetSymbol is INamedTypeSymbol type
+                ? BehaviorServicesInfo.From(type, context.Attributes.Length > 0 ? context.Attributes[0] : null)
+                : null;
+            return new SourceBehaviorInfo(candidate, info, services, typeLocation, attributeLocation);
         }
 
         public bool Equals(SourceBehaviorInfo? other) =>
             other is not null
             && Candidate.Equals(other.Candidate)
             && Equals(Info, other.Info)
+            && Equals(Services, other.Services)
             && Equals(TypeLocation, other.TypeLocation)
             && Equals(AttributeLocation, other.AttributeLocation);
 
@@ -72,6 +81,7 @@ namespace ZeroAlloc.Mediator.Generator
             {
                 var hash = Candidate.GetHashCode();
                 hash = (hash * 31) + (Info?.GetHashCode() ?? 0);
+                hash = (hash * 31) + (Services?.GetHashCode() ?? 0);
                 hash = (hash * 31) + (TypeLocation?.GetHashCode() ?? 0);
                 hash = (hash * 31) + (AttributeLocation?.GetHashCode() ?? 0);
                 return hash;

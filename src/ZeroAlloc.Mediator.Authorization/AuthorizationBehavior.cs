@@ -15,10 +15,12 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// </summary>
 /// <remarks>
 /// <para><b>Services come from the request being dispatched.</b> The dispatcher and the security
-/// context are scoped, so they are resolved from <see cref="PipelineBehaviorServices.Current"/>:
-/// the provider of the <c>IMediator</c> dispatching the request, which is the request's scope when
-/// <c>IMediator</c> was resolved from one. Each request is authorized with its own caller's
-/// identity, and two containers in one process never see each other's services.</para>
+/// context are scoped, so they are resolved from the provider of the <c>IMediator</c> dispatching
+/// the request, which is the request's scope when <c>IMediator</c> was resolved from one. The
+/// generated <c>IMediator.Send</c> passes that provider to the <c>Handle</c> overload that takes
+/// one; the other overload, called by older generators, reads it from
+/// <see cref="PipelineBehaviorServices.Current"/>. Each request is authorized with its own
+/// caller's identity, and two containers in one process never see each other's services.</para>
 /// <para>A request dispatched without <c>IMediator</c>, through the static <c>Mediator</c> class or
 /// a direct call, has no request scope. The behavior then opens a scope of its own on the
 /// container <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/> was
@@ -54,6 +56,29 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
         return services is not null
             ? AuthorizeAsync(services, request, ct, next)
             : AuthorizeInOwnScopeAsync(request, ct, next);
+    }
+
+    /// <summary>
+    /// Authorizes <paramref name="request"/> with the services of the request being dispatched.
+    /// The generated <c>IMediator.Send</c> calls this overload with the provider it was resolved
+    /// from, so the pipeline needs no <see cref="PipelineBehaviorServices.Current"/>.
+    /// </summary>
+    /// <param name="request">The request to authorize.</param>
+    /// <param name="services">
+    /// The provider of the request being dispatched. The dispatcher and the security context are
+    /// resolved from it.
+    /// </param>
+    /// <param name="ct">The cancellation token of the request.</param>
+    /// <param name="next">The rest of the pipeline.</param>
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        IServiceProvider services,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return AuthorizeAsync(services, request, ct, next);
     }
 
     // No IMediator dispatch, so no request scope to read. The container WithAuthorization was

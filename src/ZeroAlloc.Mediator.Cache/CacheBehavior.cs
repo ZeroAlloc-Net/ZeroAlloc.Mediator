@@ -17,7 +17,37 @@ namespace ZeroAlloc.Mediator.Cache;
 [PipelineBehavior(Order = -500)]
 public sealed class CacheBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => HandleAsync(PipelineBehaviorServices.Current, request, ct, next);
+
+    /// <summary>
+    /// Answers <paramref name="request"/> from the cache of the container dispatching it. The
+    /// generated <c>IMediator.Send</c> calls this overload with the provider it was resolved
+    /// from, so the pipeline needs no <see cref="PipelineBehaviorServices.Current"/>.
+    /// </summary>
+    /// <param name="request">The request to answer.</param>
+    /// <param name="services">
+    /// The provider of the request being dispatched. The cache is resolved from it.
+    /// </param>
+    /// <param name="ct">The cancellation token of the request.</param>
+    /// <param name="next">The rest of the pipeline.</param>
+    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request,
+        IServiceProvider services,
+        CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return HandleAsync(services, request, ct, next);
+    }
+
+    private static async ValueTask<TResponse> HandleAsync<TRequest, TResponse>(
+        IServiceProvider? services,
         TRequest request,
         CancellationToken ct,
         Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
@@ -27,7 +57,7 @@ public sealed class CacheBehavior : IPipelineBehavior
         if (attr is null)
             return await next(request, ct).ConfigureAwait(false);
 
-        var cache = ResolveCache()
+        var cache = ResolveCache(services)
             ?? throw new InvalidOperationException(
                 "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup on the " +
                 "container IMediator is resolved from. An app that dispatches only through the static Mediator class " +
@@ -54,12 +84,10 @@ public sealed class CacheBehavior : IPipelineBehavior
 
     // The cache of the container whose IMediator dispatches the request, so two containers in one
     // process never answer each other's requests. A request dispatched without IMediator, through
-    // the static Mediator class, uses the cache PipelineBehaviorStateActivation handed over.
-    private static IMemoryCache? ResolveCache()
-    {
-        var services = PipelineBehaviorServices.Current;
-        return services is not null
+    // the static Mediator class, has no provider and uses the cache
+    // PipelineBehaviorStateActivation handed over.
+    private static IMemoryCache? ResolveCache(IServiceProvider? services)
+        => services is not null
             ? services.GetService<MediatorCacheAccessor>()?.Cache
             : CacheBehaviorState.Cache;
-    }
 }
