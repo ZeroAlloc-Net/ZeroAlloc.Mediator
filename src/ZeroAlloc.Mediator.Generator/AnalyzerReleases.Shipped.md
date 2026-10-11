@@ -39,3 +39,12 @@ ZAM007  | ZeroAlloc.Mediator | Error    | Stream handler wrong return type
 Rule ID | Category           | Severity | Notes
 --------|--------------------|----------|-------------------------------------------------------
 ZAM009  | ZeroAlloc.Mediator | Warning  | Pipeline behavior does not implement IPipelineBehavior
+
+## Release 6.5.0
+
+### New Rules
+
+Rule ID | Category           | Severity | Notes
+--------|--------------------|----------|--------------------------------------------------
+ZAM010  | ZeroAlloc.Mediator | Error    | Cached request type has no per-instance cache key
+ZAM011  | ZeroAlloc.Mediator | Error    | Cached record request has a member that prints as its type name
