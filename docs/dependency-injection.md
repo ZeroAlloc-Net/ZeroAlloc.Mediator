@@ -247,18 +247,38 @@ services.AddMediator()
 
 ### How a bridge reaches your container
 
-A pipeline behavior's `Handle` is static, so the generated dispatcher can call it without allocating. The behavior has no instance to inject into, so each bridge keeps what it needs in static state: the cache bridge keeps an `IMemoryCache`, and the validation and authorization bridges keep the `IServiceProvider` they resolve validators and policies from.
+A pipeline behavior's `Handle` is static, so the generated dispatcher can call it without allocating. The behavior has no instance to inject into, so it reaches the services of the request it handles through `PipelineBehaviorServices.Current`.
 
-That state is filled from the container your app runs on. Each `WithXxx()` registers an `IPipelineBehaviorStateInitializer`, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton, so the behaviors are wired before the first request with no extra call.
+The generated `IMediator` sets `PipelineBehaviorServices.Current` to the provider it was resolved from at the start of every `Send` that has pipeline behaviors. `IMediator` is transient, so in an ASP.NET Core request, or any other scope, that provider is the scope's. The authorization bridge resolves the caller's `ISecurityContext` and the policies from it, the validation bridge its validators, and the cache bridge the container's `IMemoryCache`. Scoped services therefore come from the request being dispatched, and several containers in one process, for example one per integration test, never see each other's services. The value flows with the async call and reverts when `Send` returns. Your own behaviors can read it the same way:
 
-An app that dispatches only through the static `Mediator` class never resolves `IMediator`. It resolves the activation once after building the container:
+```csharp
+[PipelineBehavior(Order = 10)]
+public sealed class AuditBehavior : IPipelineBehavior
+{
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+        TRequest request, CancellationToken ct,
+        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+    {
+        var audit = PipelineBehaviorServices.Current?.GetService<IAuditLog>();
+        audit?.Record(request);
+        return await next(request, ct);
+    }
+}
+```
+
+Resolve `IMediator` from the scope of the work it does. An `IMediator` resolved from the root provider, for example injected into a singleton, hands the pipeline the root provider, and scoped services resolved from the root provider are shared by every request. Enable `ValidateScopes` to have the container reject that.
+
+#### Dispatch through the static `Mediator` class
+
+A request sent through the static `Mediator` class has no request scope, and `PipelineBehaviorServices.Current` is `null`. For these requests each `WithXxx()` registers an `IPipelineBehaviorStateInitializer` that hands the bridge the container, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton. An app that dispatches only through the static class resolves the activation once after building the container:
 
 ```csharp
 var provider = services.BuildServiceProvider();
 provider.GetRequiredService<PipelineBehaviorStateActivation>();
 ```
 
-The state is process-wide. When one process builds several containers, for example one per integration test, the container that most recently activated is the one the behaviors use. Disposing a container clears the cache and validation state, but only while it still points at that container, so another live container stays wired. The authorization state is not cleared: a request dispatched after its container is disposed throws `ObjectDisposedException` rather than skipping authorization.
+The authorization and validation bridges then open a scope on that container for each request that has policies or a validator, and resolve the scoped services from it, never from the container itself. This state is process-wide: when one process builds several containers, static dispatch uses the container that most recently activated. Disposing a container clears the cache and validation state, but only while it still points at that container. The authorization state is not cleared: a static dispatch after its container is disposed throws `ObjectDisposedException` rather than skipping authorization.
 
 ## See also
 

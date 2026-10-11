@@ -2,7 +2,9 @@ using ZeroAlloc.Mediator;
 
 namespace ZeroAlloc.Mediator.Validation;
 
-// Hands the container to the static ValidationBehavior. The first IMediator resolved from the
+// Hands the container to the static ValidationBehavior for requests dispatched without IMediator,
+// which get a scope of their own on it; requests dispatched through IMediator use the dispatching
+// IMediator's provider instead. The first IMediator resolved from the
 // container runs Initialize through PipelineBehaviorStateActivation. Disposing the container
 // disposes this accessor too, which clears the state while it still holds this container, so a
 // validator is never resolved from a disposed provider and another live container stays wired.

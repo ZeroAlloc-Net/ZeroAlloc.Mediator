@@ -20,6 +20,9 @@ internal sealed class MediatorCacheAccessor : IPipelineBehaviorStateInitializer,
 
     internal MediatorCacheAccessor(IMemoryCache cache) => _cache = cache;
 
+    /// <summary>This container's cache.</summary>
+    internal IMemoryCache Cache => _cache;
+
     public void Initialize() => CacheBehaviorState.SetCache(_cache);
 
     public void Dispose() => CacheBehaviorState.ClearCache(_cache);

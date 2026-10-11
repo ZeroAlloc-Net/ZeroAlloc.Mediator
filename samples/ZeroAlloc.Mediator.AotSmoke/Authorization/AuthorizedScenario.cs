@@ -91,6 +91,12 @@ internal sealed class AotCtxAccessor(ISecurityContext current) : ISecurityContex
 {
     public ISecurityContext Current { get; } = current;
 }
+
+// Scoped; each scope sets the identity of its caller before it dispatches.
+internal sealed class MutableAotCtxAccessor : ISecurityContextAccessor
+{
+    public ISecurityContext Current { get; set; } = AnonymousSecurityContext.Instance;
+}
 #pragma warning restore MA0048
 
 internal static class AuthorizedScenario
@@ -113,6 +119,11 @@ internal static class AuthorizedScenario
         VerifyAllocationBudget(adminCtx);
         Console.WriteLine("Mediator.Authorization: AllocationGate OK");
 
+        PipelineBehaviorServices.Current = null;
+
+        VerifyPerScopeIdentity(adminCtx, anonCtx);
+        Console.WriteLine("Mediator.Authorization: per-scope identity through IMediator.Send OK");
+
         Console.WriteLine("[Authorization AotSmoke] OK");
     }
 
@@ -122,9 +133,7 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-            // AuthorizationBehaviorState.ServiceProvider as a side effect.
-            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+            UseRequestScope(scope);
             var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
                 new AotThrowAllow(7), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
@@ -135,9 +144,7 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(anonCtx))
         using (var scope = sp.CreateScope())
         {
-            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-            // AuthorizationBehaviorState.ServiceProvider as a side effect.
-            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+            UseRequestScope(scope);
             try
             {
                 _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
@@ -155,9 +162,7 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-            // AuthorizationBehaviorState.ServiceProvider as a side effect.
-            _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+            UseRequestScope(scope);
             var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
                 new AotResultAllow(5), CancellationToken.None,
                 static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
@@ -183,9 +188,7 @@ internal static class AuthorizedScenario
     {
         using var sp = BuildProvider(anonCtx);
         using var scope = sp.CreateScope();
-        // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-        // AuthorizationBehaviorState.ServiceProvider as a side effect.
-        _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+        UseRequestScope(scope);
         var response = AuthorizationBehavior.Handle<TRequest, TResponse>(
             request, CancellationToken.None,
             static (_, _) => throw new InvalidOperationException("next must not run"))
@@ -203,9 +206,7 @@ internal static class AuthorizedScenario
         // absorbs the Debug-mode async state machine box; Release/AOT path is 0 B/call.
         using var sp = BuildProvider(adminCtx);
         using var scope = sp.CreateScope();
-        // Resolving AuthorizationBehaviorAccessor triggers its ctor, which sets
-        // AuthorizationBehaviorState.ServiceProvider as a side effect.
-        _ = scope.ServiceProvider.GetRequiredService<AuthorizationBehaviorAccessor>();
+        UseRequestScope(scope);
         var req = new AotThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(512, 1000,
@@ -213,6 +214,40 @@ internal static class AuthorizedScenario
                 static (r, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
     }
+
+    // Each request is authorized with its own scope's identity, not with the first one the
+    // container saw: the generated IMediator hands its scope to the pipeline under NativeAOT too.
+    private static void VerifyPerScopeIdentity(AotCtx adminCtx, AotCtx anonCtx)
+    {
+        var services = new ServiceCollection();
+        services.AddZeroAllocAuthorization();
+        services.AddScoped<MutableAotCtxAccessor>();
+        services.AddTransient<AotThrowAllowHandler>();
+        services.AddMediator().WithAuthorization(o => o.UseAccessor<MutableAotCtxAccessor>());
+        using var sp = services.BuildServiceProvider();
+
+        if (SendAs(sp, adminCtx) != 14) throw new InvalidOperationException("per-scope admin regressed");
+        try
+        {
+            _ = SendAs(sp, anonCtx);
+            throw new InvalidOperationException("a later anonymous scope was authorized with the first scope's identity");
+        }
+        catch (AuthorizationDeniedException) { /* expected */ }
+        if (SendAs(sp, adminCtx) != 14) throw new InvalidOperationException("a later admin scope was denied");
+    }
+
+    private static int SendAs(ServiceProvider sp, AotCtx identity)
+    {
+        using var scope = sp.CreateScope();
+        scope.ServiceProvider.GetRequiredService<MutableAotCtxAccessor>().Current = identity;
+        return scope.ServiceProvider.GetRequiredService<IMediator>()
+            .Send(new AotThrowAllow(7), CancellationToken.None).AsTask().GetAwaiter().GetResult();
+    }
+
+    // Stands in for the generated IMediator.Send, which hands the pipeline the scope its
+    // IMediator was resolved from. The scenario drives AuthorizationBehavior.Handle directly.
+    private static void UseRequestScope(IServiceScope scope) =>
+        PipelineBehaviorServices.Current = scope.ServiceProvider;
 
     private static ServiceProvider BuildProvider(AotCtx ctx)
     {

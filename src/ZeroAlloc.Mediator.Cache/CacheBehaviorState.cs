@@ -2,8 +2,10 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace ZeroAlloc.Mediator.Cache;
 
-// Holds the container's IMemoryCache for the static CacheBehavior. MediatorCacheAccessor sets it
-// when the container first resolves IMediator, and clears it when the container is disposed.
+// Holds the container's IMemoryCache for requests the static CacheBehavior gets without IMediator,
+// through the static Mediator class; requests dispatched through IMediator use the dispatching
+// container's cache instead. MediatorCacheAccessor sets it when the container first resolves
+// IMediator, and clears it when the container is disposed.
 // volatile ensures writes are visible across threads without reordering on weakly-ordered architectures.
 internal static class CacheBehaviorState
 {
