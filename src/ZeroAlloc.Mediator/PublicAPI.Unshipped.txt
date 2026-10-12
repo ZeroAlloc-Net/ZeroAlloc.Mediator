@@ -1,5 +1,1 @@
 #nullable enable
-ZeroAlloc.Mediator.MediatorTracingAttribute
-ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.get -> bool
-ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.set -> void
-ZeroAlloc.Mediator.MediatorTracingAttribute.MediatorTracingAttribute() -> void
