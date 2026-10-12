@@ -11,8 +11,7 @@
     <!-- MA0006: string == comparisons in LINQ predicates in test helpers are fine. -->
     <!-- MA0048/MA0051: test files intentionally group related types; long test methods are acceptable. -->
     <!-- MA0008: test-only record structs don't need StructLayout. -->
-    <!-- HLQ005: Assert.Single is an xUnit method, not LINQ Single. -->
-    <NoWarn>$(NoWarn);NU1608;NU1701;MA0074;MA0006;MA0048;MA0051;MA0008;HLQ005</NoWarn>
+    <NoWarn>$(NoWarn);NU1608;NU1701;MA0074;MA0006;MA0048;MA0051;MA0008</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
