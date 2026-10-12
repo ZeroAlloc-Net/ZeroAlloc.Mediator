@@ -310,6 +310,16 @@ The generated dispatch methods open one `Activity` per call on the `ZeroAlloc.Me
 
 When a `Send`, `Publish` or `CreateStream` throws, its span gets `ActivityStatusCode.Error` with the exception message, and an `error.type` tag set to the exception's fully-qualified type name, such as `System.InvalidOperationException`. That is the same value the metrics below carry. A span that succeeds has no `error.type` tag. The `mediator.stream` span covers only creating the stream, which is resolving the handler and calling its `Handle`, not enumerating it.
 
+### Keeping the exception message out of the span
+
+An exception message can carry request or response content, such as a prompt a provider echoes back in its error, and every listener on the `ZeroAlloc.Mediator` source receives it. To keep it out of the spans, apply `MediatorTracing` to the assembly whose handlers the generator dispatches:
+
+```csharp
+[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = false)]
+```
+
+A failed span then gets `ActivityStatusCode.Error` with no description. Its `error.type` tag is set as before, so the failure stays classifiable. The setting covers `Send`, `Publish` and `CreateStream` on both the static `Mediator` and `IMediator`. The generator reads it at compile time, so it costs nothing at run time, and a successful dispatch allocates nothing either way. It matches `ExceptionDescription` on ZeroAlloc.Telemetry's `[Trace]`. The default is `true`, which keeps the message.
+
 Referencing `ZeroAlloc.Mediator.Telemetry` adds `TelemetryBehavior` to every request pipeline. It opens no span of its own; it runs inside the `mediator.send` span and records two instruments on the `ZeroAlloc.Mediator` meter:
 
 | Instrument | Type | Recorded |
