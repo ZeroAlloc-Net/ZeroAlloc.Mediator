@@ -29,6 +29,10 @@ ZeroAlloc.Mediator.MediatorBuilder
 ZeroAlloc.Mediator.MediatorBuilder.MediatorBuilder(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> void
 ZeroAlloc.Mediator.MediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 ZeroAlloc.Mediator.MediatorBuilderExtensions
+ZeroAlloc.Mediator.MediatorTracingAttribute
+ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.get -> bool
+ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.set -> void
+ZeroAlloc.Mediator.MediatorTracingAttribute.MediatorTracingAttribute() -> void
 ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
