@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.6.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.5.0...v6.6.0) (2026-10-12)
+
+
+### Features
+
+* let an assembly keep exception messages out of mediator spans ([#318](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/318)) ([fda38a5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/fda38a522afd02df716d29bb934fdd7350baf650)), closes [#292](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/292)
+
 ## [6.5.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.4.3...v6.5.0) (2026-10-11)
 
 
