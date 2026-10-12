@@ -22,8 +22,7 @@
       "description": "Group Roslyn analyzer packages",
       "matchPackageNames": [
         "Meziantou.Analyzer",
-        "Roslynator.Analyzers",
-        "NetFabric.Hyperlinq.Analyzer"
+        "Roslynator.Analyzers"
       ],
       "groupName": "Roslyn analyzers"
     },

@@ -2,9 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long;
-         HLQ005: Assert.Single is an xUnit assertion, not a LINQ Single() call. -->
-    <NoWarn>$(NoWarn);MA0048;MA0051;HLQ005</NoWarn>
+    <!-- MA0048: test types intentionally grouped; MA0051: test methods may be long. -->
+    <NoWarn>$(NoWarn);MA0048;MA0051</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
