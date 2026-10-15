@@ -138,7 +138,7 @@ public sealed class GetOrderHandler : IRequestHandler<GetOrderQuery, Order>
 
 The static dispatcher is unchanged in 3.0 and remains the right choice for libraries, perf-critical code, and any host that doesn't want a DI container in the path. Handler construction is decided at compile time:
 
-- **Handler has an accessible parameterless constructor** — the generator emits `?? new T()` as the fallback. No registration required.
+- **Handler has an accessible parameterless constructor** — no registration required. When the handler is stateless, with no instance fields, auto-properties or primary-constructor parameters on it or its base classes, the generator caches one instance and reuses it on every call, so the call allocates nothing. A handler that holds state gets `?? new T()` as the fallback, a new instance per call, so its state never leaks between calls.
 - **Handler has only parameterised constructors** — the generator emits `?? throw new InvalidOperationException(...)` as the fallback, and the analyzer raises [ZAM008](diagnostics.md#zam008--handler-has-no-parameterless-constructor) at build time. The static call will throw at runtime unless you register a factory.
 
 Register a factory at startup for static-path handlers that need DI:

@@ -34,7 +34,14 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public bool HasPublicConstructor { get; }
 
-        public StreamHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime, bool isAbstract, bool hasPublicConstructor)
+        /// <summary>
+        /// Whether the handler class holds no instance state: no instance field, auto-property
+        /// backing field or captured primary-constructor parameter, on it or on any base type.
+        /// The static Mediator then reuses one cached instance instead of creating one per call.
+        /// </summary>
+        public bool IsStateless { get; }
+
+        public StreamHandlerInfo(string requestTypeName, string responseTypeName, string handlerTypeName, bool hasParameterlessConstructor, LocationInfo? handlerLocation, int? lifetime, bool isAbstract, bool hasPublicConstructor, bool isStateless)
         {
             RequestTypeName = requestTypeName;
             ResponseTypeName = responseTypeName;
@@ -44,6 +51,7 @@ namespace ZeroAlloc.Mediator.Generator
             Lifetime = lifetime;
             IsAbstract = isAbstract;
             HasPublicConstructor = hasPublicConstructor;
+            IsStateless = isStateless;
         }
 
         public bool Equals(StreamHandlerInfo? other)
@@ -56,14 +64,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && Equals(HandlerLocation, other.HandlerLocation)
                 && Lifetime == other.Lifetime
                 && IsAbstract == other.IsAbstract
-                && HasPublicConstructor == other.HasPublicConstructor;
+                && HasPublicConstructor == other.HasPublicConstructor
+                && IsStateless == other.IsStateless;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public StreamHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new StreamHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, HasParameterlessConstructor, null, Lifetime, IsAbstract, HasPublicConstructor);
+                : new StreamHandlerInfo(RequestTypeName, ResponseTypeName, HandlerTypeName, HasParameterlessConstructor, null, Lifetime, IsAbstract, HasPublicConstructor, IsStateless);
 
         public override bool Equals(object? obj)
         {
@@ -83,6 +92,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + (Lifetime ?? -1);
                 hash = hash * 31 + IsAbstract.GetHashCode();
                 hash = hash * 31 + HasPublicConstructor.GetHashCode();
+                hash = hash * 31 + IsStateless.GetHashCode();
                 return hash;
             }
         }
