@@ -139,6 +139,9 @@ Each arrow represents a separate compile-time generated overload. There is no ru
 
 - Requests **must** be `readonly record struct`. A class request compiles but triggers diagnostic **ZAM003** and causes boxing.
 - Exactly **one** handler per request type. Multiple handlers = compile error **ZAM002**.
+- One class may handle several request types by implementing `IRequestHandler<TRequest, TResponse>`
+  once for each. It is dispatched for every one of them and registered once, so its lifetime and,
+  on the static `Mediator`, its factory and cached instance are shared across them.
 - Missing handler = compile error **ZAM001** — caught at build time, not runtime.
 - Keep requests as pure data — no methods, no services, no logic inside the struct.
 - Use `ValueTask.FromResult(value)` in handlers that don't do async work, to avoid allocating a `Task`.
