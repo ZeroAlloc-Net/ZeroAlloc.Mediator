@@ -283,6 +283,43 @@ namespace ZeroAlloc.Mediator.Generator
         }
 
         /// <summary>
+        /// Whether <paramref name="type"/> holds no instance state, so the static Mediator can
+        /// share one instance of it across calls and threads. Walks the whole base-type chain:
+        /// any instance field, including an auto-property or field-like event backing field,
+        /// makes it stateful. Static fields and constants do not. A captured primary-constructor
+        /// parameter becomes a hidden field, so a type with primary-constructor parameters counts
+        /// as stateful. A base type from a referenced assembly does too: Roslyn does not import
+        /// its private fields, so its state cannot be ruled out.
+        /// </summary>
+        private static bool IsStateless(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null; current = current.BaseType)
+            {
+                if (current.SpecialType == SpecialType.System_Object) return true;
+                if (!current.Locations.Any(l => l.IsInSource)) return false;
+
+                foreach (var member in current.GetMembers())
+                {
+                    if (member is IFieldSymbol field && !field.IsStatic && !field.IsConst)
+                        return false;
+                    if (member is IEventSymbol evt && !evt.IsStatic && !evt.IsAbstract
+                        && evt.AddMethod is not null && evt.AddMethod.IsImplicitlyDeclared)
+                        return false;
+                }
+
+                foreach (var reference in current.DeclaringSyntaxReferences)
+                {
+                    if (reference.GetSyntax() is TypeDeclarationSyntax declaration
+                        && declaration.ParameterList is not null
+                        && declaration.ParameterList.Parameters.Count > 0)
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// The ServiceLifetime value <paramref name="handler"/> asks for, or null to use the
         /// <c>AddMediator</c> default. <c>[HandlerLifetime]</c> wins, then a ZeroAlloc.Inject
         /// lifetime attribute. Read from the attributes themselves, so registration needs no
@@ -393,7 +430,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol));
+                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol));
                 }
             }
 
@@ -452,7 +489,8 @@ namespace ZeroAlloc.Mediator.Generator
                         location,
                         GetHandlerLifetime(symbol),
                         symbol.IsAbstract,
-                        HasPublicConstructor(symbol));
+                        HasPublicConstructor(symbol),
+                        IsStateless(symbol));
                 }
             }
 
@@ -535,7 +573,7 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol));
+                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol));
                 }
             }
 
@@ -901,6 +939,11 @@ namespace ZeroAlloc.Mediator.Generator
 
             sb.AppendLine();
 
+            EmitHandlerInstanceCaches(sb, validRequests
+                .Select(h => (h.HandlerTypeName, IsCached(h.HasParameterlessConstructor, h.IsAbstract, h.IsStateless)))
+                .Concat(validNotifications.Select(h => (h.HandlerTypeName, IsCached(h.HasParameterlessConstructor, h.IsAbstract, h.IsStateless))))
+                .Concat(validStreams.Select(h => (h.HandlerTypeName, IsCached(h.HasParameterlessConstructor, h.IsAbstract, h.IsStateless)))));
+
             // Emit Send methods
             foreach (var handler in validRequests)
             {
@@ -939,6 +982,31 @@ namespace ZeroAlloc.Mediator.Generator
             return sb.ToString();
         }
 
+        // One cache per stateless handler type, deduplicated like the factory fields. The first
+        // dispatch builds the handler in a cold helper and publishes it with CompareExchange, so
+        // every caller sees the same instance; a race can run the constructor twice but only one
+        // instance is ever kept. A constructor that throws propagates as before and caches
+        // nothing, so the next dispatch tries again. Sharing the instance is safe because the
+        // handler has no instance state to race on.
+        private static void EmitHandlerInstanceCaches(StringBuilder sb, IEnumerable<(string HandlerTypeName, bool IsCached)> handlers)
+        {
+            var emitted = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var (handlerTypeName, isCached) in handlers)
+            {
+                if (!isCached || !emitted.Add(handlerTypeName)) continue;
+                var fieldName = GetInstanceFieldName(handlerTypeName);
+                sb.AppendLine(string.Format("        private static {0}? {1};", handlerTypeName, fieldName));
+                sb.AppendLine();
+                sb.AppendLine("        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
+                sb.AppendLine(string.Format("        private static {0} {1}()", handlerTypeName, GetInstanceCreateMethodName(handlerTypeName)));
+                sb.AppendLine("        {");
+                sb.AppendLine(string.Format("            var created = new {0}();", handlerTypeName));
+                sb.AppendLine(string.Format("            return global::System.Threading.Interlocked.CompareExchange(ref {0}, created, null) ?? created;", fieldName));
+                sb.AppendLine("        }");
+                sb.AppendLine();
+            }
+        }
+
         private static void EmitSendMethod(
             StringBuilder sb,
             RequestHandlerInfo handler,
@@ -967,7 +1035,7 @@ namespace ZeroAlloc.Mediator.Generator
             if (applicablePipelines.Count == 0)
             {
                 var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
-                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                 sb.AppendLine(string.Format(
                     "                var handler = {0}?.Invoke() ?? {1};",
                     fieldName, fallback));
@@ -977,7 +1045,7 @@ namespace ZeroAlloc.Mediator.Generator
             {
                 var handlerTypeName = handler.HandlerTypeName;
                 var factoryFieldName = GetFactoryFieldName(handler.HandlerTypeName);
-                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
+                var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                 var shape = new PipelineShape
                 {
                     TypeArguments = new[] { handler.RequestTypeName, handler.ResponseTypeName },
@@ -1052,7 +1120,7 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
-                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                         sb.AppendLine(string.Format(
                             "                __TrackParallelHandler(({0}?.Invoke() ?? {1}).Handle(notification, ct), ref __pending, ref __pendingCount, {2});",
                             fieldName, fallback, allHandlers.Count));
@@ -1078,7 +1146,7 @@ namespace ZeroAlloc.Mediator.Generator
                     foreach (var handler in allHandlers)
                     {
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
-                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
+                        var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                         sb.AppendLine(string.Format(
                             "                await ({0}?.Invoke() ?? {1}).Handle(notification, ct);",
                             fieldName, fallback));
@@ -1134,7 +1202,7 @@ namespace ZeroAlloc.Mediator.Generator
                 "        public static System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, CancellationToken ct = default)",
                 handler.ResponseTypeName, handler.RequestTypeName));
             sb.AppendLine("        {");
-            var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor);
+            var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
             EmitStreamSpanBody(sb, requestSimpleName, string.Format("{0}?.Invoke() ?? {1}", fieldName, fallback), exceptionDescription);
             sb.AppendLine("        }");
             sb.AppendLine();
@@ -1660,8 +1728,14 @@ namespace ZeroAlloc.Mediator.Generator
             return result;
         }
 
-        private static string GetFallbackExpression(string handlerTypeName, bool hasParameterlessConstructor)
+        // What a static dispatch uses when no factory is registered. A stateless handler is
+        // shared through its cached instance, see EmitHandlerInstanceCaches; any other handler with a
+        // parameterless constructor is created per call, so its state never leaks between calls.
+        private static string GetFallbackExpression(string handlerTypeName, bool hasParameterlessConstructor, bool isAbstract, bool isStateless)
         {
+            if (IsCached(hasParameterlessConstructor, isAbstract, isStateless))
+                return string.Format("({0} ?? {1}())", GetInstanceFieldName(handlerTypeName), GetInstanceCreateMethodName(handlerTypeName));
+
             return hasParameterlessConstructor
                 ? string.Format("new {0}()", handlerTypeName)
                 : string.Format(
@@ -1691,6 +1765,23 @@ namespace ZeroAlloc.Mediator.Generator
             // Convert "global::TestApp.PingHandler" to "_pingHandlerFactory"
             var simpleName = GetSimpleTypeName(handlerTypeName);
             return "_" + char.ToLowerInvariant(simpleName[0]) + simpleName.Substring(1) + "Factory";
+        }
+
+        // A handler the static Mediator shares instead of creating per call: one it can construct
+        // itself and that holds no instance state.
+        private static bool IsCached(bool hasParameterlessConstructor, bool isAbstract, bool isStateless)
+            => hasParameterlessConstructor && !isAbstract && isStateless;
+
+        private static string GetInstanceFieldName(string handlerTypeName)
+        {
+            // Convert "global::TestApp.PingHandler" to "_pingHandlerInstance"
+            return "_" + SanitizeFieldName(handlerTypeName) + "Instance";
+        }
+
+        private static string GetInstanceCreateMethodName(string handlerTypeName)
+        {
+            // Convert "global::TestApp.PingHandler" to "__CreatePingHandlerInstance"
+            return "__Create" + GetSimpleTypeName(handlerTypeName) + "Instance";
         }
 
         private static string SanitizeFieldName(string handlerTypeName)

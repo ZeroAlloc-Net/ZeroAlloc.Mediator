@@ -40,6 +40,13 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public bool HasPublicConstructor { get; }
 
+        /// <summary>
+        /// Whether the handler class holds no instance state: no instance field, auto-property
+        /// backing field or captured primary-constructor parameter, on it or on any base type.
+        /// The static Mediator then reuses one cached instance instead of creating one per call.
+        /// </summary>
+        public bool IsStateless { get; }
+
         public NotificationHandlerInfo(
             string notificationTypeName,
             string handlerTypeName,
@@ -48,7 +55,7 @@ namespace ZeroAlloc.Mediator.Generator
             string baseNotificationTypeNames,
             bool hasParameterlessConstructor,
             LocationInfo? handlerLocation,
-            int? lifetime, bool isAbstract, bool hasPublicConstructor)
+            int? lifetime, bool isAbstract, bool hasPublicConstructor, bool isStateless)
         {
             NotificationTypeName = notificationTypeName;
             HandlerTypeName = handlerTypeName;
@@ -60,6 +67,7 @@ namespace ZeroAlloc.Mediator.Generator
             Lifetime = lifetime;
             IsAbstract = isAbstract;
             HasPublicConstructor = hasPublicConstructor;
+            IsStateless = isStateless;
         }
 
         public bool Equals(NotificationHandlerInfo? other)
@@ -74,14 +82,15 @@ namespace ZeroAlloc.Mediator.Generator
                 && Equals(HandlerLocation, other.HandlerLocation)
                 && Lifetime == other.Lifetime
                 && IsAbstract == other.IsAbstract
-                && HasPublicConstructor == other.HasPublicConstructor;
+                && HasPublicConstructor == other.HasPublicConstructor
+                && IsStateless == other.IsStateless;
         }
 
         /// <summary>This model without its location, for the emitted source.</summary>
         public NotificationHandlerInfo WithoutLocation() =>
             HandlerLocation is null
                 ? this
-                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null, Lifetime, IsAbstract, HasPublicConstructor);
+                : new NotificationHandlerInfo(NotificationTypeName, HandlerTypeName, IsParallel, IsBaseHandler, BaseNotificationTypeNames, HasParameterlessConstructor, null, Lifetime, IsAbstract, HasPublicConstructor, IsStateless);
 
         public override bool Equals(object? obj)
         {
@@ -103,6 +112,7 @@ namespace ZeroAlloc.Mediator.Generator
                 hash = hash * 31 + (Lifetime ?? -1);
                 hash = hash * 31 + IsAbstract.GetHashCode();
                 hash = hash * 31 + HasPublicConstructor.GetHashCode();
+                hash = hash * 31 + IsStateless.GetHashCode();
                 return hash;
             }
         }

@@ -167,7 +167,7 @@ public class RequestDispatchGeneratorTests
     }
 
     [Fact]
-    public void Generator_StaticSend_EmitsNewT_WhenHandlerHasParameterlessCtor()
+    public void Generator_StaticSend_EmitsCachedInstance_WhenHandlerIsStateless()
     {
         var source = """
             using ZeroAlloc.Mediator;
@@ -186,7 +186,9 @@ public class RequestDispatchGeneratorTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Contains("?? new global::TestApp.PingHandler()", output);
+        Assert.Contains("_pingHandlerFactory?.Invoke() ?? (_pingHandlerInstance ?? __CreatePingHandlerInstance())", output);
+        Assert.Contains("var created = new global::TestApp.PingHandler();", output);
+        Assert.DoesNotContain("?? new global::TestApp.PingHandler()", output);
     }
 
     [Fact]

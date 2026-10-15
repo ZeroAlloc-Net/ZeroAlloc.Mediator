@@ -187,7 +187,8 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
 1. **Inject `IMediator` (recommended for ASP.NET / hosted apps).** Add
    `services.AddMediator();`
    at startup and inject `IMediator` instead of using the static `Mediator` class.
-2. **Add a parameterless constructor.** Suitable for stateless handlers.
+2. **Add a parameterless constructor.** Suitable for stateless handlers, which the static
+   `Mediator` then caches and reuses, so the call allocates nothing.
 3. **Register a factory.** Call `Mediator.Configure(c => c.SetFactory<MyHandler>(...))`
    at startup if you must keep using the static API with a constructor-injected handler.
 4. **Suppress.** `#pragma warning disable ZAM008` on the handler class if you

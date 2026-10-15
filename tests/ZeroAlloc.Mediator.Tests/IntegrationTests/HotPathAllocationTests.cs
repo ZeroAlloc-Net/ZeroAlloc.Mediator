@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,25 @@ public sealed class HotPathPipelinedHandler : IRequestHandler<HotPathPipelined, 
     public ValueTask<int> Handle(HotPathPipelined request, CancellationToken ct) => ValueTask.FromResult(request.Value + 1);
 }
 
+// No SetFactory for these: they pin the generated fallback for a stateless handler. Handle is not
+// inlinable, so the handler instance escapes into the call and the JIT cannot stack-allocate it;
+// a per-call `new` would show at every tier, with or without DOTNET_TieredCompilation.
+public readonly record struct HotPathStatelessEvent(int Id) : INotification;
+
+public readonly record struct HotPathStatelessRequest(int Value) : IRequest<int>;
+
+public sealed class HotPathStatelessEventHandler : INotificationHandler<HotPathStatelessEvent>
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public ValueTask Handle(HotPathStatelessEvent notification, CancellationToken ct) => ValueTask.CompletedTask;
+}
+
+public sealed class HotPathStatelessRequestHandler : IRequestHandler<HotPathStatelessRequest, int>
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public ValueTask<int> Handle(HotPathStatelessRequest request, CancellationToken ct) => ValueTask.FromResult(request.Value + 1);
+}
+
 // Forwards to next, like the benchmark's behavior, and reads no services.
 [PipelineBehavior(Order = 4, AppliesTo = typeof(HotPathPipelined), UsesPipelineBehaviorServices = false)]
 public sealed class HotPathForwardingBehavior : IPipelineBehavior
@@ -62,9 +82,10 @@ public sealed class HotPathAllocationCollection
 // Mediator and on IMediator, and for Send + pipeline on the static Mediator. Each gate measures the
 // whole public call.
 //
-// The static path gets cached handlers through SetFactory. Without a factory the generated
-// fallback news up the handler on every call; whether that allocation shows depends on the JIT
-// eliding it, so it cannot be gated here. See the README's performance notes.
+// The README fixtures get their handlers through SetFactory. The Stateless gates register no
+// factory: the generated fallback caches one instance of a handler without instance fields, so
+// the static path allocates nothing without any configuration. A handler that holds state is
+// still created per call; see StaticHandlerCacheTests.
 //
 // IMediator.Send + pipeline is not gated: its next delegates read the resolving provider, so
 // they allocate unless the JIT inlines them, tracked in ZeroAlloc.Pipeline#121.
@@ -130,6 +151,18 @@ public sealed class HotPathAllocationTests : IDisposable
         => AllocationGate.AssertBudgetValueTask(0, Iterations,
             static () => Mediator.Send(new HotPathPipelined(41), CancellationToken.None),
             "Mediator.Send + pipeline");
+
+    [Fact]
+    public void StaticPublish_StatelessHandlerWithoutFactory_AllocatesNothing()
+        => AllocationGate.AssertBudget(0, Iterations,
+            static () => Complete(Mediator.Publish(new HotPathStatelessEvent(1), CancellationToken.None)),
+            "Mediator.Publish, stateless handler, no factory");
+
+    [Fact]
+    public void StaticSend_StatelessHandlerWithoutFactory_AllocatesNothing()
+        => AllocationGate.AssertBudgetValueTask(0, Iterations,
+            static () => Mediator.Send(new HotPathStatelessRequest(41), CancellationToken.None),
+            "Mediator.Send, stateless handler, no factory");
 
     private static void Complete(ValueTask task)
     {
