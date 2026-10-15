@@ -1,5 +1,27 @@
 # Changelog
 
+## [6.6.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.0...v6.6.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* dispatch every handler interface a class implements ([#335](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/335)) ([a4c5a9d](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a4c5a9d39b4a3d3da46299974703855c9bc4c339)), closes [#334](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/334)
+
+
+### Performance Improvements
+
+* cache stateless handlers on the static mediator's fallback ([#333](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/333)) ([e8006ff](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/e8006ff378178e8e00004eebe332c27af5413d8d)), closes [#328](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/328)
+
+
+### Documentation
+
+* correct README benchmark rows, sample and package list ([#329](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/329)) ([a3ac9c8](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/a3ac9c86d123e42f9bca6871ff5a6048e5c568b4))
+
+
+### Tests
+
+* pin patched system.security.cryptography.pkcs for cve-2026-84008 ([#331](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/331)) ([db5f664](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/db5f664adaa52f9a4db2e44465bc2a92c2d5a5a2))
+
 ## [6.6.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.5.0...v6.6.0) (2026-10-12)
 
 
