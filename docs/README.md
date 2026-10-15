@@ -19,12 +19,13 @@ Zero-allocation, compile-time-dispatched mediator for .NET 8 and .NET 10.
 | 3 | [Notifications](notifications.md) | Events: sequential, parallel, polymorphic handlers |
 | 4 | [Streaming](streaming.md) | `IAsyncEnumerable<T>` for large result sets |
 | 5 | [Pipeline Behaviors](pipeline-behaviors.md) | Middleware: logging, validation, caching, transactions |
-| 6 | [Dependency Injection](dependency-injection.md) | DI containers, `IMediator`, factory delegates |
-| 7 | [Diagnostics](diagnostics.md) | ZAM001–ZAM009 compiler error reference with fixes |
-| 8 | [Performance](performance.md) | Zero-alloc internals, benchmark results, Native AOT |
-| 9 | [Advanced Patterns](advanced.md) | Error handling, cancellation, scoped behaviors |
-| 10 | [Testing](testing.md) | Unit-test handlers, behaviors, and notifications |
-| 11 | [Migrating to 6.0](migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
+| 6 | [Authorization](authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
+| 7 | [Dependency Injection](dependency-injection.md) | DI containers, `IMediator`, factory delegates |
+| 8 | [Diagnostics](diagnostics.md) | ZAM001–ZAM011 compiler error reference with fixes |
+| 9 | [Performance](performance.md) | Zero-alloc internals, benchmark results, Native AOT |
+| 10 | [Advanced Patterns](advanced.md) | Error handling, cancellation, scoped behaviors |
+| 11 | [Testing](testing.md) | Unit-test handlers, behaviors, and notifications |
+| 12 | [Migrating to 6.0](migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
 
 ## Cookbook
 
