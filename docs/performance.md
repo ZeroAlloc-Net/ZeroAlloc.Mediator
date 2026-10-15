@@ -83,14 +83,16 @@ Benchmarks run with BenchmarkDotNet on .NET 10, Release build, 12th Gen Intel Co
 |---|---:|---:|---:|---:|---:|
 | Send | 0.5 ns | 78.3 ns | **~160×** | 0 B | 224 B |
 | Publish (1 handler) | 6.1 ns | 243.8 ns | **~40×** | 0 B | 792 B |
-| Publish (multi handler) | 6.6 ns | 332.4 ns | **~51×** | 0 B | 1032 B |
-| Send + Pipeline | 2.8 ns | 101.8 ns | **~46×** | 0 B | 152 B |
+| Publish (multi handler) | 6.6 ns | 332.4 ns | **~50×** | 0 B | 1032 B |
+| Send + Pipeline | 2.8 ns | 101.8 ns | **~36×** | 0 B | 152 B |
 | Send (static) | 0.7 ns | — | — | 0 B | — |
 | Send (via IMediator DI, scope per call) | 160.1 ns | 187.2 ns | **~1.2×** | 176 B | 496 B |
 | Send + Pipeline (via IMediator DI, scope per call) | 126.9 ns | 191.2 ns | **~1.5×** | 176 B | 352 B |
 | Stream (5 items) | 202.8 ns | 654.4 ns | **~3×** | 104 B | 528 B |
 
-The static `Mediator` class is **40–160× faster** than MediatR, with zero heap allocations on every non-streaming path.
+The static `Mediator` class is **36–160× faster** than MediatR, with zero heap allocations on every non-streaming path. `HotPathAllocationTests` and `SpanExceptionDescriptionTests` gate `Send`, `Send` + pipeline and `Publish` at 0 B with cached handler instances.
+
+**Handler fallback.** These rows use handlers with a parameterless constructor and no registered factory, so the static `Mediator` creates the handler on every call: 24 B for an empty class. The .NET 10 JIT stack-allocates it here because it does not escape, which is why the rows read 0 B. That needs fully optimized code and an inlined `Handle`, and .NET 8 does not do it. For a guaranteed 0 B, give the static path a cached instance with `Mediator.Configure(c => c.SetFactory(() => handler))`; [#328](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/328) tracks removing the per-call handler.
 
 **IMediator allocation sources.** The two DI rows create a scope and resolve `IMediator` from it on every call, the way an ASP.NET Core request does, so they include the scope and the transient `MediatorService`. On top of that, `IMediator.Send` with pipeline behaviors can allocate one `next` delegate per behavior per call: its lambdas read the provider it was resolved from, so the compiler cannot cache them (ZeroAlloc.Pipeline#121 tracks removing this). The benchmark's behavior only forwards to `next`, so the .NET 10 JIT inlines it and keeps the delegate on the stack; a behavior that awaits, such as the authorization bridge, pays 64 B per behavior. The DI rows were measured with `--job short`. A pipeline with a behavior that may read `PipelineBehaviorServices.Current` adds 72 B per call for that `AsyncLocal` write; the benchmark's behavior declares `UsesPipelineBehaviorServices = false` and the bridge behaviors take the provider as an argument, so they skip it. See [How a bridge reaches your container](dependency-injection.md#how-a-bridge-reaches-your-container).
 
