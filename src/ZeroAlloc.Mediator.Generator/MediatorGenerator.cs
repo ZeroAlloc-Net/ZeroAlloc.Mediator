@@ -28,34 +28,36 @@ namespace ZeroAlloc.Mediator.Generator
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // The handler models carry the location their diagnostics point at. The emitted source
+            // Each transform returns one model per handler interface the class implements, so a
+            // class handling two notifications, or two requests, is dispatched for both; SelectMany
+            // flattens them. The handler models carry the location their diagnostics point at. The emitted source
             // is built from the same models with the location stripped, so moving a handler
             // reruns the diagnostics but leaves the emitted source cached.
             var requestHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
-                transform: static (ctx, ct) => GetRequestHandlerInfo(ctx, ct))
-                .Where(static x => x != null)
+                transform: static (ctx, ct) => GetRequestHandlerInfos(ctx, ct))
+                .SelectMany(static (x, _) => x)
                 .WithTrackingName(TrackingNames.RequestHandlers);
             var requestHandlers = requestHandlerInfos
-                .Select(static (x, _) => (RequestHandlerInfo?)x!.WithoutLocation())
+                .Select(static (x, _) => x.WithoutLocation())
                 .Collect();
 
             var notificationHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
-                transform: static (ctx, ct) => GetNotificationHandlerInfo(ctx, ct))
-                .Where(static x => x != null)
+                transform: static (ctx, ct) => GetNotificationHandlerInfos(ctx, ct))
+                .SelectMany(static (x, _) => x)
                 .WithTrackingName(TrackingNames.NotificationHandlers);
             var notificationHandlers = notificationHandlerInfos
-                .Select(static (x, _) => (NotificationHandlerInfo?)x!.WithoutLocation())
+                .Select(static (x, _) => x.WithoutLocation())
                 .Collect();
 
             var streamHandlerInfos = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.BaseList != null,
-                transform: static (ctx, ct) => GetStreamHandlerInfo(ctx, ct))
-                .Where(static x => x != null)
+                transform: static (ctx, ct) => GetStreamHandlerInfos(ctx, ct))
+                .SelectMany(static (x, _) => x)
                 .WithTrackingName(TrackingNames.StreamHandlers);
             var streamHandlers = streamHandlerInfos
-                .Select(static (x, _) => (StreamHandlerInfo?)x!.WithoutLocation())
+                .Select(static (x, _) => x.WithoutLocation())
                 .Collect();
 
             // Use ForAttributeWithMetadataName so Roslyn can cache at the per-class level and
@@ -405,7 +407,13 @@ namespace ZeroAlloc.Mediator.Generator
             return true;
         }
 
-        private static RequestHandlerInfo? GetRequestHandlerInfo(
+        /// <summary>
+        /// The class a handler transform describes, or null when it describes nothing: the node is
+        /// not a class the generated code can name, or it is a later declaration of a partial class
+        /// whose first declaration with a base list already describes it. Without that check, each
+        /// such declaration would describe every interface of the class again.
+        /// </summary>
+        private static INamedTypeSymbol? GetHandlerClass(
             GeneratorSyntaxContext context, System.Threading.CancellationToken ct)
         {
             var classDecl = (ClassDeclarationSyntax)context.Node;
@@ -416,37 +424,61 @@ namespace ZeroAlloc.Mediator.Generator
             // parameter is unbound at code-emit time; the runtime scanner filters them out too.
             if (IsOpenGeneric(symbol)) return null;
 
+            foreach (var reference in symbol.DeclaringSyntaxReferences)
+            {
+                if (reference.GetSyntax(ct) is ClassDeclarationSyntax { BaseList: not null } first)
+                    return first == classDecl ? symbol : null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// One model per <c>IRequestHandler&lt;TRequest, TResponse&gt;</c> the class implements,
+        /// so a class that handles several requests is dispatched for each. An interface whose
+        /// request or response type the generated public Mediator cannot name is skipped.
+        /// </summary>
+        private static ImmutableArray<RequestHandlerInfo> GetRequestHandlerInfos(
+            GeneratorSyntaxContext context, System.Threading.CancellationToken ct)
+        {
+            var symbol = GetHandlerClass(context, ct);
+            if (symbol == null) return ImmutableArray<RequestHandlerInfo>.Empty;
+
+            ImmutableArray<RequestHandlerInfo>.Builder? infos = null;
             foreach (var iface in symbol.AllInterfaces)
             {
                 if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.IRequestHandler<TRequest, TResponse>"
                     && iface.TypeArguments.Length == 2)
                 {
                     // Skip if the request type is less accessible than the generated Mediator class (public).
-                    if (iface.TypeArguments[0] is INamedTypeSymbol reqNamed && !IsAccessible(reqNamed)) return null;
-                    if (iface.TypeArguments[1] is INamedTypeSymbol respNamed && !IsAccessible(respNamed)) return null;
+                    if (iface.TypeArguments[0] is INamedTypeSymbol reqNamed && !IsAccessible(reqNamed)) continue;
+                    if (iface.TypeArguments[1] is INamedTypeSymbol respNamed && !IsAccessible(respNamed)) continue;
                     var requestType = iface.TypeArguments[0].ToDisplayString(FullyQualifiedFormat);
                     var responseType = iface.TypeArguments[1].ToDisplayString(FullyQualifiedFormat);
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var isValueType = iface.TypeArguments[0].IsValueType;
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
-                    var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol));
+                    var location = LocationInfo.From(((ClassDeclarationSyntax)context.Node).Identifier.GetLocation());
+                    (infos ??= ImmutableArray.CreateBuilder<RequestHandlerInfo>()).Add(
+                        new RequestHandlerInfo(requestType, responseType, handlerType, isValueType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol)));
                 }
             }
 
-            return null;
+            return infos?.ToImmutable() ?? ImmutableArray<RequestHandlerInfo>.Empty;
         }
 
-        private static NotificationHandlerInfo? GetNotificationHandlerInfo(
+        /// <summary>
+        /// One model per <c>INotificationHandler&lt;TNotification&gt;</c> the class implements,
+        /// so a class that handles several notifications is dispatched for each.
+        /// </summary>
+        private static ImmutableArray<NotificationHandlerInfo> GetNotificationHandlerInfos(
             GeneratorSyntaxContext context, System.Threading.CancellationToken ct)
         {
+            var symbol = GetHandlerClass(context, ct);
+            if (symbol == null) return ImmutableArray<NotificationHandlerInfo>.Empty;
             var classDecl = (ClassDeclarationSyntax)context.Node;
-            var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
-            if (symbol == null) return null;
-            if (!IsAccessible(symbol)) return null;
-            // Open generic handlers: see GetRequestHandlerInfo.
-            if (IsOpenGeneric(symbol)) return null;
 
+            ImmutableArray<NotificationHandlerInfo>.Builder? infos = null;
             foreach (var iface in symbol.AllInterfaces)
             {
                 if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.INotificationHandler<TNotification>"
@@ -479,7 +511,7 @@ namespace ZeroAlloc.Mediator.Generator
 
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new NotificationHandlerInfo(
+                    (infos ??= ImmutableArray.CreateBuilder<NotificationHandlerInfo>()).Add(new NotificationHandlerInfo(
                         notificationType,
                         handlerType,
                         isParallel,
@@ -490,16 +522,16 @@ namespace ZeroAlloc.Mediator.Generator
                         GetHandlerLifetime(symbol),
                         symbol.IsAbstract,
                         HasPublicConstructor(symbol),
-                        IsStateless(symbol));
+                        IsStateless(symbol)));
                 }
             }
 
-            return null;
+            return infos?.ToImmutable() ?? ImmutableArray<NotificationHandlerInfo>.Empty;
         }
 
         /// <summary>
         /// Describes a concrete notification type declared in this compilation, or null if the
-        /// node is not one. Unlike <see cref="GetNotificationHandlerInfo"/> this looks at the
+        /// node is not one. Unlike <see cref="GetNotificationHandlerInfos"/> this looks at the
         /// notification itself rather than its handlers, so a notification remains publishable
         /// when every handler for it is invisible to this compilation.
         /// </summary>
@@ -553,16 +585,18 @@ namespace ZeroAlloc.Mediator.Generator
             return false;
         }
 
-        private static StreamHandlerInfo? GetStreamHandlerInfo(
+        /// <summary>
+        /// One model per <c>IStreamRequestHandler&lt;TRequest, TResponse&gt;</c> the class
+        /// implements, so a class that handles several stream requests is dispatched for each.
+        /// </summary>
+        private static ImmutableArray<StreamHandlerInfo> GetStreamHandlerInfos(
             GeneratorSyntaxContext context, System.Threading.CancellationToken ct)
         {
+            var symbol = GetHandlerClass(context, ct);
+            if (symbol == null) return ImmutableArray<StreamHandlerInfo>.Empty;
             var classDecl = (ClassDeclarationSyntax)context.Node;
-            var symbol = context.SemanticModel.GetDeclaredSymbol(classDecl, ct);
-            if (symbol == null) return null;
-            if (!IsAccessible(symbol)) return null;
-            // Open generic handlers: see GetRequestHandlerInfo.
-            if (IsOpenGeneric(symbol)) return null;
 
+            ImmutableArray<StreamHandlerInfo>.Builder? infos = null;
             foreach (var iface in symbol.AllInterfaces)
             {
                 if (iface.OriginalDefinition.ToDisplayString() == "ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>"
@@ -573,11 +607,12 @@ namespace ZeroAlloc.Mediator.Generator
                     var handlerType = symbol.ToDisplayString(FullyQualifiedFormat);
                     var hasParameterlessCtor = HasAccessibleParameterlessConstructor(symbol);
                     var location = LocationInfo.From(classDecl.Identifier.GetLocation());
-                    return new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol));
+                    (infos ??= ImmutableArray.CreateBuilder<StreamHandlerInfo>()).Add(
+                        new StreamHandlerInfo(requestType, responseType, handlerType, hasParameterlessCtor, location, GetHandlerLifetime(symbol), symbol.IsAbstract, HasPublicConstructor(symbol), IsStateless(symbol)));
                 }
             }
 
-            return null;
+            return infos?.ToImmutable() ?? ImmutableArray<StreamHandlerInfo>.Empty;
         }
 
         private static RequestTypeInfo? GetRequestTypeInfo(
@@ -609,16 +644,16 @@ namespace ZeroAlloc.Mediator.Generator
 
         private static void ReportDiagnostics(
             Microsoft.CodeAnalysis.SourceProductionContext spc,
-            ImmutableArray<RequestHandlerInfo?> requestHandlers,
-            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
-            ImmutableArray<StreamHandlerInfo?> streamHandlers,
+            ImmutableArray<RequestHandlerInfo> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
             ImmutableArray<SourceBehaviorInfo> sourceBehaviors,
             ImmutableArray<RequestTypeInfo?> requestTypes)
         {
-            var validHandlers = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
-            var validNotificationHandlers = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
-            var validStreamHandlers = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validHandlers = requestHandlers.ToList();
+            var validNotificationHandlers = notificationHandlers.ToList();
+            var validStreamHandlers = streamHandlers.ToList();
 
             // A partial request type is described once per declaration that has a base list. Its
             // first declaration stands for it, so each rule reports it once.
@@ -773,17 +808,17 @@ namespace ZeroAlloc.Mediator.Generator
         /// constructor, cannot be built by a container, so they are left out.
         /// </summary>
         private static List<KeyValuePair<string, int?>> CollectHandlerRegistrations(
-            ImmutableArray<RequestHandlerInfo?> requestHandlers,
-            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
-            ImmutableArray<StreamHandlerInfo?> streamHandlers)
+            ImmutableArray<RequestHandlerInfo> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo> streamHandlers)
         {
             var byType = new SortedDictionary<string, int?>(StringComparer.Ordinal);
             foreach (var h in requestHandlers)
-                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in notificationHandlers)
-                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             foreach (var h in streamHandlers)
-                if (h != null && IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
+                if (IsRegistrable(h.IsAbstract, h.HasPublicConstructor) && !byType.ContainsKey(h.HandlerTypeName)) byType[h.HandlerTypeName] = h.Lifetime;
             return byType.ToList();
         }
 
@@ -873,9 +908,9 @@ namespace ZeroAlloc.Mediator.Generator
         }
 
         private static string GenerateMediatorClass(
-            ImmutableArray<RequestHandlerInfo?> requestHandlers,
-            ImmutableArray<NotificationHandlerInfo?> notificationHandlers,
-            ImmutableArray<StreamHandlerInfo?> streamHandlers,
+            ImmutableArray<RequestHandlerInfo> requestHandlers,
+            ImmutableArray<NotificationHandlerInfo> notificationHandlers,
+            ImmutableArray<StreamHandlerInfo> streamHandlers,
             ImmutableArray<PipelineBehaviorInfo> pipelineBehaviors,
             BehaviorServicesMap behaviorServices,
             ImmutableArray<NotificationTypeInfo?> notificationTypes,
@@ -898,9 +933,9 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine("    internal static partial class Mediator");
             sb.AppendLine("    {");
 
-            var validRequests = requestHandlers.Where(x => x != null).Select(x => x!).ToList();
-            var validNotifications = notificationHandlers.Where(x => x != null).Select(x => x!).ToList();
-            var validStreams = streamHandlers.Where(x => x != null).Select(x => x!).ToList();
+            var validRequests = requestHandlers.ToList();
+            var validNotifications = notificationHandlers.ToList();
+            var validStreams = streamHandlers.ToList();
             var validPipelines = pipelineBehaviors.ToList();
 
             // Every notification this assembly can publish: those with a handler visible here,
@@ -1068,6 +1103,16 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
         }
 
+        /// <summary>
+        /// The argument a Publish passes to <paramref name="handler"/>. A base handler gets the
+        /// notification converted to the base type it handles, so the call binds to that
+        /// <c>Handle</c> overload: a class that handles both the concrete notification and its base
+        /// would otherwise have its concrete overload called twice. The conversion is the one the
+        /// call made implicitly before, so it allocates nothing new.
+        /// </summary>
+        private static string NotificationArgument(NotificationHandlerInfo handler) =>
+            handler.IsBaseHandler ? "(" + handler.NotificationTypeName + ")notification" : "notification";
+
         private static void EmitPublishMethods(
             StringBuilder sb,
             List<NotificationHandlerInfo> handlers,
@@ -1122,8 +1167,8 @@ namespace ZeroAlloc.Mediator.Generator
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                         sb.AppendLine(string.Format(
-                            "                __TrackParallelHandler(({0}?.Invoke() ?? {1}).Handle(notification, ct), ref __pending, ref __pendingCount, {2});",
-                            fieldName, fallback, allHandlers.Count));
+                            "                __TrackParallelHandler(({0}?.Invoke() ?? {1}).Handle({2}, ct), ref __pending, ref __pendingCount, {3});",
+                            fieldName, fallback, NotificationArgument(handler), allHandlers.Count));
                     }
 
                     sb.AppendLine("                if (__pending is not null)");
@@ -1148,8 +1193,8 @@ namespace ZeroAlloc.Mediator.Generator
                         var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
                         var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
                         sb.AppendLine(string.Format(
-                            "                await ({0}?.Invoke() ?? {1}).Handle(notification, ct);",
-                            fieldName, fallback));
+                            "                await ({0}?.Invoke() ?? {1}).Handle({2}, ct);",
+                            fieldName, fallback, NotificationArgument(handler)));
                     }
 
                     sb.AppendLine("            }");
@@ -1648,8 +1693,8 @@ namespace ZeroAlloc.Mediator.Generator
                     for (var i = 0; i < allHandlers.Count; i++)
                     {
                         sb.AppendLine(string.Format(
-                            "                if (__h{0} is not null) {{ __dispatched = true; __TrackParallelHandler(__h{0}.Handle(notification, ct), ref __pending, ref __pendingCount, {1}); }}",
-                            i, capacity));
+                            "                if (__h{0} is not null) {{ __dispatched = true; __TrackParallelHandler(__h{0}.Handle({1}, ct), ref __pending, ref __pendingCount, {2}); }}",
+                            i, NotificationArgument(allHandlers[i]), capacity));
                     }
                     EmitInterfaceEnumeration(sb, notificationType, allHandlers, parallel: true, tracksDispatch: tracksDispatch);
                     EmitNoHandlerGuard(sb, notificationType, allHandlers, "!__dispatched");
@@ -1661,7 +1706,8 @@ namespace ZeroAlloc.Mediator.Generator
                     for (var i = 0; i < allHandlers.Count; i++)
                     {
                         sb.AppendLine(string.Format(
-                            "                if (__h{0} is not null) {{ __dispatched = true; await __h{0}.Handle(notification, ct).ConfigureAwait(false); }}", i));
+                            "                if (__h{0} is not null) {{ __dispatched = true; await __h{0}.Handle({1}, ct).ConfigureAwait(false); }}",
+                            i, NotificationArgument(allHandlers[i])));
                     }
                     EmitInterfaceEnumeration(sb, notificationType, allHandlers, parallel: false, tracksDispatch: tracksDispatch);
                     EmitNoHandlerGuard(sb, notificationType, allHandlers, "!__dispatched");

@@ -165,11 +165,9 @@ public class GlobalEventTracer : INotificationHandler<INotification>
 }
 ```
 
-When `OrderCreatedEvent` is published, the dispatch order is:
-
-1. `GlobalEventTracer.Handle(evt)` — handles `INotification`
-2. `OrderAuditLogger.Handle(evt)` — handles `IOrderLifecycleEvent`
-3. Any `INotificationHandler<OrderCreatedEvent>` handler
+When `OrderCreatedEvent` is published, the handlers of `OrderCreatedEvent` itself run first, then
+the base handlers, `OrderAuditLogger` and `GlobalEventTracer`, in the order the generator
+discovers them.
 
 ```mermaid
 flowchart TD
@@ -180,6 +178,29 @@ flowchart TD
 
     note1["All three run because\nOrderCreatedEvent implements\nboth IOrderLifecycleEvent\nand INotification"]
 ```
+
+## One Class, Several Notifications
+
+A class may implement `INotificationHandler<T>` for several notifications. It is dispatched for
+each of them, by the static `Mediator` and by `IMediator` alike:
+
+```csharp
+public sealed class OrderAuditHandler :
+    INotificationHandler<OrderCreatedEvent>,
+    INotificationHandler<OrderShippedEvent>
+{
+    public ValueTask Handle(OrderCreatedEvent evt, CancellationToken ct) => ValueTask.CompletedTask;
+    public ValueTask Handle(OrderShippedEvent evt, CancellationToken ct) => ValueTask.CompletedTask;
+}
+```
+
+The class is still one handler type. `AddMediator()` registers it once, so its lifetime applies to
+every notification it handles, and the static `Mediator` keeps one factory and, for a stateless
+handler, one cached instance for it.
+
+A class that handles a notification and one of its base interfaces, say `OrderCreatedEvent` and
+`IOrderLifecycleEvent`, receives an `OrderCreatedEvent` once per interface: once through
+`Handle(OrderCreatedEvent)` and once through `Handle(IOrderLifecycleEvent)`.
 
 ## Common Pitfalls
 
