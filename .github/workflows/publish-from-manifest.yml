@@ -1,89 +1,64 @@
 name: Publish from manifest
 
-# Manually-triggered rescue workflow that packs and pushes every src/ project
-# at the version recorded in .release-please-manifest.json. Designed for the
-# case where release-please created the GitHub release/tag but the publish job
-# missed a sub-package (e.g. the hardcoded pack list in release-please.yml is
-# stale and a new sub-package is missing). --skip-duplicate makes re-runs safe.
+# Manual rescue: publishes the release recorded in .release-please-manifest.json when the
+# automatic publish did not, for example after a dropped push event or a failed push.
+# It runs the same shared workflow as the release itself, against the release tag, so it
+# rebuilds exactly the released code even after main has moved on, and it confirms that
+# every package reached nuget.org. --skip-duplicate makes re-runs safe.
 #
-# Per-component versioning: each src/*/*.csproj is packed at the version
-# from the LONGEST matching manifest key prefix. Example:
-#   src/ZeroAlloc.Mediator.Authorization/X.csproj  -> uses key "src/ZeroAlloc.Mediator.Authorization"
-#   src/ZeroAlloc.Mediator/X.csproj                -> falls back to key "."
-# This survives release-please's multi-package manifest split (where the
-# Authorization extension versions independently from Mediator core).
-#
-# Usage:  gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Mediator
+# Usage:
+#   gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Mediator
+#   gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Mediator -f dry-run=true
 
 on:
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Build, pack and verify only; push nothing.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  publish:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.manifest.outputs.tag }}
+      version: ${{ steps.manifest.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          # Installs the SDK global.json pins. Without it the job never installs
-          # that SDK at all and only works when the runner image happens to ship one
-          # satisfying the pin, which is how a publish failed on a lagging image.
-          global-json-file: global.json
-          dotnet-version: 10.0.x
-
-      - name: Restore
-        run: dotnet restore ZeroAlloc.Mediator.slnx
-
-      - name: Build
-        run: dotnet build ZeroAlloc.Mediator.slnx --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test ZeroAlloc.Mediator.slnx --configuration Release --no-build
-
-      - name: Pack every src/* csproj at its per-component manifest version
+      - name: Read the manifest version and find its tag
+        id: manifest
         run: |
-          mkdir -p ./nupkg
-          # For each src/*/*.csproj, resolve its version from the manifest by
-          # finding the longest manifest key that is a prefix of the project's
-          # directory. Falls back to the root "." key when no sub-component
-          # matches. --skip-duplicate at push time makes the workflow idempotent.
-          for csproj in src/*/*.csproj; do
-            proj_dir=$(dirname "$csproj")
-            best_match="."
-            for key in $(jq -r 'keys[]' .release-please-manifest.json); do
-              if [ "$key" = "." ]; then
-                continue
-              fi
-              # Match if proj_dir starts with key followed by / or end of string
-              case "$proj_dir" in
-                "$key"|"$key"/*)
-                  if [ "${#key}" -gt "${#best_match}" ] || [ "$best_match" = "." ]; then
-                    best_match="$key"
-                  fi
-                  ;;
-              esac
-            done
-            version=$(jq -r --arg k "$best_match" '.[$k]' .release-please-manifest.json)
-            echo "Packing $csproj at version $version (manifest key: '$best_match')"
-            # No --no-build, and -p:Version rather than -p:PackageVersion alone. Each
-            # project carries its own manifest version here, so the solution cannot be
-            # stamped once up front; packing must rebuild the project at its own version
-            # or the assembly keeps a fallback while the package claims the real one.
-            # See ZeroAlloc-Net/.github#26.
-            dotnet pack "$csproj" -c Release \
-              -p:Version="$version" -o ./nupkg
-          done
-          ls -la ./nupkg
+          set -euo pipefail
+          version=$(jq -r '."." // empty' .release-please-manifest.json)
+          if [ -z "$version" ]; then
+            echo "::error::.release-please-manifest.json has no \".\" entry"
+            exit 1
+          fi
+          tag="v$version"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::the manifest says $version but tag $tag does not exist; nothing was released to rescue"
+            exit 1
+          fi
+          echo "Rescuing $tag"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Push to NuGet
-        run: |
-          dotnet nuget push ./nupkg/*.nupkg \
-            --source https://api.nuget.org/v3/index.json \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
-            --skip-duplicate
+  publish:
+    needs: resolve
+    uses: ZeroAlloc-Net/.github/.github/workflows/publish.yml@main
+    with:
+      tag: ${{ needs.resolve.outputs.tag }}
+      version: ${{ needs.resolve.outputs.version }}
+      solution: ZeroAlloc.Mediator.slnx
+      verify-command: bash scripts/verify-generator-pack-layout.sh "$PACKAGES_DIR"
+      github-packages: false
+      release-assets: true
+      dry-run: ${{ inputs.dry-run }}
+    secrets:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
