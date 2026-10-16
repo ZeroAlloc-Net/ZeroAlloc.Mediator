@@ -6,123 +6,79 @@
 [![AOT](https://img.shields.io/badge/AOT--Compatible-passing-brightgreen)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/MarcelRoozekrans?style=flat&logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/MarcelRoozekrans)
 
-ZeroAlloc.Mediator is a source-generated, zero-allocation mediator for .NET 8 and .NET 10. It supports request/response, notifications, and streaming without reflection or dynamic dispatch. The source generator eliminates the runtime overhead that reflection-based mediators incur by wiring all dispatch at compile time — no dictionaries, no virtual dispatch, no delegate allocation per request.
+A source-generated MediatR alternative for .NET 8 and .NET 10: requests, notifications and streams dispatched without reflection, with no allocations on the `Send` and `Publish` hot path, ready for NativeAOT.
+
+## Why ZeroAlloc.Mediator
+
+- **0 B per `Send` and `Publish`.** The static `Mediator` path, pipeline behaviors included, is held at zero bytes by `AllocationGate` tests. MediatR allocates 224 B per `Send` and 792 B per single-handler `Publish` in the same benchmark.
+- **36–160x faster than MediatR** on `Send` and `Publish` in the same BenchmarkDotNet run. Through `IMediator` resolved from a new scope per call, the way an ASP.NET Core request does, it is still 1.2–1.5x faster and allocates 176 B against MediatR's 352–496 B.
+- **Works under NativeAOT and trimming.** Dispatch is a generated, strongly-typed overload per request type: no reflection, no dictionary lookup, no handler scanning at startup. CI publishes and runs a NativeAOT sample on every build.
+- **Mistakes fail the build, not the request.** A request with no handler, two handlers for one request or a misconfigured behavior is reported by the generator as a compiler diagnostic.
 
 ## Install
 
 ```bash
 dotnet add package ZeroAlloc.Mediator
+dotnet add package ZeroAlloc.Mediator.Generator
 ```
 
-The generator package must also be added as an analyzer:
+The second package is the source generator; it is added as a private development dependency. See [Getting Started](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/getting-started.md#installation) for multi-project solutions.
 
-```xml
-<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="*" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-```
-
-Optional bridge packages add pipeline behaviors for other ZeroAlloc libraries:
-
-| Package | Adds |
-|---|---|
-| `ZeroAlloc.Mediator.Cache` | `[Cache]`-driven response caching through ZeroAlloc.Cache — `WithCache()` |
-| `ZeroAlloc.Mediator.Validation` | Request validation through ZeroAlloc.Validation `ValidatorFor<T>` — `WithValidation()` |
-| `ZeroAlloc.Mediator.Resilience` | Retry, timeout and circuit-breaker policies through ZeroAlloc.Resilience — `WithResilience()` |
-| `ZeroAlloc.Mediator.Telemetry` | OpenTelemetry metrics for `Send` — `WithTelemetry()` |
-| `ZeroAlloc.Mediator.Authorization` | `[Authorize]`-gated dispatch through ZeroAlloc.Authorization policies — `WithAuthorization()` |
-
-```bash
-dotnet add package ZeroAlloc.Mediator.Cache   # or .Validation, .Resilience, .Telemetry, .Authorization
-```
-
-`PrivateAssets="all"` matters in multi-project solutions: without it the analyzer flows transitively across a `ProjectReference`, so a downstream project runs the generator a second time and gets **CS0436** on the duplicate generated types — a hard failure under `TreatWarningsAsErrors`.
-
-Request types should be `readonly record struct`. A reference-type `record` still works, but the generator reports **ZAM003** (a warning, which `TreatWarningsAsErrors` turns into a build failure) because dispatch then allocates.
-
-## Example
+## Quick start
 
 ```csharp
 using ZeroAlloc.Mediator;
 
-var builder = WebApplication.CreateBuilder(args);
+decimal total = await Mediator.Send(new AddToCart(Quantity: 3, UnitPrice: 9.99m));
+Console.WriteLine(total); // 29.97
 
-// 3. Register IMediator with DI (the generator emits services.AddMediator() automatically)
-builder.Services.AddMediator();
+public readonly record struct AddToCart(int Quantity, decimal UnitPrice) : IRequest<decimal>;
 
-var app = builder.Build();
-
-// 4. Send the request and use the result — fully strongly-typed, no boxing
-app.MapPost("/orders", async (CreateOrder cmd, IMediator mediator, CancellationToken ct) =>
+public sealed class AddToCartHandler : IRequestHandler<AddToCart, decimal>
 {
-    var id = await mediator.Send(cmd, ct);   // returns OrderId
-    return Results.Created($"/orders/{id.Value}", id);
-});
-
-app.Run();
-
-// 1. Define a request record and its expected response type
-public readonly record struct OrderId(Guid Value);
-public readonly record struct CreateOrder(string Product, int Qty) : IRequest<OrderId>;
-
-// 2. Implement a handler — no constructor dependencies needed for this example
-public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderId>
-{
-    public ValueTask<OrderId> Handle(CreateOrder request, CancellationToken ct)
-        => ValueTask.FromResult(new OrderId(Guid.NewGuid()));
+    public ValueTask<decimal> Handle(AddToCart request, CancellationToken ct)
+        => ValueTask.FromResult(request.Quantity * request.UnitPrice);
 }
 ```
 
-> `IMediator` is generated into your assembly and is `internal`, so it cannot appear in a
-> `public` signature. Endpoint lambdas and `internal` services are unaffected; see
-> [Visibility](docs/dependency-injection.md#visibility--the-generated-types-are-internal-to-your-assembly)
-> for the reasoning and the pattern for MVC controllers.
+`Mediator.Send(AddToCart)` is an overload the generator wrote for this request, so the call is checked by the compiler and dispatches straight to the handler. In an ASP.NET Core app, call `builder.Services.AddMediator()` and inject `IMediator`; see [Dependency Injection](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md).
+
+## What you get
+
+- **Requests and responses**: commands and queries with a typed response, or `Unit` for none.
+- **Notifications**: publish to every handler, sequentially or in parallel with `[ParallelNotification]`, and handlers for a base interface receive derived notifications too.
+- **Streaming**: `IAsyncEnumerable<T>` results through `CreateStream`.
+- **Pipeline behaviors**: logging, validation, transactions and other cross-cutting code, inlined into each dispatch at compile time instead of iterated from a list.
+- **Dependency injection**: a generated `AddMediator()` and `IMediator`, with handler lifetimes you choose.
+- **Analyzer diagnostics**: ZAM001–ZAM011, with fixes, in the [diagnostics reference](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/diagnostics.md).
+
+Optional packages plug into the pipeline; reference one and call its `With...()` method on `AddMediator()`:
+
+- [`ZeroAlloc.Mediator.Validation`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md#bridge-packages): runs the ZeroAlloc.Validation validator for a request before its handler. `WithValidation()`
+- [`ZeroAlloc.Mediator.Authorization`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/authorization.md): gates dispatch on `[RequirePolicy]` checks from ZeroAlloc.Authorization. `WithAuthorization()`
+- [`ZeroAlloc.Mediator.Cache`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md#bridge-packages): caches responses for requests marked `[CacheResponse]`. `WithCache()`
+- [`ZeroAlloc.Mediator.Resilience`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md#bridge-packages): retry, timeout and circuit-breaker policies through ZeroAlloc.Resilience. `WithResilience()`
+- [`ZeroAlloc.Mediator.Telemetry`](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md#bridge-packages): OpenTelemetry request count and duration metrics. `WithTelemetry()`
 
 ## Performance
 
-The static `Mediator` class is **36–160x faster** than MediatR on `Send` and `Publish`, with **zero heap allocation** on those paths (.NET 10, i9-12900HK, BenchmarkDotNet). Through `IMediator` resolved from a new scope per call, the way an ASP.NET Core request does, it is 1.2–1.5x faster and allocates 176 B for the scope and the transient `MediatorService`.
+.NET 10, i9-12900HK, BenchmarkDotNet, ZeroAlloc.Mediator and MediatR in the same run:
 
-| Operation | ZeroAlloc.Mediator | MediatR | Speedup | Alloc |
-|---|---:|---:|---:|---:|
-| Send | 0.5 ns | 78.3 ns | ~160x | 0 B vs 224 B |
-| Send + pipeline | 2.8 ns | 101.8 ns | ~36x | 0 B vs 152 B |
-| Publish (1 handler) | 6.1 ns | 243.8 ns | ~40x | 0 B vs 792 B |
-| Publish (multi handler) | 6.6 ns | 332.4 ns | ~50x | 0 B vs 1,032 B |
-| Send (via IMediator DI, scope per call) | 160.1 ns | 187.2 ns | ~1.2x | 176 B vs 496 B |
-| Send + pipeline (via IMediator DI, scope per call) | 126.9 ns | 191.2 ns | ~1.5x | 176 B vs 352 B |
-| Stream (5 items) | 202.8 ns | 654.4 ns | ~3x | 104 B vs 528 B |
+| Operation | Speed vs MediatR | ZeroAlloc.Mediator | MediatR |
+|---|---:|---:|---:|
+| `Send`, static `Mediator` | ~160x faster | 0 B | 224 B |
+| `Publish`, 1 handler, static `Mediator` | ~40x faster | 0 B | 792 B |
+| `Send` via `IMediator`, new DI scope per call | ~1.2x faster | 176 B | 496 B |
 
-The 0 B rows are pinned by `AllocationGate` tests, including with no factory registered. Without a factory, the static `Mediator` reuses one cached instance of a stateless handler: one with a parameterless constructor and no instance fields, auto-properties or captured primary-constructor parameters, on the class or any base class. That needs no configuration and no JIT help, so it holds on .NET 8 too. A handler that holds instance state is still created on every call, so its state never leaks between calls; that costs one handler object per call. `Mediator.Configure(c => c.SetFactory(() => handler))` is only needed for such stateful handlers, to make them 0 B as well ([#328](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/328)).
+The 176 B is the DI scope and the transient `IMediator`, not the dispatch. The static rows hold with no factory registered, for a handler without instance state. The [performance page](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) has every row, including pipelines and streaming, and explains where each byte comes from.
 
-The 104 B on the Stream row is the C# compiler's `async IAsyncEnumerable<T>` state machine for your handler method — every mediator dispatching to such handlers pays this; ZA.Mediator's own stream-dispatch contribution is 0 B. See [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) for the full benchmark table and zero-allocation design explanation.
+## Learn more
 
-## Features
-
-- **Request/Response** — strongly-typed `Send` overloads per request type
-- **Notifications** — sequential or parallel (`[ParallelNotification]`) dispatch
-- **Streaming** — `IAsyncEnumerable<T>` via `CreateStream`
-- **Pipeline Behaviors** — compile-time inlined middleware chain (logging, validation, etc.)
-- **Bridge Packages** — `WithCache()`, `WithValidation()`, `WithResilience()`, `WithTelemetry()` (OpenTelemetry metrics on `IRequest<T>.Send`; every dispatch opens a span with or without it), `WithAuthorization()` (`[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies)
-- **Polymorphic Notifications** — base interface handlers are automatically included in concrete notification dispatch
-- **Analyzer Diagnostics** — missing handlers, duplicates, and misconfigurations are build errors/warnings
-- **Zero Allocation** — `ValueTask`, `readonly record struct`, static dispatch, no closures; `Send` and `Publish` gated at 0 B by `AllocationGate` tests
-- **Native AOT Compatible** — no reflection at runtime; all dispatch is resolved at compile time by the source generator
-
-## Documentation
-
-| Page | Description |
-|------|-------------|
-| [Getting Started](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/getting-started.md) | Install and send your first request in five minutes |
-| [Requests & Handlers](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/requests.md) | Commands, queries, `Unit` responses, dispatch |
-| [Notifications](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/notifications.md) | Events: sequential, parallel, polymorphic handlers |
-| [Streaming](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/streaming.md) | `IAsyncEnumerable<T>` for large result sets |
-| [Pipeline Behaviors](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/pipeline-behaviors.md) | Compile-time middleware: logging, validation, caching |
-| [Authorization](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/authorization.md) | `[Authorize]`-gated dispatch via `ZeroAlloc.Authorization` policies |
-| [Dependency Injection](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/dependency-injection.md) | DI containers, `IMediator`, factory delegates |
-| [Diagnostics](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/diagnostics.md) | ZAM001–ZAM011 compiler error reference with fixes |
-| [Performance](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) | Zero-alloc internals, benchmark results, Native AOT |
-| [Advanced Patterns](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/advanced.md) | Error handling, cancellation, scoped behaviors |
-| [Testing](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/testing.md) | Unit-test handlers, behaviors, and notifications |
-| [Migrating to 6.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
-
-## License
-
-MIT. See [LICENSE](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/LICENSE).
+- **Documentation**: [mediator.zeroalloc.net](https://mediator.zeroalloc.net), or the [docs folder](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/README.md) on GitHub, including migration guides.
+- **Related ZeroAlloc packages**:
+  - [ZeroAlloc.Pipeline](https://github.com/ZeroAlloc-Net/ZeroAlloc.Pipeline) ([docs](https://pipeline.zeroalloc.net)): Mediator's pipeline behaviors are ZeroAlloc.Pipeline behaviors, and its generator inlines them.
+  - [ZeroAlloc.Validation](https://github.com/ZeroAlloc-Net/ZeroAlloc.Validation) ([docs](https://validation.zeroalloc.net)): source-generated validators that `ZeroAlloc.Mediator.Validation` runs before each handler.
+  - [ZeroAlloc.Authorization](https://github.com/ZeroAlloc-Net/ZeroAlloc.Authorization) ([docs](https://authorization.zeroalloc.net)): the policies that `ZeroAlloc.Mediator.Authorization` checks before dispatch.
+  - [ZeroAlloc.Results](https://github.com/ZeroAlloc-Net/ZeroAlloc.Results) ([docs](https://results.zeroalloc.net)): give a request a `Result` response and the validation and authorization packages return failures in it instead of throwing.
+- **Contributing**: issues and pull requests are welcome on [GitHub](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues).
+- **License**: MIT, see [LICENSE](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/LICENSE).
