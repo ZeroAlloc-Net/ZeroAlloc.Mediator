@@ -8,15 +8,24 @@ sidebar_position: 1
 
 # Getting Started
 
-ZeroAlloc.Mediator is a zero-allocation, compile-time-dispatched mediator library for .NET 8 and .NET 10 that implements the mediator pattern without runtime reflection. Rather than using a dictionary lookup at runtime, it leverages a Roslyn source generator to emit strongly-typed dispatch methods at build time, making it fully Native AOT-compatible. Benchmarks show it is 26–65x faster than MediatR on request/response paths, with zero heap allocations on synchronous paths.
+ZeroAlloc.Mediator is a zero-allocation, compile-time-dispatched mediator library for .NET 8 and .NET 10 that implements the mediator pattern without runtime reflection. Rather than using a dictionary lookup at runtime, it leverages a Roslyn source generator to emit strongly-typed dispatch methods at build time, making it fully Native AOT-compatible. Benchmarks show the static `Mediator` class is 36–160x faster than MediatR on `Send` and `Publish`, with zero heap allocations on those paths; see [Performance](performance.md).
 
 ## Installation
 
 ```bash
 dotnet add package ZeroAlloc.Mediator
+dotnet add package ZeroAlloc.Mediator.Generator
 ```
 
-No extra setup is required. The source generator runs automatically as part of your normal `dotnet build` and emits all dispatch code into your project.
+`ZeroAlloc.Mediator.Generator` is the source generator. It is a development dependency, so `dotnet add package` writes it with `PrivateAssets="all"`. If you add it by hand, keep that attribute:
+
+```xml
+<PackageReference Include="ZeroAlloc.Mediator.Generator" Version="*" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+```
+
+`PrivateAssets="all"` matters in multi-project solutions: without it the analyzer flows transitively across a `ProjectReference`, so a downstream project runs the generator a second time and gets **CS0436** on the duplicate generated types, a hard failure under `TreatWarningsAsErrors`.
+
+Nothing else needs configuring. The generator runs as part of your normal `dotnet build` and emits all dispatch code into your project.
 
 ## Your First Request
 
