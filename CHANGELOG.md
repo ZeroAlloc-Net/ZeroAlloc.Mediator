@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.6.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.1...v6.6.2) (2026-10-16)
+
+
+### Documentation
+
+* rewrite the readme as a product page ([#345](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/345)) ([d34e157](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/d34e157f662f8ced727d2cc8c3dd2802f99d5c4a))
+
 ## [6.6.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.0...v6.6.1) (2026-10-15)
 
 
