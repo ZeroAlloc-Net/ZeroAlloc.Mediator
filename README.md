@@ -12,7 +12,7 @@ A source-generated MediatR alternative for .NET 8 and .NET 10: requests, notific
 ## Why ZeroAlloc.Mediator
 
 - **0 B per `Send` and `Publish`.** The static `Mediator` path, pipeline behaviors included, is held at zero bytes by `AllocationGate` tests. MediatR allocates 224 B per `Send` and 792 B per single-handler `Publish` in the same benchmark.
-- **36–160x faster than MediatR** on `Send` and `Publish` in the same BenchmarkDotNet run. Through `IMediator` resolved from a new scope per call, the way an ASP.NET Core request does, it is still 1.2–1.5x faster and allocates 176 B against MediatR's 352–496 B.
+- **3.9–20x faster than MediatR** on `Send` and `Publish` in the same BenchmarkDotNet run. Through `IMediator` resolved from a new scope per call, the way an ASP.NET Core request does, it is still 1.4–3.2x faster and allocates 176–200 B against MediatR's 352–1,232 B.
 - **Works under NativeAOT and trimming.** Dispatch is a generated, strongly-typed overload per request type: no reflection, no dictionary lookup, no handler scanning at startup. CI publishes and runs a NativeAOT sample on every build.
 - **Mistakes fail the build, not the request.** A request with no handler, two handlers for one request or a misconfigured behavior is reported by the generator as a compiler diagnostic.
 
@@ -63,13 +63,13 @@ Optional packages plug into the pipeline; reference one and call its `With...()`
 
 ## Performance
 
-.NET 10, i9-12900HK, BenchmarkDotNet, ZeroAlloc.Mediator and MediatR in the same run:
+.NET 10, BenchmarkDotNet, ZeroAlloc.Mediator and MediatR in the same run. Allocations are exact; speed is a same-run ratio.
 
 | Operation | Speed vs MediatR | ZeroAlloc.Mediator | MediatR |
 |---|---:|---:|---:|
-| `Send`, static `Mediator` | ~160x faster | 0 B | 224 B |
-| `Publish`, 1 handler, static `Mediator` | ~40x faster | 0 B | 792 B |
-| `Send` via `IMediator`, new DI scope per call | ~1.2x faster | 176 B | 496 B |
+| `Send`, static `Mediator` | 3.9x faster | 0 B | 224 B |
+| `Publish`, 1 handler, static `Mediator` | 16x faster | 0 B | 792 B |
+| `Send` via `IMediator`, new DI scope per call | 1.5x faster | 176 B | 496 B |
 
 The 176 B is the DI scope and the transient `IMediator`, not the dispatch. The static rows hold with no factory registered, for a handler without instance state. The [performance page](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/blob/main/docs/performance.md) has every row, including pipelines and streaming, and explains where each byte comes from.
 
