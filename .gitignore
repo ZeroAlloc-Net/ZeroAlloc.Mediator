@@ -22,3 +22,6 @@ BenchmarkDotNet.Artifacts/
 
 # Local AOT publish output (produced by scripts/ and manual dotnet publish runs).
 aot-out/
+
+# Test results and coverage reports
+TestResults/
