@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.6.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.2...v6.6.3) (2026-10-17)
+
+
+### Tests
+
+* keep the allocation gate self-test objects on the heap ([#360](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/360)) ([339ed91](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/339ed9196d743e578ae036dcf8397ab43065c0a0))
+
 ## [6.6.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.1...v6.6.2) (2026-10-16)
 
 
