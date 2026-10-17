@@ -22,6 +22,11 @@ namespace ZeroAlloc.Mediator.Authorization.Tests;
 [Collection("non-parallel-authorization")]
 public sealed class AllocationBudgetTests
 {
+    // The self-tests' allocations escape to this field. The gate measures optimised code, and
+    // since .NET 10 the JIT puts an object that never leaves the method on the stack, so a
+    // discarded `_ = new object()` allocates nothing there.
+    private static object? s_sink;
+
     // ---- AllocationGate self-tests ----
 
     [Fact]
@@ -31,7 +36,7 @@ public sealed class AllocationBudgetTests
             AllocationGate.AssertBudget(
                 budgetBytes: 0,
                 iterations: 1000,
-                action: () => _ = new object(),
+                action: () => s_sink = new object(),
                 label: "test-allocator"));
 
         Assert.Contains("test-allocator", ex.Message, StringComparison.Ordinal);
@@ -58,7 +63,7 @@ public sealed class AllocationBudgetTests
         var firstCall = true;
         AllocationGate.AssertBudget(0, 1000, () =>
         {
-            if (firstCall) { firstCall = false; _ = new object(); }
+            if (firstCall) { firstCall = false; s_sink = new object(); }
         }, "warmup-only-allocator");
     }
 
