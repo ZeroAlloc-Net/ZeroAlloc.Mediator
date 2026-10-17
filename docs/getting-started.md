@@ -8,7 +8,7 @@ sidebar_position: 1
 
 # Getting Started
 
-ZeroAlloc.Mediator is a zero-allocation, compile-time-dispatched mediator library for .NET 8 and .NET 10 that implements the mediator pattern without runtime reflection. Rather than using a dictionary lookup at runtime, it leverages a Roslyn source generator to emit strongly-typed dispatch methods at build time, making it fully Native AOT-compatible. Benchmarks show the static `Mediator` class is 36–160x faster than MediatR on `Send` and `Publish`, with zero heap allocations on those paths; see [Performance](performance.md).
+ZeroAlloc.Mediator is a zero-allocation, compile-time-dispatched mediator library for .NET 8 and .NET 10 that implements the mediator pattern without runtime reflection. Rather than using a dictionary lookup at runtime, it leverages a Roslyn source generator to emit strongly-typed dispatch methods at build time, making it fully Native AOT-compatible. Benchmarks show the static `Mediator` class is 3.9–20x faster than MediatR on `Send` and `Publish`, with zero heap allocations on those paths; see [Performance](performance.md).
 
 ## Installation
 
