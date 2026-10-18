@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.6.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.2...v6.6.3) (2026-10-18)
+
+
+### Documentation
+
+* re-run the benchmarks pinned, with three launches ([#366](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/366)) ([00f3a74](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/00f3a74464c18a0f3d470a03ee5da2cfae5d4fa6))
+
+
+### Tests
+
+* keep the allocation gate self-test objects on the heap ([#360](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/360)) ([339ed91](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/339ed9196d743e578ae036dcf8397ab43065c0a0))
+
 ## [6.6.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.1...v6.6.2) (2026-10-16)
 
 
