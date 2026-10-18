@@ -16,7 +16,7 @@
       assembly, so any application resolving a correctly stamped
       Authorization fails at startup with FileNotFoundException.
     -->
-    <PackageReference Include="ZeroAlloc.Authorization" Version="2.1.5" />
+    <PackageReference Include="ZeroAlloc.Authorization" Version="2.1.7" />
     <PackageReference Include="ZeroAlloc.Results" Version="1.4.4" />
   </ItemGroup>
   <ItemGroup>
