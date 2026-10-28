@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.6.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.3...v6.6.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* run authorization and validation before the stream handler in CreateStream ([#389](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/389)) ([380f588](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/380f588719c5c00760205cbd20a9107fc7cda710)), closes [#387](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/387)
+
 ## [6.6.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.2...v6.6.3) (2026-10-18)
 
 

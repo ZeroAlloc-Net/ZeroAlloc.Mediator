@@ -1,2 +1,1 @@
 #nullable enable
-static ZeroAlloc.Mediator.Validation.ValidationBehavior.CheckStream<TRequest>(TRequest request, System.IServiceProvider? services, System.Threading.CancellationToken ct) -> System.Threading.Tasks.ValueTask
