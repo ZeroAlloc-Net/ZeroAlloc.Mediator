@@ -167,7 +167,9 @@ app.MapGet("/orders/export", (IMediator mediator, CancellationToken ct) =>
 
 ### Pipeline behavior + streaming
 
-Pipeline behaviors only wrap `Send` calls (request/response dispatch). They do **not** wrap `CreateStream`. If you need middleware around a stream, apply the logic inside the stream handler itself or wrap the call at the application layer:
+Pipeline behaviors only wrap `Send` calls (request/response dispatch). They do **not** wrap `CreateStream`, with one exception: the checks that decide before the first item. The generated `CreateStream` runs `ZeroAlloc.Mediator.Authorization` (`[RequirePolicy]`) and `ZeroAlloc.Mediator.Validation` before it calls the stream handler, and a denied or invalid stream request throws `AuthorizationDeniedException` or `ValidationFailedException` from the first `MoveNextAsync`, before the handler runs and before any item is yielded. See [Authorization: Streams](authorization.md#streams). A behavior opts in by declaring a public static `ValueTask CheckStream<TRequest>(TRequest request, IServiceProvider? services, CancellationToken ct)` next to its `Handle`.
+
+Every other behavior, such as caching, resilience and telemetry, does not apply to streams. If you need middleware around a stream, apply the logic inside the stream handler itself or wrap the call at the application layer:
 
 ```csharp
 // Logging around a stream at the call site

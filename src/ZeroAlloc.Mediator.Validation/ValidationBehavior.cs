@@ -14,6 +14,9 @@ namespace ZeroAlloc.Mediator.Validation;
 // container WithValidation was wired to, and only when a validator is registered for it. A
 // validator is never resolved from the root provider, which would share one instance of a scoped
 // validator, and whatever it depends on, across every request.
+//
+// Pipeline behaviors do not wrap CreateStream, so a stream request is validated by CheckStream,
+// which the generated CreateStream calls before the stream handler.
 [PipelineBehavior(Order = -750)]
 public sealed class ValidationBehavior : IPipelineBehavior
 {
@@ -49,6 +52,65 @@ public sealed class ValidationBehavior : IPipelineBehavior
     {
         ArgumentNullException.ThrowIfNull(services);
         return ValidateAsync(services, request, ct, next);
+    }
+
+    /// <summary>
+    /// Validates a stream request before its handler runs. The generated <c>CreateStream</c>
+    /// calls this when enumeration starts, after authorization, and an invalid request throws
+    /// <see cref="ValidationFailedException"/> before the handler is called and before any item
+    /// is yielded. Pipeline behaviors do not wrap streams, so this is how validation applies to
+    /// a type that implements <c>IStreamRequest&lt;T&gt;</c>.
+    /// </summary>
+    /// <typeparam name="TRequest">The stream request type.</typeparam>
+    /// <param name="request">The stream request to validate.</param>
+    /// <param name="services">
+    /// The provider of the request being dispatched, which the generated <c>IMediator</c> passes.
+    /// When <see langword="null"/>, as from the static <c>Mediator</c> class, the provider in
+    /// <see cref="PipelineBehaviorServices.Current"/> is used, and without one the check runs in
+    /// a scope of its own, as for <c>Send</c>.
+    /// </param>
+    /// <param name="ct">The cancellation token of the enumeration.</param>
+    /// <returns>A task that completes when the request is valid.</returns>
+    /// <exception cref="ValidationFailedException">The request failed validation.</exception>
+    public static ValueTask CheckStream<TRequest>(TRequest request, IServiceProvider? services, CancellationToken ct)
+    {
+        services ??= PipelineBehaviorServices.Current;
+        return services is not null
+            ? ValidateStreamAsync(services, request, ct)
+            : ValidateStreamInOwnScopeAsync(request, ct);
+    }
+
+    private static async ValueTask ValidateStreamInOwnScopeAsync<TRequest>(TRequest request, CancellationToken ct)
+    {
+        var root = ValidationBehaviorState.ServiceProvider;
+        if (root is null)
+            return;
+
+        if (root.GetService<IServiceProviderIsService>() is { } isService
+            && !isService.IsService(typeof(ValidatorFor<TRequest>)))
+            return;
+
+        var scope = root.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            await ValidateStreamAsync(scope.ServiceProvider, request, ct).ConfigureAwait(false);
+        }
+    }
+
+    // A stream has no response to carry a failure, so an invalid request always throws
+    // ValidationFailedException, as a plain IRequest does.
+    private static async ValueTask ValidateStreamAsync<TRequest>(
+        IServiceProvider services,
+        TRequest request,
+        CancellationToken ct)
+    {
+        var validator = services.GetService<ValidatorFor<TRequest>>();
+        if (validator is null)
+            return;
+
+        var validationResult = await validator.ValidateAsync(request, ct).ConfigureAwait(false);
+        if (!validationResult.IsValid)
+            throw new ValidationFailedException(new ValidationError(validationResult.Failures.ToArray()));
     }
 
     private static async ValueTask<TResponse> ValidateInOwnScopeAsync<TRequest, TResponse>(

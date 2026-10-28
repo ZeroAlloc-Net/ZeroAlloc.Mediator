@@ -991,7 +991,7 @@ namespace ZeroAlloc.Mediator.Generator
             // Emit CreateStream methods
             foreach (var handler in validStreams)
             {
-                EmitCreateStreamMethod(sb, handler, exceptionDescription);
+                EmitCreateStreamMethod(sb, handler, GetStreamChecks(validPipelines, behaviorServices, handler.RequestTypeName), exceptionDescription);
             }
 
             // Emit Configure method
@@ -1239,7 +1239,23 @@ namespace ZeroAlloc.Mediator.Generator
             sb.AppendLine();
         }
 
-        private static void EmitCreateStreamMethod(StringBuilder sb, StreamHandlerInfo handler, bool exceptionDescription)
+        // The behaviors that check a stream request before its handler runs: those in the
+        // pipeline that apply to this request and have a CheckStream method. In pipeline order,
+        // so authorization still runs before validation. Empty when none apply, and then the
+        // generated CreateStream is exactly what it was before checks existed.
+        private static List<string> GetStreamChecks(
+            List<PipelineBehaviorInfo> pipelines,
+            BehaviorServicesMap behaviorServices,
+            string requestTypeName)
+        {
+            return pipelines
+                .Where(p => (p.AppliesTo == null || p.AppliesTo == requestTypeName)
+                         && behaviorServices.Get(p.BehaviorTypeName).HasStreamCheck)
+                .Select(p => p.BehaviorTypeName)
+                .ToList();
+        }
+
+        private static void EmitCreateStreamMethod(StringBuilder sb, StreamHandlerInfo handler, List<string> streamChecks, bool exceptionDescription)
         {
             var fieldName = GetFactoryFieldName(handler.HandlerTypeName);
             var requestSimpleName = GetSimpleTypeName(handler.RequestTypeName);
@@ -1248,9 +1264,11 @@ namespace ZeroAlloc.Mediator.Generator
                 handler.ResponseTypeName, handler.RequestTypeName));
             sb.AppendLine("        {");
             var fallback = GetFallbackExpression(handler.HandlerTypeName, handler.HasParameterlessConstructor, handler.IsAbstract, handler.IsStateless);
-            EmitStreamSpanBody(sb, requestSimpleName, string.Format("{0}?.Invoke() ?? {1}", fieldName, fallback), exceptionDescription);
+            var handlerExpression = string.Format("{0}?.Invoke() ?? {1}", fieldName, fallback);
+            EmitStreamSpanBody(sb, requestSimpleName, handlerExpression, streamChecks, exceptionDescription);
             sb.AppendLine("        }");
             sb.AppendLine();
+            EmitCheckedStreamIterator(sb, handler, streamChecks, "null", isStatic: true);
         }
 
         // The catch that ends every generated dispatch span: Send, Publish and CreateStream, on
@@ -1280,16 +1298,66 @@ namespace ZeroAlloc.Mediator.Generator
         // paths cannot drift apart again (#238). The span covers only creating the stream —
         // resolving the handler and calling Handle — not enumerating it: "dispatch" semantics.
         // A failure while creating it marks the span as an error, the same as Send and Publish.
-        private static void EmitStreamSpanBody(StringBuilder sb, string requestSimpleName, string handlerExpression, bool exceptionDescription)
+        //
+        // When a behavior checks stream requests (authorization, validation), creating the
+        // stream hands back the checked iterator below instead of the handler's own. The handler
+        // is still created here, so a handler that cannot be created fails CreateStream, inside
+        // this span, as it always has; but its Handle is not called until the checks have
+        // passed. The checks are asynchronous and CreateStream is not, so they run when
+        // enumeration starts and a denial surfaces from the first MoveNextAsync, after this
+        // span has ended.
+        private static void EmitStreamSpanBody(
+            StringBuilder sb,
+            string requestSimpleName,
+            string handlerExpression,
+            List<string> streamChecks,
+            bool exceptionDescription)
         {
             sb.AppendLine("            using var __activity = _activitySource.StartActivity(\"mediator.stream\");");
             sb.AppendLine(string.Format("            __activity?.SetTag(\"request.type\", \"{0}\");", requestSimpleName));
             sb.AppendLine("            try");
             sb.AppendLine("            {");
             sb.AppendLine(string.Format("                var handler = {0};", handlerExpression));
-            sb.AppendLine("                return handler.Handle(request, ct);");
+            sb.AppendLine(streamChecks.Count == 0
+                ? "                return handler.Handle(request, ct);"
+                : "                return __CheckedStream(handler, request, ct);");
             sb.AppendLine("            }");
             EmitSpanErrorCatch(sb, exceptionDescription);
+        }
+
+        // The iterator behind CreateStream for a request some behavior checks. It runs each
+        // behavior's CheckStream in pipeline order, awaited, and only then calls the handler's
+        // Handle and forwards its items, so a denied or invalid request never reaches Handle and
+        // yields nothing. The token is the enumerator's, which [EnumeratorCancellation] merges with
+        // the one CreateStream received. The static Mediator passes no provider: a behavior then
+        // reads PipelineBehaviorServices.Current or opens a scope of its own, as for Send.
+        // MediatorService passes its provider, which is the request's scope when IMediator was
+        // resolved from one. Nothing is emitted, and nothing allocated, for a request no
+        // behavior checks.
+        private static void EmitCheckedStreamIterator(
+            StringBuilder sb,
+            StreamHandlerInfo handler,
+            List<string> streamChecks,
+            string servicesArgument,
+            bool isStatic)
+        {
+            if (streamChecks.Count == 0)
+                return;
+
+            sb.AppendLine(string.Format(
+                "        private {0}async global::System.Collections.Generic.IAsyncEnumerable<{1}> __CheckedStream({2} handler, {3} request, [global::System.Runtime.CompilerServices.EnumeratorCancellation] global::System.Threading.CancellationToken ct)",
+                isStatic ? "static " : string.Empty, handler.ResponseTypeName, handler.HandlerTypeName, handler.RequestTypeName));
+            sb.AppendLine("        {");
+            foreach (var behavior in streamChecks)
+            {
+                sb.AppendLine(string.Format(
+                    "            await {0}.CheckStream<{1}>(request, {2}, ct).ConfigureAwait(false);",
+                    behavior, handler.RequestTypeName, servicesArgument));
+            }
+            sb.AppendLine("            await foreach (var item in handler.Handle(request, ct).WithCancellation(ct).ConfigureAwait(false))");
+            sb.AppendLine("                yield return item;");
+            sb.AppendLine("        }");
+            sb.AppendLine();
         }
 
         // Emits Mediator.Configure(Action<MediatorConfig>). The MediatorConfig instance has no
@@ -1728,11 +1796,14 @@ namespace ZeroAlloc.Mediator.Generator
                     "        public global::System.Collections.Generic.IAsyncEnumerable<{0}> CreateStream({1} request, global::System.Threading.CancellationToken ct)",
                     handler.ResponseTypeName, handler.RequestTypeName));
                 sb.AppendLine("        {");
-                EmitStreamSpanBody(sb, GetSimpleTypeName(handler.RequestTypeName), string.Format(
+                var handlerExpression = string.Format(
                     "global::Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<{0}>(_services)",
-                    handler.HandlerTypeName), exceptionDescription);
+                    handler.HandlerTypeName);
+                var streamChecks = GetStreamChecks(pipelineBehaviors, behaviorServices, handler.RequestTypeName);
+                EmitStreamSpanBody(sb, GetSimpleTypeName(handler.RequestTypeName), handlerExpression, streamChecks, exceptionDescription);
                 sb.AppendLine("        }");
                 sb.AppendLine();
+                EmitCheckedStreamIterator(sb, handler, streamChecks, "_services", isStatic: false);
             }
 
             sb.AppendLine("    }");
