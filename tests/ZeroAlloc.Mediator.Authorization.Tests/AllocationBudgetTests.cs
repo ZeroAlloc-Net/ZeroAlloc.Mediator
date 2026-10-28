@@ -130,6 +130,35 @@ public sealed class AllocationBudgetTests
     }
 
     [Fact]
+    public void CheckStream_WithoutPolicies_ZeroAllocation()
+    {
+        // A stream request with no [RequirePolicy] has no dispatcher, so the check that every
+        // generated CreateStream makes finds nothing and returns. Nothing is allocated.
+        using var sp = BuildProvider(TestSecurityContexts.With());
+        using var scope = sp.CreateScope();
+        var services = scope.ServiceProvider;
+        var req = new OpenStreamRequest(3);
+
+        AllocationGate.AssertBudgetValueTask(0, 1000,
+            () => Completed(AuthorizationBehavior.CheckStream(req, services, CancellationToken.None)),
+            "AuthorizationBehavior.CheckStream (no policies)");
+    }
+
+    [Fact]
+    public void CheckStream_AllowPath_AllocatesOnlyTheResourceContext()
+    {
+        // Same single allocation as Send: the 32 B ResourceSecurityContextAdapter.
+        using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
+        using var scope = sp.CreateScope();
+        var services = scope.ServiceProvider;
+        var req = new SecuredStreamRequest(3);
+
+        AllocationGate.AssertBudgetValueTask(32, 1000,
+            () => Completed(AuthorizationBehavior.CheckStream(req, services, CancellationToken.None)),
+            "AuthorizationBehavior.CheckStream (allow path)");
+    }
+
+    [Fact]
     public void Policy_EvaluateAsync_AllowPath_ZeroAllocation()
     {
         // Direct policy evaluation — no behavior, no DI. Confirms v2's single-method
@@ -142,6 +171,13 @@ public sealed class AllocationBudgetTests
             () => policy.EvaluateAsync(ctx),
             "Policy.EvaluateAsync (allow)");
     }
+
+    // The gate measures ValueTask<T>. A check that does not complete synchronously would allocate
+    // for its continuation, so it fails the test rather than being measured.
+    private static ValueTask<int> Completed(ValueTask check) =>
+        check.IsCompletedSuccessfully
+            ? default
+            : throw new InvalidOperationException("the check did not complete synchronously");
 
     private static ServiceProvider BuildProvider(ISecurityContext ctx)
     {

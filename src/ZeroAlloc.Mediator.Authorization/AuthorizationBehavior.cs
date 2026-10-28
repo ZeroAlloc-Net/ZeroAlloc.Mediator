@@ -42,6 +42,10 @@ namespace ZeroAlloc.Mediator.Authorization;
 ///         returns a failed result carrying the <see cref="AuthorizationFailure"/>.</item>
 /// </list>
 /// Order <c>-1000</c> so authorization runs before validation/cache/resilience.</para>
+/// <para><b>Streams:</b> pipeline behaviors do not wrap <c>CreateStream</c>, so a stream request
+/// is authorized by <see cref="CheckStream{TRequest}"/> instead, which the generated
+/// <c>CreateStream</c> calls before the stream handler. A denial throws
+/// <see cref="AuthorizationDeniedException"/> when enumeration starts.</para>
 /// </remarks>
 [PipelineBehavior(Order = -1000)]
 public sealed class AuthorizationBehavior : IPipelineBehavior
@@ -81,6 +85,32 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
         return AuthorizeAsync(services, request, ct, next);
     }
 
+    /// <summary>
+    /// Authorizes a stream request before its handler runs. The generated <c>CreateStream</c>
+    /// calls this first, when enumeration starts, and a denial throws
+    /// <see cref="AuthorizationDeniedException"/> before the handler is called and before any
+    /// item is yielded. Pipeline behaviors do not wrap streams, so this is how
+    /// <c>[RequirePolicy]</c> applies to a type that implements <c>IStreamRequest&lt;T&gt;</c>.
+    /// </summary>
+    /// <typeparam name="TRequest">The stream request type.</typeparam>
+    /// <param name="request">The stream request to authorize.</param>
+    /// <param name="services">
+    /// The provider of the request being dispatched, which the generated <c>IMediator</c> passes.
+    /// When <see langword="null"/>, as from the static <c>Mediator</c> class, the provider in
+    /// <see cref="PipelineBehaviorServices.Current"/> is used, and without one the check runs in
+    /// a scope of its own, as for <c>Send</c>.
+    /// </param>
+    /// <param name="ct">The cancellation token of the enumeration.</param>
+    /// <returns>A task that completes when the request is allowed.</returns>
+    /// <exception cref="AuthorizationDeniedException">A policy denied the request.</exception>
+    public static ValueTask CheckStream<TRequest>(TRequest request, IServiceProvider? services, CancellationToken ct)
+    {
+        services ??= PipelineBehaviorServices.Current;
+        return services is not null
+            ? AuthorizeStreamAsync(services, request, ct)
+            : AuthorizeStreamInOwnScopeAsync(request, ct);
+    }
+
     // No IMediator dispatch, so no request scope to read. The container WithAuthorization was
     // wired to is the root provider, and scoped services resolved from it are cached for the
     // container's lifetime, so the request gets a scope of its own instead.
@@ -114,12 +144,61 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
         Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
-        var authorizer = services.GetService<AuthorizerFor<TRequest>>();
-        if (authorizer is null)
+        if (await EvaluateAsync(services, request, ct).ConfigureAwait(false) is not { } failure)
             return await next(request, ct).ConfigureAwait(false);
 
+        var factory = AuthorizationFailureFactory<TResponse>.Create;
+        if (factory is not null)
+            return factory(failure);
+
+        throw new AuthorizationDeniedException(failure);
+    }
+
+    // Streams: CreateStream returns the items, not a response to wrap a failure in, so a denial
+    // always throws AuthorizationDeniedException, as for a plain IRequest. The same dispatcher
+    // and security context decide, so a policy cannot pass on Send and fail on a stream, or the
+    // reverse.
+    private static async ValueTask AuthorizeStreamAsync<TRequest>(
+        IServiceProvider services,
+        TRequest request,
+        CancellationToken ct)
+    {
+        if (await EvaluateAsync(services, request, ct).ConfigureAwait(false) is { } failure)
+            throw new AuthorizationDeniedException(failure);
+    }
+
+    private static async ValueTask AuthorizeStreamInOwnScopeAsync<TRequest>(
+        TRequest request,
+        CancellationToken ct)
+    {
+        var root = AuthorizationBehaviorState.ServiceProvider;
+        if (root is null)
+            return;
+
+        if (root.GetService<IServiceProviderIsService>() is { } isService
+            && !isService.IsService(typeof(AuthorizerFor<TRequest>)))
+            return;
+
+        var scope = root.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            await AuthorizeStreamAsync(scope.ServiceProvider, request, ct).ConfigureAwait(false);
+        }
+    }
+
+    // The decision, shared by Send and streams. Null when the request is allowed, or has no
+    // dispatcher and so no policies.
+    private static async ValueTask<AuthorizationFailure?> EvaluateAsync<TRequest>(
+        IServiceProvider services,
+        TRequest request,
+        CancellationToken ct)
+    {
+        var authorizer = services.GetService<AuthorizerFor<TRequest>>();
+        if (authorizer is null)
+            return null;
+
         // Resolve the security context once per request. AuthorizationOptions ensures exactly
-        // one ISecurityContext source is registered (UseAnonymous / UseFactory / UseAccessor).
+        // one ISecurityContext source is registered (UseAnonymous / UseFactory / UseAccessor<>).
         var ctx = services.GetService<ISecurityContext>();
         if (ctx is null)
         {
@@ -133,14 +212,6 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
         // One allocation per dispatch: 32 B for a reference-type or small struct request.
         var resourceCtx = new ResourceSecurityContextAdapter<TRequest>(ctx, request);
         var result = await authorizer.EvaluateAsync(resourceCtx, ct).ConfigureAwait(false);
-        if (result.IsSuccess)
-            return await next(request, ct).ConfigureAwait(false);
-
-        var failure = result.Error;
-        var factory = AuthorizationFailureFactory<TResponse>.Create;
-        if (factory is not null)
-            return factory(failure);
-
-        throw new AuthorizationDeniedException(failure);
+        return result.IsSuccess ? null : result.Error;
     }
 }

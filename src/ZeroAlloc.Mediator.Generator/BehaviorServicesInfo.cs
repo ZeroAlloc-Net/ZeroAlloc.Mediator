@@ -22,12 +22,14 @@ namespace ZeroAlloc.Mediator.Generator
     {
         private const string MediatorAttribute = "ZeroAlloc.Mediator.PipelineBehaviorAttribute";
         private const string UsesServicesProperty = "UsesPipelineBehaviorServices";
+        private const string StreamCheckMethodName = "CheckStream";
 
-        public BehaviorServicesInfo(string behaviorTypeName, bool takesServices, bool usesCurrent)
+        public BehaviorServicesInfo(string behaviorTypeName, bool takesServices, bool usesCurrent, bool hasStreamCheck = false)
         {
             BehaviorTypeName = behaviorTypeName;
             TakesServices = takesServices;
             UsesCurrent = usesCurrent;
+            HasStreamCheck = hasStreamCheck;
         }
 
         /// <summary>Fully qualified type name, matching <c>PipelineBehaviorInfo.BehaviorTypeName</c>.</summary>
@@ -45,6 +47,14 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public bool UsesCurrent { get; }
 
+        /// <summary>
+        /// Whether the behavior has the <c>CheckStream&lt;TRequest&gt;(request, IServiceProvider?
+        /// services, ct)</c> method, which the generated <c>CreateStream</c> runs before the
+        /// stream handler. Streams are not wrapped by the pipeline, so this is how a behavior
+        /// that decides before the first item, such as authorization, covers them.
+        /// </summary>
+        public bool HasStreamCheck { get; }
+
         /// <summary>Whether <c>IMediator.Send</c> must set <c>PipelineBehaviorServices.Current</c> for it.</summary>
         public bool NeedsCurrent => UsesCurrent && !TakesServices;
 
@@ -52,7 +62,8 @@ namespace ZeroAlloc.Mediator.Generator
             new BehaviorServicesInfo(
                 type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 HasServicesHandle(type),
-                ReadUsesServices(attribute));
+                ReadUsesServices(attribute),
+                HasStreamCheckMethod(type));
 
         private static bool ReadUsesServices(AttributeData? attribute)
         {
@@ -83,6 +94,35 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
             return false;
+        }
+
+        // CheckStream<TRequest>(TRequest, IServiceProvider?, CancellationToken) -> ValueTask
+        private static bool HasStreamCheckMethod(INamedTypeSymbol type)
+        {
+            for (var current = type; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                foreach (var member in current.GetMembers(StreamCheckMethodName))
+                {
+                    if (member is IMethodSymbol method
+                        && method.IsStatic
+                        && method.DeclaredAccessibility == Accessibility.Public
+                        && IsStreamCheckShape(method))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool IsStreamCheckShape(IMethodSymbol method)
+        {
+            if (method.TypeParameters.Length != 1 || method.Parameters.Length != 3)
+                return false;
+
+            var parameters = method.Parameters;
+            return SymbolEqualityComparer.Default.Equals(parameters[0].Type, method.TypeParameters[0])
+                && IsType(parameters[1].Type.WithNullableAnnotation(NullableAnnotation.None), "System.IServiceProvider")
+                && IsType(parameters[2].Type, "System.Threading.CancellationToken")
+                && IsType(method.ReturnType, "System.Threading.Tasks.ValueTask");
         }
 
         private static bool IsServicesShape(IMethodSymbol method)
@@ -117,7 +157,8 @@ namespace ZeroAlloc.Mediator.Generator
             other is not null
             && BehaviorTypeName == other.BehaviorTypeName
             && TakesServices == other.TakesServices
-            && UsesCurrent == other.UsesCurrent;
+            && UsesCurrent == other.UsesCurrent
+            && HasStreamCheck == other.HasStreamCheck;
 
         public override bool Equals(object? obj) => Equals(obj as BehaviorServicesInfo);
 
@@ -128,6 +169,7 @@ namespace ZeroAlloc.Mediator.Generator
                 var hash = BehaviorTypeName.GetHashCode();
                 hash = (hash * 31) + (TakesServices ? 1 : 0);
                 hash = (hash * 31) + (UsesCurrent ? 1 : 0);
+                hash = (hash * 31) + (HasStreamCheck ? 1 : 0);
                 return hash;
             }
         }

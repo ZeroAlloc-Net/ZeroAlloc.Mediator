@@ -148,6 +148,23 @@ The `AuthorizationBehavior` registers at `[PipelineBehavior(Order = -1000)]` —
 public sealed class CorrelationIdBehavior : IPipelineBehavior { ... }
 ```
 
+## Streams
+
+`[RequirePolicy]` also applies to a type that implements `IStreamRequest<T>`. Pipeline behaviors do not wrap `CreateStream`, so the generated `CreateStream` instead calls `AuthorizationBehavior.CheckStream` before it calls the stream handler. The same `AuthorizerFor<TRequest>` and the same security context decide, so a policy gives the same answer for a stream as for `Send`.
+
+```csharp
+[RequirePolicy("Staff")]
+public readonly record struct FollowQuery : IStreamRequest<Update>;
+```
+
+- **Denied.** A denied stream throws `AuthorizationDeniedException`, as a plain `IRequest<T>` does. A stream has no response to carry a failed result, so there is no `Result` shape. The handler is never called and no item is yielded.
+- **When it runs.** The check is asynchronous and `CreateStream` is not, so it runs when enumeration starts and the denial is thrown by the first `MoveNextAsync`, not by the `CreateStream` call. Both the static `Mediator` and `IMediator` behave this way. The handler is still created by `CreateStream`, so a handler that cannot be created fails there as before, but its `Handle` is called only after the check passes.
+- **Order.** Authorization runs before validation, as for `Send`.
+- **Cost.** A stream request with no `[RequirePolicy]` has no dispatcher, so the check returns without allocating. A stream request that is checked is returned as a small async iterator that runs the check, then forwards the handler's items; that is one allocation per stream.
+- **Request scope.** Through `IMediator`, the policies and the security context come from the provider `IMediator` was resolved from, as for `Send`. Through the static `Mediator`, the check opens a scope of its own.
+
+Other behaviors, such as caching, resilience and telemetry, still do not apply to streams.
+
 ## Diagnostics
 
 The compile-time diagnostics are emitted by the generator that now lives in `ZeroAlloc.Authorization` v2 (no longer bundled with this host). They are prefixed `ZAUTH`:
