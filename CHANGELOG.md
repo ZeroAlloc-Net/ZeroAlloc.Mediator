@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.6.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.4...v6.6.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* detect AddZeroAllocAuthorization by its marker, not by AuthorizerFor ([#396](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/396)) ([89a9d4c](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/89a9d4c251b8716c08cc9f95f7c8832b15b489cd))
+
 ## [6.6.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.3...v6.6.4) (2026-10-28)
 
 
