@@ -166,4 +166,38 @@ public class WithAuthorizationTests
 
         Assert.Contains("services.AddZeroAllocAuthorization()", ex.Message, StringComparison.Ordinal);
     }
+
+    // A project with no [RequirePolicy] request registers no AuthorizerFor<>, only the marker.
+    // The guard must accept that: the call ran, there is just nothing decorated yet.
+    [Fact]
+    public void AddZeroAllocAuthorization_RegistersMarker()
+    {
+        var services = new ServiceCollection();
+        services.AddZeroAllocAuthorization();
+
+        Assert.Contains(services, d => d.ServiceType == typeof(ZeroAllocAuthorizationMarker));
+    }
+
+    [Fact]
+    public void WithAuthorization_WhenOnlyTheMarkerIsRegistered_DoesNotThrow()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ZeroAllocAuthorizationMarker>();  // all a project without [RequirePolicy] gets
+
+        services.AddMediator().WithAuthorization(o => o.UseAnonymousSecurityContext());
+
+        using var sp = services.BuildServiceProvider();
+        Assert.NotNull(sp.GetService<IMediator>());
+        AuthorizationBehaviorState.ServiceProvider = null;
+    }
+
+    [Fact]
+    public void WithAuthorization_WhenAnAuthorizerForIsRegisteredWithoutTheMarker_Throws()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(typeof(AuthorizerFor<string>), typeof(string));  // not a call of AddZeroAllocAuthorization
+
+        Assert.Throws<InvalidOperationException>(() =>
+            services.AddMediator().WithAuthorization(o => o.UseAnonymousSecurityContext()));
+    }
 }
