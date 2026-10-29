@@ -56,15 +56,17 @@ services.AddMediator(b => b.WithAuthorization(auth =>
 }));
 ```
 
-`AddZeroAllocAuthorization()` registers the policy lookup (a single generator-emitted dictionary) and every `[Policy]`-decorated class as scoped. `WithAuthorization(...)` then plugs the Mediator pipeline behavior into that registry.
+`AddZeroAllocAuthorization()` registers every `[Policy]`-decorated class as scoped, an `AuthorizerFor<TRequest>` dispatcher for every `[RequirePolicy]` request, and a `ZeroAllocAuthorizationMarker` singleton. The marker is registered even when nothing is decorated yet; it is how the startup guard knows the call ran. `WithAuthorization(...)` then plugs the Mediator pipeline behavior into that registry.
 
-If you forget the first call — or invoke it *after* `AddMediator(...)` — the D3 startup guard throws:
+If you forget the first call, or invoke it *after* `AddMediator(...).WithAuthorization(...)`, the startup guard throws:
 
 ```text
-System.InvalidOperationException: ZeroAlloc.Mediator.Authorization requires
-services.AddZeroAllocAuthorization() to be called BEFORE
-services.AddMediator(...).WithAuthorization(...).
+System.InvalidOperationException: WithAuthorization() requires
+services.AddZeroAllocAuthorization() to be called first. Add
+'services.AddZeroAllocAuthorization();' before 'services.AddMediator(...)' in Program.cs. ...
 ```
+
+The guard looks for the marker, not for `AuthorizerFor<>`, so an app with no `[RequirePolicy]` request yet, or with only `[Policy]` classes, passes it. Requires `ZeroAlloc.Authorization` 2.2.0 or later, which `ZeroAlloc.Mediator.Authorization` already references.
 
 There is no longer an `AutoRegisterDiscoveredPolicies` or `ValidatePoliciesAreRegistered` option — the contract package owns registration, and the guard owns the "did you forget?" check.
 
