@@ -46,7 +46,7 @@
                       ReferenceOutputAssembly="true" />
     <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
-    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.8.1">
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>contentfiles;build</IncludeAssets>
     </PackageReference>

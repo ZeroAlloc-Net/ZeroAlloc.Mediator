@@ -41,7 +41,7 @@
          [Policy]/[RequirePolicy]-decorated type in this compilation. A direct (non-transitive)
          package reference is required so the bundled analyzer DLL flows into this project. -->
     <PackageReference Include="ZeroAlloc.Authorization" Version="2.2.1" />
-    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.8.1">
+    <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>contentfiles;build</IncludeAssets>
     </PackageReference>
