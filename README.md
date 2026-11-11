@@ -7,7 +7,7 @@
 [![AOT](https://img.shields.io/badge/AOT--Compatible-passing-brightgreen)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/MarcelRoozekrans?style=flat&logo=githubsponsors&color=ea4aaa&label=Sponsor)](https://github.com/sponsors/MarcelRoozekrans)
 
-A source-generated MediatR alternative for .NET 8 and .NET 10: requests, notifications and streams dispatched without reflection, with no allocations on the `Send` and `Publish` hot path, ready for NativeAOT.
+A source-generated MediatR alternative for .NET 8, .NET 10 and .NET 11: requests, notifications and streams dispatched without reflection, with no allocations on the `Send` and `Publish` hot path, ready for NativeAOT.
 
 ## Why ZeroAlloc.Mediator
 

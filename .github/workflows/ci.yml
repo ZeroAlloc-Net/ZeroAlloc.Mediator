@@ -136,6 +136,10 @@ jobs:
 
   api-compat:
     uses: ZeroAlloc-Net/.github/.github/workflows/api-compat.yml@main
+    with:
+      dotnet-version: |
+        10.0.x
+        11.0.x
 
   # A release PR must mark everything it releases as shipped: the analyzer rules in
   # AnalyzerReleases.Unshipped.md and the API in every PublicAPI.Unshipped.txt. The
