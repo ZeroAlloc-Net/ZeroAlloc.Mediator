@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.7.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.5...v6.7.0) (2026-11-11)
+
+
+### Features
+
+* add net11.0 target ([#421](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/421)) ([70d6e98](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/70d6e980db49ebdd9cf93760c2cdfacab5bc51fa))
+
+
+### Documentation
+
+* add context7.json to claim the library on Context7 ([#420](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/420)) ([7ddab55](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/7ddab552465ee622c0561ed2f1b45cfddab204e0))
+
 ## [6.6.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.4...v6.6.5) (2026-10-29)
 
 
