@@ -8,7 +8,7 @@ sidebar_position: 0
 
 # ZeroAlloc.Mediator Documentation
 
-Zero-allocation, compile-time-dispatched mediator for .NET 8 and .NET 10.
+Zero-allocation, compile-time-dispatched mediator for .NET 8, .NET 10 and .NET 11.
 
 ## Reference
 

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <RootNamespace>ZeroAlloc.Mediator.Sample</RootNamespace>
     <!-- MA0048: multiple types share Program.cs by design (compact sample). -->
     <NoWarn>$(NoWarn);MA0048</NoWarn>

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Multi-targeted because ZeroAlloc.Mediator.Tests references it and runs on net10.0 and net11.0. -->
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <RootNamespace>ZeroAlloc.Mediator.AspNetSample</RootNamespace>
     <IsPackable>false</IsPackable>
     <!-- MA0048: multiple types share Program.cs by design (compact sample). -->
