@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.7.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.0...v6.7.1) (2026-11-15)
+
+
+### Documentation
+
+* add AGENTS.md for coding agents and reviewers ([5585063](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/5585063a548e932e8ce935721e3ca82dc3b4fc57))
+
 ## [6.7.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.6.5...v6.7.0) (2026-11-11)
 
 
