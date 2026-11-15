@@ -28,7 +28,8 @@ and Telemetry, add pipeline behaviors. All seven `src/` projects ship to NuGet f
 ## Build and test
 
 `global.json` pins SDK 11.0.100 with `rollForward: latestMinor`. Libraries target
-`net8.0;net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. From `ci.yml`:
+`net8.0;net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. CI also installs `10.0.x`:
+the net10.0 test leg needs that runtime. From `ci.yml`:
 
 ```bash
 dotnet tool restore
@@ -54,9 +55,11 @@ dotnet publish samples/ZeroAlloc.Mediator.AotSmoke/ZeroAlloc.Mediator.AotSmoke.c
 ```
 
 Local pack: `-p:PackageVersion` alone fails with ZAVERSION002, because the assembly is not stamped.
-Pass `-p:Version` to the build that the pack uses, then check the layout:
+Pass `-p:Version` to the build that the pack uses, then check the layout. The script checks the
+first matching package, so pack into an empty folder:
 
 ```bash
+rm -rf ./artifacts
 dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj -c Release -p:Version=9.9.9-local.$(git rev-parse --short HEAD) -o ./artifacts
 bash scripts/verify-generator-pack-layout.sh ./artifacts
 ```
