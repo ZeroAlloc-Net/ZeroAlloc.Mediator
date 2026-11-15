@@ -57,7 +57,7 @@ Local pack: `-p:PackageVersion` alone fails with ZAVERSION002, because the assem
 Pass `-p:Version` to the build that the pack uses, then check the layout:
 
 ```bash
-dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj -c Release -p:Version=9.9.9-local.<sha> -o ./artifacts
+dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj -c Release -p:Version=9.9.9-local.$(git rev-parse --short HEAD) -o ./artifacts
 bash scripts/verify-generator-pack-layout.sh ./artifacts
 ```
 
