@@ -86,6 +86,16 @@
     <NuGetAuditMode>all</NuGetAuditMode>
     <NuGetAuditLevel>moderate</NuGetAuditLevel>
 </PropertyGroup>
+  <!-- Debugging into the package: Go to Definition and step-into show the original source.
+       The PDB is embedded in each DLL, so consumers need no symbol server setting; Source Link,
+       built into the .NET SDK, maps it to this commit on GitHub. ContinuousIntegrationBuild
+       makes CI builds deterministic and writes /_/ paths instead of the runner's. -->
+  <PropertyGroup>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)assets\icon.png" Pack="true" PackagePath="\" />
