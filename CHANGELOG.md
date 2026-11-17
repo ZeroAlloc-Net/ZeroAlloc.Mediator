@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.7.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.1...v6.7.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* embed PDBs so Go to Definition shows the package source ([#448](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/448)) ([9793670](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/9793670c489d0ee5bbe971b24648ce73a5e1c845))
+
 ## [6.7.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.0...v6.7.1) (2026-11-15)
 
 
