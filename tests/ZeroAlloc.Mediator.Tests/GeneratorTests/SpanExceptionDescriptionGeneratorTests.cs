@@ -4,8 +4,8 @@ using Microsoft.CodeAnalysis;
 namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
 
 // #292: [assembly: MediatorTracing(ExceptionDescription = false)] keeps the exception message out
-// of every generated dispatch span. Without the attribute, or with it set to true, the span keeps
-// the message as its status description, as it always has.
+// of every generated dispatch span. Since #319 that is the default: without the attribute, or with
+// it but without the property, the message stays out. Only ExceptionDescription = true keeps it.
 public class SpanExceptionDescriptionGeneratorTests
 {
     // One of each dispatch kind, on both the static Mediator and MediatorService, so every
@@ -67,18 +67,17 @@ public class SpanExceptionDescriptionGeneratorTests
     // Send, Publish, parallel Publish and CreateStream, once on Mediator and once on MediatorService.
     private const int ExpectedSpanCatches = 8;
 
-    public static TheoryData<string> DefaultAttributes => new()
+    public static TheoryData<string> MessageFreeAttributes => new()
     {
         "",
         "[assembly: ZeroAlloc.Mediator.MediatorTracing]",
-        "[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = true)]",
+        "[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = false)]",
     };
 
-    [Theory]
-    [MemberData(nameof(DefaultAttributes))]
-    public void ByDefault_EverySpanCatch_SetsTheExceptionMessageAsStatusDescription(string attribute)
+    [Fact]
+    public void ExceptionDescriptionTrue_EverySpanCatch_SetsTheExceptionMessageAsStatusDescription()
     {
-        var output = Generate(attribute);
+        var output = Generate("[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = true)]");
 
         Assert.Equal(ExpectedSpanCatches, Occurrences(output, CatchClause));
         Assert.Equal(ExpectedSpanCatches, Occurrences(output, StatusWithMessage));
@@ -86,10 +85,11 @@ public class SpanExceptionDescriptionGeneratorTests
         Assert.Equal(0, Occurrences(output, StatusWithoutMessage));
     }
 
-    [Fact]
-    public void ExceptionDescriptionFalse_NoSpanCatch_ReadsTheExceptionMessage()
+    [Theory]
+    [MemberData(nameof(MessageFreeAttributes))]
+    public void ByDefault_NoSpanCatch_ReadsTheExceptionMessage(string attribute)
     {
-        var output = Generate("[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = false)]");
+        var output = Generate(attribute);
 
         Assert.Equal(ExpectedSpanCatches, Occurrences(output, CatchClause));
         Assert.Equal(ExpectedSpanCatches, Occurrences(output, StatusWithoutMessage));

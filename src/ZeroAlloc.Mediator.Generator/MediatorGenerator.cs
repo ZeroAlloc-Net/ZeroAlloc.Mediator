@@ -194,7 +194,8 @@ namespace ZeroAlloc.Mediator.Generator
                     compilation.GetTypeByMetadataName(PipelineBehaviorServicesMetadataName) != null);
 
             // Whether a failed dispatch span takes the exception message as its status
-            // description: [assembly: MediatorTracing(ExceptionDescription = false)] turns it off.
+            // description: off by default, [assembly: MediatorTracing(ExceptionDescription = true)]
+            // turns it on.
             // Read once per compilation into a bool, so an unrelated edit leaves the source cached.
             var spanExceptionDescription = context.CompilationProvider
                 .Select(static (compilation, _) => ReadSpanExceptionDescription(compilation));
@@ -248,9 +249,10 @@ namespace ZeroAlloc.Mediator.Generator
             });
         }
 
-        // ExceptionDescription from [assembly: MediatorTracing], or true, its default, when the
+        // ExceptionDescription from [assembly: MediatorTracing], or false, its default, when the
         // attribute or the property is absent. An older runtime without the attribute type
-        // cannot carry it, so it gets the default too.
+        // cannot carry it, so it gets the default too. False is the default because a message
+        // can carry request or response content that every listener on the source receives.
         private static bool ReadSpanExceptionDescription(Compilation compilation)
         {
             foreach (var attribute in compilation.Assembly.GetAttributes())
@@ -265,7 +267,7 @@ namespace ZeroAlloc.Mediator.Generator
                 }
             }
 
-            return true;
+            return false;
         }
 
         private static bool HasAccessibleParameterlessConstructor(INamedTypeSymbol type)
@@ -1276,8 +1278,8 @@ namespace ZeroAlloc.Mediator.Generator
         // span as an error and tags error.type with the exception's fully-qualified type name,
         // the same value TelemetryBehavior puts on its metrics. That follows the OpenTelemetry
         // convention for recording errors: error.type is present only when the operation fails.
-        // The exception message becomes the status description unless the assembly opts out
-        // with [assembly: MediatorTracing(ExceptionDescription = false)], because a message can
+        // The exception message becomes the status description only when the assembly opts in
+        // with [assembly: MediatorTracing(ExceptionDescription = true)], because a message can
         // carry request or response content that every listener on the source would receive.
         private static void EmitSpanErrorCatch(StringBuilder sb, bool exceptionDescription)
         {
