@@ -1,6 +1,6 @@
 # AGENTS.md: ZeroAlloc.Mediator
 
-A source-generated MediatR alternative for .NET 8, 10 and 11. Consumers reference the runtime
+A source-generated MediatR alternative for .NET 10 and 11. Consumers reference the runtime
 package `ZeroAlloc.Mediator` plus the source generator `ZeroAlloc.Mediator.Generator`, which emits a
 static `Mediator` class with one `Send`/`Publish`/`CreateStream` overload per request type, plus
 `AddMediator()` and `IMediator`. Five bridge packages, Validation, Authorization, Cache, Resilience
@@ -28,7 +28,7 @@ and Telemetry, add pipeline behaviors. All seven `src/` projects ship to NuGet f
 ## Build and test
 
 `global.json` pins SDK 11.0.100 with `rollForward: latestMinor`. Libraries target
-`net8.0;net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. CI also installs `10.0.x`:
+`net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. CI also installs `10.0.x`:
 the net10.0 test leg needs that runtime. From `ci.yml`:
 
 ```bash
