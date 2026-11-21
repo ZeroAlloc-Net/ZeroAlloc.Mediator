@@ -98,8 +98,10 @@ bash scripts/verify-generator-pack-layout.sh ./artifacts
   snapshot files. Use `RunGeneratorAndCompile` when the emitted code must also compile.
 - A `Nullable<T>` cache response can hang under NativeAOT, dotnet/runtime#134799; the smoke runs
   with a 120 s timeout for that reason.
-- `apicompat-suppressions.xml` lists only the shims removed in 6.0. The shared api-compat job
-  applies it; do not add entries to get past a break.
+- `apicompat-suppressions.xml` lists only the intended breaks of the current major against the
+  latest stable release: for 7.0, the net8.0 drop and the removed `MediatorBuilderExtensions`.
+  Each major replaces its contents with the output of `apicompat --generate-suppression-file`.
+  The shared api-compat job applies it; do not add entries to get past an unintended break.
 
 <!-- org-core:start sha256=c42b83cb821d67a5547aafe02bbf9d3f36a7d19379a5d378bc38d452b7db8451 (generated from docker-nuc scripts/agents-md/org-core-zeroalloc.md; do not edit here) -->
 ## Org rules
