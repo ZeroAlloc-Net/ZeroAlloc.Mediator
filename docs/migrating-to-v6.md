@@ -3,7 +3,7 @@ id: migrating-to-v6
 title: Migrating to 6.0
 slug: /docs/migrating-to-v6
 description: Upgrade from ZeroAlloc.Mediator 5.x to 6.0 — Validation 2, removed v1 registration shims, retired diagnostics.
-sidebar_position: 11
+sidebar_position: 12
 ---
 
 # Migrating to 6.0

@@ -1,8 +1,6 @@
 #nullable enable
 override ZeroAlloc.Mediator.Unit.GetHashCode() -> int
 static readonly ZeroAlloc.Mediator.Unit.Value -> ZeroAlloc.Mediator.Unit
-static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssemblies(this ZeroAlloc.Mediator.IMediatorBuilder! builder, params System.Reflection.Assembly![]! assemblies) -> ZeroAlloc.Mediator.IMediatorBuilder!
-static ZeroAlloc.Mediator.MediatorBuilderExtensions.RegisterHandlersFromAssembly(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Reflection.Assembly! assembly, Microsoft.Extensions.DependencyInjection.ServiceLifetime defaultLifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Transient) -> ZeroAlloc.Mediator.IMediatorBuilder!
 static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.get -> System.IServiceProvider?
 static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.set -> void
 static ZeroAlloc.Mediator.Unit.operator !=(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
@@ -28,7 +26,6 @@ ZeroAlloc.Mediator.IStreamRequestHandler<TRequest, TResponse>.Handle(TRequest re
 ZeroAlloc.Mediator.MediatorBuilder
 ZeroAlloc.Mediator.MediatorBuilder.MediatorBuilder(Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> void
 ZeroAlloc.Mediator.MediatorBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-ZeroAlloc.Mediator.MediatorBuilderExtensions
 ZeroAlloc.Mediator.MediatorTracingAttribute
 ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.get -> bool
 ZeroAlloc.Mediator.MediatorTracingAttribute.ExceptionDescription.set -> void

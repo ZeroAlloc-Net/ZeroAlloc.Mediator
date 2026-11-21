@@ -116,7 +116,7 @@ public class DispatchSpanParityTests
         Assert.Equal("request failed", thrown.Message);
         var activity = Assert.Single(capture.Spans("mediator.send", "request.type", "FailingSpanParityRequest"));
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("request failed", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
         Assert.Equal("System.TimeoutException", activity.GetTagItem("error.type"));
     }
 
@@ -161,7 +161,7 @@ public class DispatchSpanParityTests
         Assert.Equal("handler construction failed", thrown.Message);
         var activity = Assert.Single(capture.Spans("mediator.stream", "request.type", "UnresolvableSpanStream"));
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("handler construction failed", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
         Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
     }
 
@@ -203,7 +203,7 @@ public class DispatchSpanParityTests
         Assert.Equal("notification failed", thrown.Message);
         var activity = Assert.Single(capture.Spans("mediator.publish", "notification.type", "FailingSpanParityNotification"));
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("notification failed", activity.StatusDescription);
+        Assert.Null(activity.StatusDescription);
         Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
     }
 

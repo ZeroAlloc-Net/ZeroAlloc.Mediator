@@ -120,7 +120,6 @@ public sealed class CacheKeyTests : IDisposable
         }
     }
 
-#if NET9_0_OR_GREATER
     // The hit formats the key into a stack buffer and looks it up as a span, so a request that
     // formats itself into a span costs nothing on a hit.
     [Fact]
@@ -149,7 +148,6 @@ public sealed class CacheKeyTests : IDisposable
                 static (_, _) => throw new InvalidOperationException("Expected a hit.")),
             "CacheBehavior.Handle (hit, record request) against request.ToString()");
     }
-#endif
 }
 
 [CacheResponse(TtlMs = 60_000)]

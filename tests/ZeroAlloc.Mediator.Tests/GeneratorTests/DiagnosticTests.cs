@@ -471,7 +471,7 @@ public class DiagnosticTests
         """;
 
     [Fact]
-    public void ZAM009_StaticClassBehavior_EmitsWarning_AndStaysOutOfSend()
+    public void ZAM009_StaticClassBehavior_EmitsError_AndStaysOutOfSend()
     {
         var source = Zam009App + $$"""
             [PipelineBehavior(Order = 0)]
@@ -484,7 +484,7 @@ public class DiagnosticTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         var zam009 = Assert.Single(diagnostics, d => d.Id == "ZAM009");
-        Assert.Equal(DiagnosticSeverity.Warning, zam009.Severity);
+        Assert.Equal(DiagnosticSeverity.Error, zam009.Severity);
         var message = zam009.GetMessage(CultureInfo.InvariantCulture);
         Assert.Contains("'global::TestApp.StaticBehavior'", message, StringComparison.Ordinal);
         Assert.Contains("make the class non-static and implement IPipelineBehavior", message, StringComparison.Ordinal);
@@ -493,7 +493,7 @@ public class DiagnosticTests
     }
 
     [Fact]
-    public void ZAM009_ClassWithoutInterface_EmitsWarning_AndStaysOutOfSend()
+    public void ZAM009_ClassWithoutInterface_EmitsError_AndStaysOutOfSend()
     {
         var source = Zam009App + $$"""
             [PipelineBehavior(Order = 0)]
@@ -506,7 +506,7 @@ public class DiagnosticTests
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(source);
 
         var zam009 = Assert.Single(diagnostics, d => d.Id == "ZAM009");
-        Assert.Equal(DiagnosticSeverity.Warning, zam009.Severity);
+        Assert.Equal(DiagnosticSeverity.Error, zam009.Severity);
         var message = zam009.GetMessage(CultureInfo.InvariantCulture);
         Assert.Contains("'global::TestApp.PlainBehavior'", message, StringComparison.Ordinal);
         Assert.EndsWith("; implement IPipelineBehavior", message, StringComparison.Ordinal);

@@ -1,6 +1,6 @@
 # AGENTS.md: ZeroAlloc.Mediator
 
-A source-generated MediatR alternative for .NET 8, 10 and 11. Consumers reference the runtime
+A source-generated MediatR alternative for .NET 10 and 11. Consumers reference the runtime
 package `ZeroAlloc.Mediator` plus the source generator `ZeroAlloc.Mediator.Generator`, which emits a
 static `Mediator` class with one `Send`/`Publish`/`CreateStream` overload per request type, plus
 `AddMediator()` and `IMediator`. Five bridge packages, Validation, Authorization, Cache, Resilience
@@ -28,7 +28,7 @@ and Telemetry, add pipeline behaviors. All seven `src/` projects ship to NuGet f
 ## Build and test
 
 `global.json` pins SDK 11.0.100 with `rollForward: latestMinor`. Libraries target
-`net8.0;net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. CI also installs `10.0.x`:
+`net10.0;net11.0`, tests `net10.0;net11.0`, benchmarks `net10.0`. CI also installs `10.0.x`:
 the net10.0 test leg needs that runtime. From `ci.yml`:
 
 ```bash
@@ -98,8 +98,10 @@ bash scripts/verify-generator-pack-layout.sh ./artifacts
   snapshot files. Use `RunGeneratorAndCompile` when the emitted code must also compile.
 - A `Nullable<T>` cache response can hang under NativeAOT, dotnet/runtime#134799; the smoke runs
   with a 120 s timeout for that reason.
-- `apicompat-suppressions.xml` lists only the shims removed in 6.0. The shared api-compat job
-  applies it; do not add entries to get past a break.
+- `apicompat-suppressions.xml` lists only the intended breaks of the current major against the
+  latest stable release: for 7.0, the net8.0 drop and the removed `MediatorBuilderExtensions`.
+  Each major replaces its contents with the output of `apicompat --generate-suppression-file`.
+  The shared api-compat job applies it; do not add entries to get past an unintended break.
 
 <!-- org-core:start sha256=c42b83cb821d67a5547aafe02bbf9d3f36a7d19379a5d378bc38d452b7db8451 (generated from docker-nuc scripts/agents-md/org-core-zeroalloc.md; do not edit here) -->
 ## Org rules

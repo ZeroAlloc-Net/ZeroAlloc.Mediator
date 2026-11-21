@@ -24,7 +24,8 @@ public sealed class MediatorActivitySourceCollection
 }
 
 // #292: [assembly: MediatorTracing(ExceptionDescription = false)] keeps the exception message out
-// of the generated dispatch spans. The attribute applies to the assembly the generator runs in, so
+// of the generated dispatch spans; since #319 that is also the default without the attribute, and
+// ExceptionDescription = true opts back in. The attribute applies to the assembly the generator runs in, so
 // each setting needs its own compiled assembly: these tests generate, compile and load one per
 // setting, then drive its generated Mediator and IMediator the way a consumer would.
 [Collection(MediatorActivitySourceCollection.Name)]
@@ -135,6 +136,7 @@ public class SpanExceptionDescriptionTests
 
     private static readonly Lazy<Assembly> WithDescription = new(() => CompileProbe(exceptionDescription: true));
     private static readonly Lazy<Assembly> WithoutDescription = new(() => CompileProbe(exceptionDescription: false));
+    private static readonly Lazy<Assembly> WithoutAttribute = new(() => CompileProbe(exceptionDescription: null));
 
     public static TheoryData<string, string, string, string, bool> Failures()
     {
@@ -155,6 +157,20 @@ public class SpanExceptionDescriptionTests
         string kind, string spanName, string tag, string typeName, bool viaDi)
     {
         var activity = await CaptureFailedSpan(WithoutDescription.Value, kind, spanName, tag, typeName, viaDi);
+
+        Assert.Equal(ActivityStatusCode.Error, activity.Status);
+        Assert.Null(activity.StatusDescription);
+        Assert.NotNull(activity.GetTagItem("error.type"));
+        Assert.DoesNotContain(activity.TagObjects, t => t.Value is string s && s.Contains("secret", StringComparison.Ordinal));
+    }
+
+    // #319: without [assembly: MediatorTracing] the message stays out, the same as an explicit false.
+    [Theory]
+    [MemberData(nameof(Failures))]
+    public async Task NoAttribute_FailedSpan_HasErrorStatusAndType_ButNoMessage(
+        string kind, string spanName, string tag, string typeName, bool viaDi)
+    {
+        var activity = await CaptureFailedSpan(WithoutAttribute.Value, kind, spanName, tag, typeName, viaDi);
 
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
         Assert.Null(activity.StatusDescription);
@@ -216,16 +232,25 @@ public class SpanExceptionDescriptionTests
             .GetMethod(method, BindingFlags.Public | BindingFlags.Static)!
             .Invoke(null, arguments)!;
 
-    private static Assembly CompileProbe(bool exceptionDescription)
+    // Null compiles the probe without [assembly: MediatorTracing], for the default.
+    private static Assembly CompileProbe(bool? exceptionDescription)
     {
         // The probe calls BuildServiceProvider, whose assembly nothing may have loaded yet, so it
         // is referenced explicitly rather than found among the AppDomain's loaded assemblies.
         var references = GeneratorTestHelper.CompilableReferences();
         references.Add(MetadataReference.CreateFromFile(typeof(ServiceProvider).Assembly.Location));
 
-        var attribute = $"[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = {(exceptionDescription ? "true" : "false")})]\n";
+        var attribute = exceptionDescription is { } value
+            ? $"[assembly: ZeroAlloc.Mediator.MediatorTracing(ExceptionDescription = {(value ? "true" : "false")})]\n"
+            : "";
+        var assemblyName = exceptionDescription switch
+        {
+            true => "SpanProbe.WithDescription",
+            false => "SpanProbe.WithoutDescription",
+            null => "SpanProbe.WithoutAttribute",
+        };
         var compilation = CSharpCompilation.Create(
-            exceptionDescription ? "SpanProbe.WithDescription" : "SpanProbe.WithoutDescription",
+            assemblyName,
             [CSharpSyntaxTree.ParseText(ProbeSource.Replace("// ATTRIBUTE", attribute, StringComparison.Ordinal))],
             references,
             new CSharpCompilationOptions(
