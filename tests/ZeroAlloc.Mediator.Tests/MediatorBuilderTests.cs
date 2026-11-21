@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using ZeroAlloc.Mediator;
 using ZeroAlloc.Mediator.Cache;
@@ -101,5 +103,24 @@ public class MediatorBuilderTests
         Assert.Contains(services, d => d.ServiceType.Name == "MediatorCacheAccessor");
         Assert.Contains(services, d => d.ServiceType.Name == "ValidationBehaviorAccessor");
         Assert.Contains(services, d => d.ServiceType.Name == "MediatorResilienceMarker");
+    }
+
+    // #277: the reflection-based RegisterHandlersFromAssembly scanners are gone. The generated
+    // AddMediator() registers every handler at compile time, so the runtime package exposes no
+    // API that is unsafe under trimming or NativeAOT.
+    [Fact]
+    public void RuntimePackage_ExposesNoTrimOrAotUnsafeApi()
+    {
+        var assembly = typeof(IMediatorBuilder).Assembly;
+
+        Assert.Null(assembly.GetType("ZeroAlloc.Mediator.MediatorBuilderExtensions"));
+
+        var unsafeMembers = assembly.GetExportedTypes()
+            .SelectMany(t => t.GetMembers(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            .Where(m => m.IsDefined(typeof(RequiresUnreferencedCodeAttribute), inherit: false)
+                     || m.IsDefined(typeof(RequiresDynamicCodeAttribute), inherit: false))
+            .Select(m => m.DeclaringType!.FullName + "." + m.Name)
+            .ToList();
+        Assert.Empty(unsafeMembers);
     }
 }

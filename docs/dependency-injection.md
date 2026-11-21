@@ -89,21 +89,18 @@ If your app builds its provider with `ValidateOnBuild` (the ASP.NET Core Develop
 
 ## Migrating from RegisterHandlersFromAssembly
 
-`RegisterHandlersFromAssembly` and `RegisterHandlersFromAssemblies` are `[Obsolete]`, are not trim- or AOT-safe, and will be removed in the next major version. To migrate:
-
-1. Delete the `.RegisterHandlersFromAssembly(...)` call. `AddMediator()` now registers the handlers.
-2. If you passed a lifetime, pass it to `AddMediator(lifetime)` instead.
-
-A scanner call left in place no longer sets the lifetime. The generated registration runs first, so the scanner's `TryAdd` is a no-op: a leftover `services.AddMediator().RegisterHandlersFromAssembly(asm, ServiceLifetime.Scoped)` yields Transient handlers, except those carrying `[HandlerLifetime]` or a ZeroAlloc.Inject lifetime attribute.
+`RegisterHandlersFromAssembly` and `RegisterHandlersFromAssemblies` were removed in 7.0. They scanned assemblies with reflection, so they were not trim- or AOT-safe, and the generated `AddMediator()` already registers every handler. Delete the call, and pass a lifetime you gave the scanner to `AddMediator(lifetime)` instead:
 
 ```csharp
-// Before
+// Before, 6.x
 services.AddMediator()
     .RegisterHandlersFromAssembly(typeof(Program).Assembly, ServiceLifetime.Scoped);
 
 // After
 services.AddMediator(ServiceLifetime.Scoped);
 ```
+
+See [Migrating to 7.0](migrating-to-v7.md).
 
 ## Lifetimes
 
