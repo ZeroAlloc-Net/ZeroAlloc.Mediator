@@ -8,7 +8,7 @@ sidebar_position: 11
 
 # Migrating to 7.0
 
-7.0 changes no dispatch code. Four things can break a build or change what your telemetry shows.
+7.0 does not change how requests are dispatched. Four things can break a build or change what your telemetry shows.
 
 ## .NET 10 and .NET 11 only
 
