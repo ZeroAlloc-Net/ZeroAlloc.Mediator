@@ -21,8 +21,8 @@ first run, which settled the question, used one unpinned launch.
 
 > Allocations are exact. Speed is shown as same-run ratios; absolute timings are not published.
 
-Handlers registered `Transient` — the default used by `RegisterHandlersFromAssembly` and by
-Saga's `With{Saga}Saga()`.
+Handlers registered `Transient` — the default of the generated `AddMediator()` and of Saga's
+`With{Saga}Saga()`.
 
 ## Results
 

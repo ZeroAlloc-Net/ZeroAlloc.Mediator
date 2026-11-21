@@ -88,7 +88,7 @@ public sealed class CacheBehavior : IPipelineBehavior
     private static string BuildKey<TRequest>(TRequest request)
         => $"{CacheKeyPrefix<TRequest>.Value}:{request}";
 
-    // A hit must not build the key string. On a MemoryCache, net9.0 and later, the key is
+    // A hit must not build the key string. On a MemoryCache the key is
     // formatted into a stack buffer by the same interpolation as BuildKey, so with the same culture
     // and the same ToString or ISpanFormattable.TryFormat call, and looked up as a span, which
     // finds the entry stored under the equal string. A request that implements ISpanFormattable
@@ -125,7 +125,6 @@ public sealed class CacheBehavior : IPipelineBehavior
 
     private static bool TryGetEntry<TRequest>(IMemoryCache cache, TRequest request, out object? entry, out string? key)
     {
-#if NET9_0_OR_GREATER
         if (cache is MemoryCache memoryCache)
         {
             Span<char> buffer = stackalloc char[KeyBufferLength];
@@ -135,14 +134,11 @@ public sealed class CacheBehavior : IPipelineBehavior
                 return memoryCache.TryGetValue((ReadOnlySpan<char>)buffer[..length], out entry);
             }
         }
-#endif
         key = BuildKey(request);
         return cache.TryGetValue(key, out entry);
     }
 
-#if NET9_0_OR_GREATER
     private const int KeyBufferLength = 256;
-#endif
 
     // The cache of the container whose IMediator dispatches the request, so two containers in one
     // process never answer each other's requests. A request dispatched without IMediator, through

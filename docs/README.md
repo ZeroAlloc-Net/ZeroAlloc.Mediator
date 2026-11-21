@@ -8,7 +8,7 @@ sidebar_position: 0
 
 # ZeroAlloc.Mediator Documentation
 
-Zero-allocation, compile-time-dispatched mediator for .NET 8, .NET 10 and .NET 11.
+Zero-allocation, compile-time-dispatched mediator for .NET 10 and .NET 11.
 
 ## Reference
 
@@ -25,7 +25,8 @@ Zero-allocation, compile-time-dispatched mediator for .NET 8, .NET 10 and .NET 1
 | 9 | [Performance](performance.md) | Zero-alloc internals, benchmark results, Native AOT |
 | 10 | [Advanced Patterns](advanced.md) | Error handling, cancellation, scoped behaviors |
 | 11 | [Testing](testing.md) | Unit-test handlers, behaviors, and notifications |
-| 12 | [Migrating to 6.0](migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
+| 12 | [Migrating to 7.0](migrating-to-v7.md) | .NET 10 and 11 only, assembly scanners removed, exception messages out of spans, ZAM009 an error |
+| 13 | [Migrating to 6.0](migrating-to-v6.md) | Removed v1 registration shims, Validation 2, retired diagnostics |
 
 ## Cookbook
 

@@ -69,7 +69,8 @@ public class SendSpanTests
         var activity = Assert.Single(listener.StoppedActivities, a => string.Equals(a.OperationName, "mediator.send", StringComparison.Ordinal));
         Assert.Null(activity.Parent);
         Assert.Equal(ActivityStatusCode.Error, activity.Status);
-        Assert.Equal("probe failed", activity.StatusDescription);
+        // #319: the message stays out of the span by default; error.type classifies the failure.
+        Assert.Null(activity.StatusDescription);
         Assert.Equal("System.InvalidOperationException", activity.GetTagItem("error.type"));
 
         // #238: a failure is counted too, tagged error.type with the exception's full type name,
