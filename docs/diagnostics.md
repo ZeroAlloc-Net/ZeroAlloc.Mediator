@@ -22,7 +22,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
 | ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
-| ZAM009 | Warning | Pipeline behavior does not implement IPipelineBehavior | A `[PipelineBehavior]` class is static or does not implement `IPipelineBehavior`, so it never runs |
+| ZAM009 | Error | Pipeline behavior does not implement IPipelineBehavior | A `[PipelineBehavior]` class is static or does not implement `IPipelineBehavior`, so it never runs |
 | ZAM010 | Error | Cached request type has no per-instance cache key | A `[CacheResponse]` request is a class or struct with instance state whose text is its type name, so all its instances share one cache entry |
 | ZAM011 | Error | Cached record request has a member that prints as its type name | A `[CacheResponse]` record prints a member, such as an array or `List<T>`, as its type name, so requests that differ only in it share one cache entry |
 
@@ -196,7 +196,7 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
 
 ## ZAM009 — Pipeline Behavior Does Not Implement IPipelineBehavior
 
-**Severity:** Warning
+**Severity:** Error (a warning before 7.0)
 
 **What it means:** A class marked `[PipelineBehavior]` does not implement `IPipelineBehavior`. The generator only puts a class that implements it into the pipeline, so the generated `Send` has no call to this behavior and it never runs. The common case is a `static class`, which cannot implement an interface at all.
 
@@ -221,7 +221,7 @@ public static class LoggingBehavior
 public sealed class ValidationBehavior { ... }
 ```
 
-**Warning message:** for the static class, `ZAM009: Pipeline behavior 'LoggingBehavior' does not implement IPipelineBehavior and never runs; a static class cannot implement an interface, so make the class non-static and implement IPipelineBehavior`. For the other class, the message ends in `implement IPipelineBehavior`.
+**Error message:** for the static class, `ZAM009: Pipeline behavior 'LoggingBehavior' does not implement IPipelineBehavior and never runs; a static class cannot implement an interface, so make the class non-static and implement IPipelineBehavior`. For the other class, the message ends in `implement IPipelineBehavior`.
 
 **Fix:** Make the class non-static and implement `IPipelineBehavior`. Only `Handle` is static:
 ```csharp
@@ -239,7 +239,7 @@ public sealed class LoggingBehavior : IPipelineBehavior
 }
 ```
 
-ZAM009 is a warning rather than an error because such a class compiled without complaint before it was added. The class still stays out of the pipeline; ZAM005 and ZAM006 are not reported for it.
+ZAM009 is an error because the behavior the attribute asks for never runs, and a warning would let that build pass. It was a warning in 6.x, so that code that compiled before the rule existed kept compiling; 7.0 makes it an error. The class stays out of the pipeline; ZAM005 and ZAM006 are not reported for it.
 
 ## ZAM010 — Cached Request Type Has No Per-Instance Cache Key
 

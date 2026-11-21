@@ -54,14 +54,15 @@ namespace ZeroAlloc.Mediator.Generator
                 DiagnosticSeverity.Warning,
                 isEnabledByDefault: true);
 
-        // A Warning, not an Error: such a type compiled without a diagnostic before ZAM009.
+        // An Error: the behavior the attribute asks for is never generated into the pipeline, so
+        // the build must not pass silently. It was a Warning in 6.x, ZeroAlloc-Net/.github#48.
         public static readonly DiagnosticDescriptor BehaviorMissingPipelineBehaviorInterface =
             new DiagnosticDescriptor(
                 "ZAM009",
                 "Pipeline behavior does not implement IPipelineBehavior",
                 "Pipeline behavior '{0}' does not implement IPipelineBehavior and never runs; {1}",
                 "ZeroAlloc.Mediator",
-                DiagnosticSeverity.Warning,
+                DiagnosticSeverity.Error,
                 isEnabledByDefault: true);
     
         // An Error: every instance of such a type shares one cache entry, so all but the first

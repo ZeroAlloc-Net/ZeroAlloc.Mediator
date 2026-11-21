@@ -221,7 +221,7 @@ public sealed class LoggingBehavior { ... }
 public sealed class LoggingBehavior : IPipelineBehavior { ... }
 ```
 
-The generated `Send` has no call to either behavior, and each is reported as the warning [ZAM009](diagnostics.md#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior). Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
+The generated `Send` has no call to either behavior, and each is reported as the error [ZAM009](diagnostics.md#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior). Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
 
 **Pitfall 2 — Forgetting to call `next`**
 
