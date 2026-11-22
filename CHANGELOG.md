@@ -1,5 +1,28 @@
 # Changelog
 
+## [7.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.2...v7.0.0) (2026-11-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* every pipeline behavior's Handle now takes the pipeline state as its last type parameter and second argument, the Handle overload that took an IServiceProvider, PipelineBehaviorServices and PipelineBehaviorAttribute.UsesPipelineBehaviorServices are removed because the state carries the provider, and a behavior with the old Handle shape, including one in a referenced package built for 6.x, is now reported as ZAM005 and left out of the pipeline. See the Behaviour change section of the PR for the migration steps.
+* net8.0 assets are no longer shipped; RegisterHandlersFromAssembly, RegisterHandlersFromAssemblies and MediatorBuilderExtensions are removed; failed dispatch spans no longer carry the exception message unless MediatorTracing ExceptionDescription = true is set; ZAM009 is now an error. See the Behaviour change section of the pull request for the migration steps.
+
+### Features
+
+* default MediatorTracing ExceptionDescription to false so exception messages stay out of spans ([ad45740](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ad457406b21c595c4495a9ae33199852cf859d2b))
+* drop ZeroAlloc.Pipeline.dll from the generator package and move to ZeroAlloc.Pipeline.Generators 2.0.0 ([3e4c41b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3e4c41b32a4ebf370fd3045621db4694ccd7f658))
+* IMediator.Send through pipeline behaviors allocates no delegate per behavior ([3e4c41b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3e4c41b32a4ebf370fd3045621db4694ccd7f658))
+* pass the service provider as pipeline state so the DI dispatch chain is static ([3e4c41b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3e4c41b32a4ebf370fd3045621db4694ccd7f658))
+* remove RegisterHandlersFromAssembly and RegisterHandlersFromAssemblies in favour of the generated AddMediator ([ad45740](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ad457406b21c595c4495a9ae33199852cf859d2b))
+* report a referenced behavior with another Handle shape as ZAM005 instead of skipping it ([3e4c41b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/3e4c41b32a4ebf370fd3045621db4694ccd7f658))
+* target net10.0 and net11.0, drop net8.0 ([ad45740](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ad457406b21c595c4495a9ae33199852cf859d2b))
+
+
+### Bug Fixes
+
+* report ZAM009 as an error when a PipelineBehavior class does not implement IPipelineBehavior ([ad45740](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/ad457406b21c595c4495a9ae33199852cf859d2b))
+
 ## [6.7.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.1...v6.7.2) (2026-11-16)
 
 
