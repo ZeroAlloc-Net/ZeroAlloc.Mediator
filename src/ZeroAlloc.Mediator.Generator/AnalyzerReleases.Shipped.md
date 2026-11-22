@@ -48,3 +48,11 @@ Rule ID | Category           | Severity | Notes
 --------|--------------------|----------|--------------------------------------------------
 ZAM010  | ZeroAlloc.Mediator | Error    | Cached request type has no per-instance cache key
 ZAM011  | ZeroAlloc.Mediator | Error    | Cached record request has a member that prints as its type name
+
+## Release 7.0.0
+
+### Changed Rules
+
+Rule ID | New Category       | New Severity | Old Category       | Old Severity | Notes
+--------|--------------------|--------------|--------------------|--------------|-------------------------------------------------------
+ZAM009  | ZeroAlloc.Mediator | Error        | ZeroAlloc.Mediator | Warning      | Pipeline behavior does not implement IPipelineBehavior

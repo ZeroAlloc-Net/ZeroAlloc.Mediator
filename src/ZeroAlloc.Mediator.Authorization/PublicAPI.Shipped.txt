@@ -1,6 +1,7 @@
 #nullable enable
 static volatile ZeroAlloc.Mediator.Authorization.AuthorizationBehaviorState.ServiceProvider -> System.IServiceProvider?
 static ZeroAlloc.Mediator.Authorization.AuthorizationBehavior.CheckStream<TRequest>(TRequest request, System.IServiceProvider? services, System.Threading.CancellationToken ct) -> System.Threading.Tasks.ValueTask
+static ZeroAlloc.Mediator.Authorization.AuthorizationBehavior.Handle<TRequest, TResponse, TState>(TRequest request, TState state, System.Threading.CancellationToken ct, System.Func<TRequest, TState, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
 static ZeroAlloc.Mediator.Authorization.MediatorAuthorizationServiceCollectionExtensions.WithAuthorization(this ZeroAlloc.Mediator.IMediatorBuilder! builder, System.Action<ZeroAlloc.Mediator.Authorization.AuthorizationOptions!>? configure = null) -> ZeroAlloc.Mediator.IMediatorBuilder!
 ZeroAlloc.Mediator.Authorization.AuthorizationBehavior
 ZeroAlloc.Mediator.Authorization.AuthorizationBehavior.AuthorizationBehavior() -> void
