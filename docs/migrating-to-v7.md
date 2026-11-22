@@ -12,7 +12,7 @@ sidebar_position: 11
 
 ## Pipeline behaviors take the pipeline state
 
-`IMediator.Send` used to allocate one `next` delegate per behavior per call, because its lambdas read the provider it was resolved from. 7.0 threads that provider through `next` as the pipeline state, so every lambda of the generated chain is `static` and the compiler creates each once. A `Send` through two behaviors allocates 248 B less per call. The price is the signature of every behavior you wrote: `Handle` gets the state as its last type parameter and its second argument, and passes it on to `next`.
+`IMediator.Send` used to allocate one `next` delegate per behavior per call, because its lambdas read the provider it was resolved from. 7.0 threads that provider through `next` as the pipeline state, so every lambda of the generated chain is `static` and the compiler creates each once. A `Send` through two awaiting behaviors plus the Cache, Validation and Resilience bridges allocated 392 B per call in 6.x and allocates 0 B in 7.0. The price is the signature of every behavior you wrote: `Handle` gets the state as its last type parameter and its second argument, and passes it on to `next`.
 
 ```csharp
 // 6.x
