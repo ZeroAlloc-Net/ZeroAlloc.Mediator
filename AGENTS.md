@@ -70,10 +70,10 @@ CI job `sdk10-consumer` needs a 10.0.1xx SDK; `tests/ZeroAlloc.Mediator.Sdk10Smo
 consumer of the packed packages with Roslyn 5.0:
 
 ```bash
-dotnet pack src/ZeroAlloc.Mediator -c Release -o artifacts -p:Version=9.9.9-local.<sha>
-dotnet pack src/ZeroAlloc.Mediator.Generator -c Release -o artifacts -p:Version=9.9.9-local.<sha>
+dotnet pack src/ZeroAlloc.Mediator -c Release -o artifacts -p:Version=9.9.9-local.sha$(git rev-parse --short HEAD)
+dotnet pack src/ZeroAlloc.Mediator.Generator -c Release -o artifacts -p:Version=9.9.9-local.sha$(git rev-parse --short HEAD)
 cd tests/ZeroAlloc.Mediator.Sdk10Smoke/Consumer
-dotnet run -c Release -p:ZeroAllocMediatorVersion=9.9.9-local.<sha>
+dotnet run -c Release -p:ZeroAllocMediatorVersion=9.9.9-local.sha$(git rev-parse --short HEAD)
 ```
 
 CI job `roslyn-floor` calls the shared `roslyn-floor.yml` from ZeroAlloc-Net/.github: it packs the

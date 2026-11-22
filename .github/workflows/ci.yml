@@ -154,7 +154,7 @@ jobs:
 
       - name: Pack
         run: |
-          version="9.9.9-local.${GITHUB_SHA::7}"
+          version="9.9.9-local.sha${GITHUB_SHA::7}"
           echo "MEDIATOR_VERSION=$version" >> "$GITHUB_ENV"
           dotnet pack src/ZeroAlloc.Mediator/ZeroAlloc.Mediator.csproj -c Release -o artifacts -p:Version="$version"
           dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj -c Release -o artifacts -p:Version="$version"
