@@ -239,4 +239,29 @@ public class ReferencedBehaviorGeneratorTests
         Assert.Contains("OldBridge", zam005.GetMessage(), StringComparison.Ordinal);
         Assert.DoesNotContain("OldBridge.Handle", output, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ReferencedBehavior_KeepingAMediator6HandleNextToTheNewOne_IsInTheSendPipeline()
+    {
+        // A package may keep the old overload for callers that bind to it. The generator runs the
+        // one with the state, wherever the other is declared, and reports nothing.
+        var bridge = CompileLibrary(Library($$"""
+            [PipelineBehavior(Order = -500)]
+            public sealed class BothShapesBridge : IPipelineBehavior
+            {
+                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+                    TRequest request, CancellationToken ct,
+                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                    where TRequest : IRequest<TResponse>
+                    => next(request, ct);
+
+            {{HandleMethod}}
+            }
+            """));
+
+        var (output, diagnostics) = GeneratorTestHelper.RunGenerator(BareConsumer, [bridge]);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "ZAM005");
+        Assert.Contains("BothShapesBridge.Handle<global::TestApp.Ping, string, global::System.IServiceProvider>(", output, StringComparison.Ordinal);
+    }
 }

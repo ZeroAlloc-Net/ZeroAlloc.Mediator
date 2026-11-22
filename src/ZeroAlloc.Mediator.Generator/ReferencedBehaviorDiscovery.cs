@@ -175,8 +175,12 @@ namespace ZeroAlloc.Mediator.Generator
             return null;
         }
 
+        // The type-parameter count of the behavior's Handle. A behavior may keep an overload for an
+        // older Mediator next to the one it runs, so the supported shape wins when there is one; the
+        // first public static Handle found is the answer only when none has it.
         private static int GetHandleTypeParameterCount(INamedTypeSymbol type)
         {
+            var first = -1;
             for (var current = type; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
             {
                 foreach (var member in current.GetMembers("Handle"))
@@ -185,10 +189,15 @@ namespace ZeroAlloc.Mediator.Generator
                         && method.IsStatic
                         && method.DeclaredAccessibility == Accessibility.Public
                         && method.TypeParameters.Length > 0)
-                        return method.TypeParameters.Length;
+                    {
+                        if (method.TypeParameters.Length == MediatorGenerator.SendHandleTypeParameterCount)
+                            return method.TypeParameters.Length;
+                        if (first < 0)
+                            first = method.TypeParameters.Length;
+                    }
                 }
             }
-            return -1;
+            return first;
         }
     }
 

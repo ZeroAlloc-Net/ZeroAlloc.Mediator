@@ -30,7 +30,7 @@ public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
     => next(request, state, ct);
 ```
 
-A behavior that does not match is reported as the error [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method), including one in a referenced package that was built for 6.x: update that package to its 7.0 release.
+A behavior whose `Handle` has the old two type parameters is reported as the error [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method) and left out of the pipeline, including one in a referenced package that was built for 6.x: update that package to its 7.0 release. ZAM005 checks the access and the number of type parameters. A `Handle` with three type parameters but the old parameter list, without the state argument, is not reported as ZAM005: the generated `Send` fails to compile instead, at the call that passes the state.
 
 The state is the service provider of the request being dispatched. `IMediator.Send` passes the provider it was resolved from, and the static `Mediator` class passes `null`. This replaces three 6.x ways of reaching it, which are removed:
 

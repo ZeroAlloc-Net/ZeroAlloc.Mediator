@@ -46,9 +46,10 @@ Behaviors become nested static lambda calls, not a list to iterate.
 ```csharp
 // Conceptual generated output with 2 behaviors
 public static ValueTask<OrderId> Send(PlaceOrderCommand request, CancellationToken ct = default)
-    => LoggingBehavior.Handle(request, ct, (req, token) =>
-        ValidationBehavior.Handle(req, token, (req2, token2) =>
-            (_placeOrderHandlerFactory?.Invoke() ?? new PlaceOrderHandler()).Handle(req2, token2)));
+    => LoggingBehavior.Handle<PlaceOrderCommand, OrderId, IServiceProvider?>(request, null, ct,
+        static (req, state, token) => ValidationBehavior.Handle<PlaceOrderCommand, OrderId, IServiceProvider?>(req, state, token,
+            static (req2, _, token2) =>
+                (_placeOrderHandlerFactory?.Invoke() ?? new PlaceOrderHandler()).Handle(req2, token2)));
 ```
 
 The pipeline is a static call chain baked in at code generation time. There is no `List<IPipelineBehavior>` allocated or iterated at runtime.
