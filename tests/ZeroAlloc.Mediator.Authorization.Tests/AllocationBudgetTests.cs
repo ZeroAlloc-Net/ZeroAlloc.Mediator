@@ -83,8 +83,8 @@ public sealed class AllocationBudgetTests
         var req = new GetThingThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(32, 1000,
-            () => AuthorizationBehavior.Handle<GetThingThrowAllow, int>(req, services, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult(r.Id * 2)),
+            () => AuthorizationBehavior.Handle<GetThingThrowAllow, int, IServiceProvider>(req, services, CancellationToken.None,
+                static (r, _, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (allow happy path)");
     }
 
@@ -100,9 +100,9 @@ public sealed class AllocationBudgetTests
         var req = new GetThingResultDeny(1);
 
         AllocationGate.AssertBudgetValueTask(32, 1000,
-            () => AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
+            () => AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>, IServiceProvider>(
                 req, services, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id)),
+                static (r, _, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id)),
             "AuthorizationBehavior.Handle (IAuthorizedRequest deny path)");
     }
 
@@ -110,13 +110,11 @@ public sealed class AllocationBudgetTests
     public void IMediator_Send_ThroughThePipeline_Budget()
     {
         // The full generated IMediator.Send, with AuthorizationBehavior and
-        // CountingDownstreamBehavior in the chain. Nothing touches PipelineBehaviorServices here:
-        // however Send hands the pipeline its scope, that cost is inside the measured call. Both
-        // behaviors take the provider as a Handle argument, so Send must not set
-        // PipelineBehaviorServices.Current, an AsyncLocal write that costs 72 B per call.
+        // CountingDownstreamBehavior in the chain. The scope reaches both behaviors as the
+        // state threaded through next, so every lambda is static and cached by the compiler:
+        // no delegate per behavior (it was 128 B per call before the state was threaded), and
+        // no AsyncLocal write.
         // Budget rationale, per call:
-        //   128 B  one next delegate per behavior. The lambdas read _services, so the compiler
-        //          cannot cache them; ZeroAlloc.Pipeline#121 removes this in the next major.
         //    24 B  the transient IntegrationTestHandler.
         //    32 B  AuthorizationBehavior's ResourceSecurityContextAdapter.
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
@@ -124,7 +122,7 @@ public sealed class AllocationBudgetTests
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         var req = new IntegrationTestRequest(7);
 
-        AllocationGate.AssertBudgetValueTask(184, 1000,
+        AllocationGate.AssertBudgetValueTask(56, 1000,
             () => mediator.Send(req, CancellationToken.None),
             "IMediator.Send (authorization pipeline, allow path)");
     }

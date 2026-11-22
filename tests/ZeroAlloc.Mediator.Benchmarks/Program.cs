@@ -268,17 +268,16 @@ public class ZBenchStreamHandler : ZeroAlloc.Mediator.IStreamRequestHandler<ZBen
 // ZeroAlloc.Mediator Pipeline Behavior
 // ============================================================
 
-// It reads no services, and says so, so IMediator.Send skips setting
-// PipelineBehaviorServices.Current for it.
-[ZeroAlloc.Mediator.PipelineBehavior(Order = 0, AppliesTo = typeof(ZBenchCreateUser), UsesPipelineBehaviorServices = false)]
+// It only forwards to next, and passes the state along unread.
+[ZeroAlloc.Mediator.PipelineBehavior(Order = 0, AppliesTo = typeof(ZBenchCreateUser))]
 public class ZBenchLoggingBehavior : ZeroAlloc.Mediator.IPipelineBehavior
 {
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : ZeroAlloc.Mediator.IRequest<TResponse>
     {
-        return next(request, ct);
+        return next(request, state, ct);
     }
 }
 

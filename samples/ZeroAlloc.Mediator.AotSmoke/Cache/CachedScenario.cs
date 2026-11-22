@@ -116,14 +116,14 @@ public static class CachedScenario
         where TRequest : IRequest<TResponse>
     {
         var calls = 0;
-        ValueTask<TResponse> Next(TRequest r, CancellationToken ct)
+        ValueTask<TResponse> Next(TRequest r, IServiceProvider? _, CancellationToken ct)
         {
             calls++;
             return ValueTask.FromResult(calls == 1 ? stored : other);
         }
 
-        var miss = await CacheBehavior.Handle<TRequest, TResponse>(request, CancellationToken.None, Next).ConfigureAwait(false);
-        var hit = await CacheBehavior.Handle<TRequest, TResponse>(request, CancellationToken.None, Next).ConfigureAwait(false);
+        var miss = await CacheBehavior.Handle<TRequest, TResponse, IServiceProvider?>(request, null, CancellationToken.None, Next).ConfigureAwait(false);
+        var hit = await CacheBehavior.Handle<TRequest, TResponse, IServiceProvider?>(request, null, CancellationToken.None, Next).ConfigureAwait(false);
 
         if (!Equals(miss, stored))
             throw new InvalidOperationException($"{typeof(TRequest).Name}: miss returned '{miss}', expected '{stored}'");

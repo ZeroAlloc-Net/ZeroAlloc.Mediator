@@ -35,10 +35,10 @@ public class TelemetryBehaviorTests
         // The generated Send owns the mediator.send span (#236); the behavior only records metrics.
         using var listener = new TestActivityListener("ZeroAlloc.Mediator");
 
-        var result = await TelemetryBehavior.Handle<TestRequest, int>(
-            new TestRequest(7),
+        var result = await TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+            new TestRequest(7), null,
             CancellationToken.None,
-            (r, _) => ValueTask.FromResult(r.Value * 2));
+            (r, _, _) => ValueTask.FromResult(r.Value * 2));
 
         Assert.Equal(14, result);
         Assert.Empty(listener.StoppedActivities);
@@ -50,10 +50,10 @@ public class TelemetryBehaviorTests
         using var listener = new TestActivityListener("ZeroAlloc.Mediator");
 
         var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            TelemetryBehavior.Handle<TestRequest, int>(
-                new TestRequest(1),
+            TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+                new TestRequest(1), null,
                 CancellationToken.None,
-                (_, _) => throw new InvalidOperationException("boom")).AsTask());
+                (_, _, _) => throw new InvalidOperationException("boom")).AsTask());
 
         Assert.Equal("boom", thrown.Message);
         Assert.Empty(listener.StoppedActivities);
@@ -80,15 +80,15 @@ public class TelemetryBehaviorTests
         });
         meterListener.Start();
 
-        await TelemetryBehavior.Handle<TestRequest, int>(
-            new TestRequest(1),
+        await TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+            new TestRequest(1), null,
             CancellationToken.None,
-            (_, _) => ValueTask.FromResult(0));
+            (_, _, _) => ValueTask.FromResult(0));
 
-        await TelemetryBehavior.Handle<TestRequest, int>(
-            new TestRequest(2),
+        await TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+            new TestRequest(2), null,
             CancellationToken.None,
-            (_, _) => ValueTask.FromResult(0));
+            (_, _, _) => ValueTask.FromResult(0));
 
         Assert.Equal(2, measurements.Count);
         Assert.All(measurements, m => Assert.Equal(1L, m));
@@ -113,10 +113,10 @@ public class TelemetryBehaviorTests
         meterListener.Start();
 
         await Assert.ThrowsAsync<TimeoutException>(() =>
-            TelemetryBehavior.Handle<TestRequest, int>(
-                new TestRequest(1),
+            TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+                new TestRequest(1), null,
                 CancellationToken.None,
-                (_, _) => throw new TimeoutException("slow")).AsTask());
+                (_, _, _) => throw new TimeoutException("slow")).AsTask());
 
         var errorTag = new KeyValuePair<string, object?>("error.type", "System.TimeoutException");
         Assert.Equal(
@@ -145,10 +145,10 @@ public class TelemetryBehaviorTests
         });
         meterListener.Start();
 
-        await TelemetryBehavior.Handle<TestRequest, int>(
-            new TestRequest(1),
+        await TelemetryBehavior.Handle<TestRequest, int, IServiceProvider?>(
+            new TestRequest(1), null,
             CancellationToken.None,
-            (_, _) => ValueTask.FromResult(0));
+            (_, _, _) => ValueTask.FromResult(0));
 
         Assert.Single(measurements);
         Assert.True(measurements[0] >= 0.0, $"expected non-negative duration, got {measurements[0]}");

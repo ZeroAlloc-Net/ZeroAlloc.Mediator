@@ -214,13 +214,13 @@ namespace ZeroAlloc.Mediator.Sample
     [PipelineBehavior(Order = 0)]
     public class LoggingBehavior : IPipelineBehavior
     {
-        public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-            TRequest request, CancellationToken ct,
-            Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+            TRequest request, TState state, CancellationToken ct,
+            Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
             where TRequest : IRequest<TResponse>
         {
             Console.WriteLine($"  [LoggingBehavior] >> {typeof(TRequest).Name}");
-            var result = next(request, ct);
+            var result = next(request, state, ct);
             Console.WriteLine($"  [LoggingBehavior] << {typeof(TRequest).Name}");
             return result;
         }
@@ -229,13 +229,13 @@ namespace ZeroAlloc.Mediator.Sample
     [PipelineBehavior(Order = 1, AppliesTo = typeof(CreateUser))]
     public class CreateUserValidation : IPipelineBehavior
     {
-        public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-            TRequest request, CancellationToken ct,
-            Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+            TRequest request, TState state, CancellationToken ct,
+            Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
             where TRequest : IRequest<TResponse>
         {
             Console.WriteLine($"  [CreateUserValidation] Validating {request}");
-            return next(request, ct);
+            return next(request, state, ct);
         }
     }
 }

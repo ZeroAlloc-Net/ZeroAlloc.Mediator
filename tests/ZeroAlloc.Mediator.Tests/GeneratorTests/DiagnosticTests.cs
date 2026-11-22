@@ -161,21 +161,21 @@ public class DiagnosticTests
             [PipelineBehavior(Order = 0)]
             public class BehaviorA : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
 
             [PipelineBehavior(Order = 0)]
             public class BehaviorB : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 
@@ -233,11 +233,11 @@ public class DiagnosticTests
             [PipelineBehavior(Order = 0)]
             public class GoodBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 
@@ -303,11 +303,11 @@ public class DiagnosticTests
             [PipelineBehavior(Order = 0)]
             public class LoggingBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 
@@ -463,11 +463,11 @@ public class DiagnosticTests
         """;
 
     private const string Zam009HandleMethod = """
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+            public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                TRequest request, TState state, CancellationToken ct,
+                Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                 where TRequest : IRequest<TResponse>
-                => next(request, ct);
+                => next(request, state, ct);
         """;
 
     [Fact]

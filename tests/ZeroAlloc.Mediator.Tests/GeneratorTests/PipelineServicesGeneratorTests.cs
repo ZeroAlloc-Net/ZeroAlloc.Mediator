@@ -2,15 +2,11 @@ using Microsoft.CodeAnalysis;
 
 namespace ZeroAlloc.Mediator.Tests.GeneratorTests;
 
-// The generated IMediator hands its own provider, the request's scope, to the pipeline
-// behaviors: as a Handle argument to a behavior that takes one, and through
-// PipelineBehaviorServices.Current to one that may read it. Setting Current is an AsyncLocal
-// write that allocates per Send, so it is emitted only when such a behavior is in the pipeline.
-// Static Mediator.Send has no provider to hand over.
+// The generated IMediator threads its own provider, the request's scope, through the pipeline as
+// the state of every behavior's Handle, so each lambda of the chain is static and the compiler
+// creates it once. The static Mediator has no provider: its state is null.
 public class PipelineServicesGeneratorTests
 {
-    private const string Assignment = "global::ZeroAlloc.Mediator.PipelineBehaviorServices.Current = _services;";
-
     private const string Handler = """
         using ZeroAlloc.Mediator;
         using System;
@@ -28,112 +24,117 @@ public class PipelineServicesGeneratorTests
         }
         """;
 
+    private const string OtherBehavior = """
+
+        [PipelineBehavior(Order = 1)]
+        public class TimingBehavior : IPipelineBehavior
+        {
+            public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                TRequest request, TState state, CancellationToken ct,
+                Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+                where TRequest : IRequest<TResponse>
+                => next(request, state, ct);
+        }
+        """;
+
     private const string Behavior = """
 
         [PipelineBehavior(Order = 0)]
         public class LoggingBehavior : IPipelineBehavior
         {
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+            public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                TRequest request, TState state, CancellationToken ct,
+                Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                 where TRequest : IRequest<TResponse>
-                => next(request, ct);
+                => next(request, state, ct);
         }
         """;
 
+    private static string MediatorServiceSource(string output)
+    {
+        var serviceStart = output.IndexOf("partial class MediatorService", StringComparison.Ordinal);
+        Assert.True(serviceStart >= 0, "MediatorService was not emitted");
+        return output.Substring(serviceStart);
+    }
+
     [Fact]
-    public void MediatorService_Send_HandsItsProviderToThePipeline()
+    public void MediatorService_Send_ThreadsItsProviderThroughNext()
     {
         var (output, diagnostics) = GeneratorTestHelper.RunGenerator(Handler + Behavior);
 
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        var serviceStart = output.IndexOf("partial class MediatorService", StringComparison.Ordinal);
-        Assert.True(serviceStart >= 0, "MediatorService was not emitted");
-
-        // Exactly once, in MediatorService.Send, before the pipeline is entered.
-        var first = output.IndexOf(Assignment, StringComparison.Ordinal);
-        Assert.True(first > serviceStart, "the provider is not handed over in MediatorService.Send");
-        Assert.Equal(-1, output.IndexOf(Assignment, first + Assignment.Length, StringComparison.Ordinal));
-        Assert.True(first < output.IndexOf("LoggingBehavior.Handle", serviceStart, StringComparison.Ordinal));
+        var service = MediatorServiceSource(output);
+        Assert.Contains(
+            "LoggingBehavior.Handle<global::TestApp.Ping, string, global::System.IServiceProvider>(",
+            service, StringComparison.Ordinal);
+        Assert.Contains("request, _services, ct,", service, StringComparison.Ordinal);
+        // The innermost body resolves the handler from the state, not from the captured field.
+        Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(s1)", service, StringComparison.Ordinal);
     }
 
-    private const string OptedOutBehavior = """
+    [Fact]
+    public void MediatorService_Send_EmitsOnlyStaticLambdas()
+    {
+        var (output, _) = GeneratorTestHelper.RunGenerator(Handler + Behavior + OtherBehavior);
 
-        [PipelineBehavior(Order = 1, UsesPipelineBehaviorServices = false)]
-        public class TimingBehavior : IPipelineBehavior
-        {
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-                where TRequest : IRequest<TResponse>
-                => next(request, ct);
-        }
-        """;
-
-    private const string ServicesBehavior = """
-
-        [PipelineBehavior(Order = 2)]
-        public class ScopedBehavior : IPipelineBehavior
-        {
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-                where TRequest : IRequest<TResponse>
-                => next(request, ct);
-
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, IServiceProvider services, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-                where TRequest : IRequest<TResponse>
-                => next(request, ct);
-        }
-        """;
+        var service = MediatorServiceSource(output);
+        var lambdas = System.Text.RegularExpressions.Regex.Matches(
+            service, @"(?:static )?\(r\d+, s\d+, c\d+\) =>", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1));
+        Assert.NotEmpty(lambdas);
+        Assert.All(lambdas.Cast<System.Text.RegularExpressions.Match>(), m => Assert.StartsWith("static ", m.Value, StringComparison.Ordinal));
+    }
 
     [Fact]
-    public void Send_WhenNoBehaviorReadsCurrent_DoesNotSetIt()
+    public void MediatorService_Send_DoesNotCaptureTheProviderField()
     {
-        var (output, generatorDiagnostics, compilationDiagnostics) =
-            GeneratorTestHelper.RunGeneratorAndCompile(Handler + OptedOutBehavior + ServicesBehavior);
+        var (output, _) = GeneratorTestHelper.RunGenerator(Handler + Behavior + OtherBehavior);
+
+        // _services is read once, as the state argument of the outermost call.
+        var service = MediatorServiceSource(output);
+        var sendStart = service.IndexOf("Send(global::TestApp.Ping request", StringComparison.Ordinal);
+        Assert.True(sendStart >= 0);
+        var send = service.Substring(sendStart, service.IndexOf("catch", sendStart, StringComparison.Ordinal) - sendStart);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(
+            send, "_services", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1)));
+    }
+
+    [Fact]
+    public void StaticMediator_Send_PassesANullState()
+    {
+        var (output, _) = GeneratorTestHelper.RunGenerator(Handler + Behavior);
+
+        var staticStart = output.IndexOf("LoggingBehavior.Handle", StringComparison.Ordinal);
+        var serviceStart = output.IndexOf("partial class MediatorService", StringComparison.Ordinal);
+        Assert.True(staticStart >= 0 && staticStart < serviceStart);
+        var call = output.Substring(staticStart, 160);
+        Assert.StartsWith("LoggingBehavior.Handle<global::TestApp.Ping, string, global::System.IServiceProvider?>(", call, StringComparison.Ordinal);
+        Assert.Contains("request, null, ct,", call, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Send_NeverSetsAnAmbientProvider()
+    {
+        var (output, _) = GeneratorTestHelper.RunGenerator(Handler + Behavior);
+
+        Assert.DoesNotContain("PipelineBehaviorServices", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BehaviorsAndGeneratedCode_Compile()
+    {
+        var (_, generatorDiagnostics, compilationDiagnostics) =
+            GeneratorTestHelper.RunGeneratorAndCompile(Handler + Behavior + OtherBehavior);
 
         Assert.Empty(generatorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Empty(compilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.DoesNotContain(Assignment, output, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Send_PassesItsProviderToABehaviorThatTakesOne()
-    {
-        var (output, _, compilationDiagnostics) =
-            GeneratorTestHelper.RunGeneratorAndCompile(Handler + OptedOutBehavior + ServicesBehavior);
-
-        Assert.Empty(compilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
-        var serviceStart = output.IndexOf("partial class MediatorService", StringComparison.Ordinal);
-        var call = output.IndexOf("ScopedBehavior.Handle", serviceStart, StringComparison.Ordinal);
-        Assert.True(call > serviceStart, "ScopedBehavior is not in MediatorService.Send");
-        // TimingBehavior, Order 1, wraps it, so it is called with level-1 arguments.
-        var callEnd = output.IndexOf("(r2, c2)", call, StringComparison.Ordinal);
-        Assert.Contains("r1, _services, c1,", output.Substring(call, callEnd - call), StringComparison.Ordinal);
-
-        // The static Mediator class has no provider and calls the overload without one.
-        var staticCall = output.IndexOf("ScopedBehavior.Handle", StringComparison.Ordinal);
-        Assert.True(staticCall < serviceStart);
-        Assert.DoesNotContain("_services", output.Substring(staticCall, serviceStart - staticCall), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Send_SetsCurrent_WhenOneBehaviorMayReadIt()
-    {
-        // LoggingBehavior neither takes the provider nor opts out, so it may read Current.
-        var (output, _) = GeneratorTestHelper.RunGenerator(Handler + Behavior + OptedOutBehavior + ServicesBehavior);
-
-        Assert.Contains(Assignment, output, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Send_WithoutBehaviors_DoesNotTouchThePipelineProvider()
+    public void Send_WithoutBehaviors_ResolvesTheHandlerFromTheField()
     {
         var (output, _) = GeneratorTestHelper.RunGenerator(Handler);
 
         Assert.DoesNotContain("PipelineBehaviorServices", output, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<global::TestApp.PingHandler>(_services)", output, StringComparison.Ordinal);
     }
 }

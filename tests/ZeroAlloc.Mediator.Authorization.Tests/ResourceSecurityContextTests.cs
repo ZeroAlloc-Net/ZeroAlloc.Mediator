@@ -36,9 +36,9 @@ public sealed class ResourceSecurityContextTests
         AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
         var req = new ResourceOwnerCommand(UserId: "user-1", Payload: 7);
 
-        var response = await AuthorizationBehavior.Handle<ResourceOwnerCommand, int>(
-            req, CancellationToken.None,
-            static (r, _) => ValueTask.FromResult(r.Payload * 2));
+        var response = await AuthorizationBehavior.Handle<ResourceOwnerCommand, int, IServiceProvider?>(
+            req, null, CancellationToken.None,
+            static (r, _, _) => ValueTask.FromResult(r.Payload * 2));
 
         // Policy resolved IResourceSecurityContext<ResourceOwnerCommand>, saw the
         // request's UserId == ctx.Id, and allowed; handler ran (7 * 2).
@@ -54,9 +54,9 @@ public sealed class ResourceSecurityContextTests
         var req = new ResourceWrongTypeCommand(UserId: "user-1");
 
         var ex = await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
-            await AuthorizationBehavior.Handle<ResourceWrongTypeCommand, int>(
-                req, CancellationToken.None,
-                static (_, _) => ValueTask.FromResult(42)));
+            await AuthorizationBehavior.Handle<ResourceWrongTypeCommand, int, IServiceProvider?>(
+                req, null, CancellationToken.None,
+                static (_, _, _) => ValueTask.FromResult(42)));
 
         // The policy on ResourceWrongTypeCommand type-checks
         // IResourceSecurityContext<ResourceOwnerCommand> (intentionally mismatched).

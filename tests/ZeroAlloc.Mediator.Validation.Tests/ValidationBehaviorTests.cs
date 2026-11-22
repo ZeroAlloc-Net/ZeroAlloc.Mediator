@@ -116,14 +116,14 @@ public class ValidationBehaviorTests : IDisposable
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
         var nextCalled = false;
-        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, CancellationToken c)
+        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, IServiceProvider? _, CancellationToken c)
         {
             nextCalled = true;
             return ValueTask.FromResult(Result<string, ValidationError>.Success(r.Name));
         }
 
         var result = await ValidationBehavior.Handle(
-            new ValidatedRequest("Alice"), CancellationToken.None, Next);
+            new ValidatedRequest("Alice"), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.True(nextCalled);
         Assert.True(result.IsSuccess);
@@ -137,14 +137,14 @@ public class ValidationBehaviorTests : IDisposable
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
         var nextCalled = false;
-        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, CancellationToken c)
+        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, IServiceProvider? _, CancellationToken c)
         {
             nextCalled = true;
             return ValueTask.FromResult(Result<string, ValidationError>.Success(r.Name));
         }
 
         var result = await ValidationBehavior.Handle(
-            new ValidatedRequest("Bob"), CancellationToken.None, Next);
+            new ValidatedRequest("Bob"), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.True(nextCalled);
         Assert.True(result.IsSuccess);
@@ -159,14 +159,14 @@ public class ValidationBehaviorTests : IDisposable
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
         var nextCalled = false;
-        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, CancellationToken c)
+        ValueTask<Result<string, ValidationError>> Next(ValidatedRequest r, IServiceProvider? _, CancellationToken c)
         {
             nextCalled = true;
             return ValueTask.FromResult(Result<string, ValidationError>.Success(r.Name));
         }
 
         var result = await ValidationBehavior.Handle(
-            new ValidatedRequest(""), CancellationToken.None, Next);
+            new ValidatedRequest(""), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.False(nextCalled);
         Assert.True(result.IsFailure);
@@ -180,14 +180,14 @@ public class ValidationBehaviorTests : IDisposable
         ValidationBehaviorState.ServiceProvider = null;
 
         var nextCalled = false;
-        ValueTask<int> Next(UnvalidatedRequest r, CancellationToken c)
+        ValueTask<int> Next(UnvalidatedRequest r, IServiceProvider? _, CancellationToken c)
         {
             nextCalled = true;
             return ValueTask.FromResult(r.Value * 2);
         }
 
         var result = await ValidationBehavior.Handle(
-            new UnvalidatedRequest(5), CancellationToken.None, Next);
+            new UnvalidatedRequest(5), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.True(nextCalled);
         Assert.Equal(10, result);
@@ -249,12 +249,12 @@ public class ValidationBehaviorTests : IDisposable
         services.AddSingleton<ValidatorFor<ThrowingRequest>, ThrowingRequestValidator>();
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
-        ValueTask<string> Next(ThrowingRequest r, CancellationToken c) =>
+        ValueTask<string> Next(ThrowingRequest r, IServiceProvider? _, CancellationToken c) =>
             ValueTask.FromResult(r.Name);
 
         var ex = await Assert.ThrowsAsync<ValidationFailedException>(() =>
             ValidationBehavior.Handle(
-                new ThrowingRequest(""), CancellationToken.None, Next).AsTask());
+                new ThrowingRequest(""), (IServiceProvider?)null, CancellationToken.None, Next).AsTask());
 
         Assert.Single(ex.Error.Failures);
         Assert.Equal("Name", ex.Error.Failures[0].PropertyName);
@@ -269,14 +269,14 @@ public class ValidationBehaviorTests : IDisposable
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
         var nextCalled = false;
-        ValueTask<UnitResult<ValidationError>> Next(UnitValidatedRequest r, CancellationToken c)
+        ValueTask<UnitResult<ValidationError>> Next(UnitValidatedRequest r, IServiceProvider? _, CancellationToken c)
         {
             nextCalled = true;
             return ValueTask.FromResult(UnitResult<ValidationError>.Success());
         }
 
         var result = await ValidationBehavior.Handle(
-            new UnitValidatedRequest(""), CancellationToken.None, Next);
+            new UnitValidatedRequest(""), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.False(nextCalled);
         Assert.True(result.IsFailure);
@@ -290,12 +290,12 @@ public class ValidationBehaviorTests : IDisposable
         services.AddSingleton<ValidatorFor<ValueTypeRequest>, ValueTypeRequestValidator>();
         ValidationBehaviorState.ServiceProvider = services.BuildServiceProvider();
 
-        ValueTask<int> Next(ValueTypeRequest r, CancellationToken c) =>
+        ValueTask<int> Next(ValueTypeRequest r, IServiceProvider? _, CancellationToken c) =>
             ValueTask.FromResult(1);
 
         var ex = await Assert.ThrowsAsync<ValidationFailedException>(() =>
             ValidationBehavior.Handle(
-                new ValueTypeRequest(""), CancellationToken.None, Next).AsTask());
+                new ValueTypeRequest(""), (IServiceProvider?)null, CancellationToken.None, Next).AsTask());
 
         Assert.Equal("Name", Assert.Single(ex.Error.Failures).PropertyName);
     }

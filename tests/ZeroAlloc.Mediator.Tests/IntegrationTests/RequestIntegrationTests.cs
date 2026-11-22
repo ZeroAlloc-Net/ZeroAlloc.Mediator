@@ -48,13 +48,13 @@ public class ThrowPingHandler : IRequestHandler<ThrowPing, string>
 public class PipelineDiObservingBehavior : IPipelineBehavior
 {
     internal static int InvocationCount;
-    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        System.Func<TRequest, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
+    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        System.Func<TRequest, TState, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         System.Threading.Interlocked.Increment(ref InvocationCount);
-        return next(request, ct);
+        return next(request, state, ct);
     }
 }
 
@@ -86,11 +86,11 @@ public sealed class ScopedFlowHandler : IRequestHandler<ScopedFlowQuery, Guid>
 [PipelineBehavior(Order = 1, AppliesTo = typeof(ScopedFlowQuery))]
 public class ScopedFlowPassthroughBehavior : IPipelineBehavior
 {
-    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        System.Func<TRequest, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
+    public static System.Threading.Tasks.ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        System.Func<TRequest, TState, CancellationToken, System.Threading.Tasks.ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
-        => next(request, ct);
+        => next(request, state, ct);
 }
 
 public readonly record struct ScopedFlowNoBehaviorQuery : IRequest<Guid>;

@@ -41,7 +41,7 @@ public sealed class WithCacheContainerTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    private static ValueTask<int> Next(CountedRequest request, CancellationToken ct)
+    private static ValueTask<int> Next(CountedRequest request, IServiceProvider? _, CancellationToken ct)
         => ValueTask.FromResult(-1);
 
     [Fact]
@@ -72,8 +72,8 @@ public sealed class WithCacheContainerTests : IDisposable
         using var provider = BuildProvider();
         _ = provider.GetRequiredService<IMediator>();
 
-        var miss = await CacheBehavior.Handle<CountedRequest, int>(new CountedRequest(7), CancellationToken.None, (_, _) => ValueTask.FromResult(42));
-        var hit = await CacheBehavior.Handle<CountedRequest, int>(new CountedRequest(7), CancellationToken.None, Next);
+        var miss = await CacheBehavior.Handle<CountedRequest, int, IServiceProvider?>(new CountedRequest(7), null, CancellationToken.None, (_, _, _) => ValueTask.FromResult(42));
+        var hit = await CacheBehavior.Handle<CountedRequest, int, IServiceProvider?>(new CountedRequest(7), null, CancellationToken.None, Next);
 
         Assert.Equal(42, miss);
         Assert.Equal(42, hit);
@@ -89,7 +89,7 @@ public sealed class WithCacheContainerTests : IDisposable
 
         Assert.Null(CacheBehaviorState.Cache);
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => CacheBehavior.Handle<CountedRequest, int>(new CountedRequest(1), CancellationToken.None, Next).AsTask());
+            () => CacheBehavior.Handle<CountedRequest, int, IServiceProvider?>(new CountedRequest(1), null, CancellationToken.None, Next).AsTask());
         Assert.Contains("WithCache", ex.Message, StringComparison.Ordinal);
     }
 

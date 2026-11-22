@@ -100,9 +100,9 @@ internal static class ValidatedScenario
         string name, TRequest request, Func<TResponse, ValidationError?> error)
         where TRequest : IRequest<TResponse>
     {
-        var response = ValidationBehavior.Handle<TRequest, TResponse>(
-            request, CancellationToken.None,
-            static (_, _) => throw new InvalidOperationException("next must not run"))
+        var response = ValidationBehavior.Handle<TRequest, TResponse, IServiceProvider?>(
+            request, null, CancellationToken.None,
+            static (_, _, _) => throw new InvalidOperationException("next must not run"))
             .GetAwaiter().GetResult();
         var failures = error(response)?.Failures;
         if (failures is not { Length: 1 } || !string.Equals(failures[0].PropertyName, "Name", StringComparison.Ordinal))

@@ -50,7 +50,7 @@ public sealed class CacheKeyTests : IDisposable
     public async Task Miss_StoresTheResponseUnderTheTypeNameAndRequestString()
     {
         var request = new CachedRequest(7);
-        await CacheBehavior.Handle(request, CancellationToken.None, static (r, _) => ValueTask.FromResult(r.Value * 10));
+        await CacheBehavior.Handle(request, (IServiceProvider?)null, CancellationToken.None, static (r, _, _) => ValueTask.FromResult(r.Value * 10));
 
         Assert.True(_cache.TryGetValue("ZeroAlloc.Mediator.Cache.Tests.CachedRequest:CachedRequest { Value = 7 }", out var stored));
         Assert.Equal(70, stored);
@@ -61,8 +61,8 @@ public sealed class CacheKeyTests : IDisposable
     {
         _cache.Set("ZeroAlloc.Mediator.Cache.Tests.CachedRequest:CachedRequest { Value = 3 }", 33);
 
-        var result = await CacheBehavior.Handle<CachedRequest, int>(new CachedRequest(3), CancellationToken.None,
-            static (_, _) => throw new InvalidOperationException("The entry was there; next must not run."));
+        var result = await CacheBehavior.Handle<CachedRequest, int, IServiceProvider?>(new CachedRequest(3), null, CancellationToken.None,
+            static (_, _, _) => throw new InvalidOperationException("The entry was there; next must not run."));
 
         Assert.Equal(33, result);
     }
@@ -72,10 +72,10 @@ public sealed class CacheKeyTests : IDisposable
     {
         var request = new LongKeyCachedRequest(new string('x', 4096));
         var calls = 0;
-        ValueTask<int> Next(LongKeyCachedRequest r, CancellationToken ct) => ValueTask.FromResult(++calls);
+        ValueTask<int> Next(LongKeyCachedRequest r, IServiceProvider? _, CancellationToken ct) => ValueTask.FromResult(++calls);
 
-        var first = await CacheBehavior.Handle(request, CancellationToken.None, Next);
-        var second = await CacheBehavior.Handle(request, CancellationToken.None, Next);
+        var first = await CacheBehavior.Handle(request, (IServiceProvider?)null, CancellationToken.None, Next);
+        var second = await CacheBehavior.Handle(request, (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(1, first);
         Assert.Equal(1, second);
@@ -89,10 +89,10 @@ public sealed class CacheKeyTests : IDisposable
         using var inner = new MemoryCache(new MemoryCacheOptions());
         CacheBehaviorState.SetCache(new ForwardingMemoryCache(inner));
         var calls = 0;
-        ValueTask<int> Next(CachedRequest r, CancellationToken ct) => ValueTask.FromResult(++calls);
+        ValueTask<int> Next(CachedRequest r, IServiceProvider? _, CancellationToken ct) => ValueTask.FromResult(++calls);
 
-        var first = await CacheBehavior.Handle(new CachedRequest(4), CancellationToken.None, Next);
-        var second = await CacheBehavior.Handle(new CachedRequest(4), CancellationToken.None, Next);
+        var first = await CacheBehavior.Handle(new CachedRequest(4), (IServiceProvider?)null, CancellationToken.None, Next);
+        var second = await CacheBehavior.Handle(new CachedRequest(4), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(1, first);
         Assert.Equal(1, second);
@@ -107,11 +107,11 @@ public sealed class CacheKeyTests : IDisposable
         try
         {
             var request = new DecimalCachedRequest(1.5m);
-            await CacheBehavior.Handle(request, CancellationToken.None, static (_, _) => ValueTask.FromResult(15));
+            await CacheBehavior.Handle(request, (IServiceProvider?)null, CancellationToken.None, static (_, _, _) => ValueTask.FromResult(15));
 
             Assert.True(_cache.TryGetValue("ZeroAlloc.Mediator.Cache.Tests.DecimalCachedRequest:DecimalCachedRequest { Value = 1,5 }", out _));
-            var hit = await CacheBehavior.Handle<DecimalCachedRequest, int>(request, CancellationToken.None,
-                static (_, _) => throw new InvalidOperationException("Expected a hit."));
+            var hit = await CacheBehavior.Handle<DecimalCachedRequest, int, IServiceProvider?>(request, null, CancellationToken.None,
+                static (_, _, _) => throw new InvalidOperationException("Expected a hit."));
             Assert.Equal(15, hit);
         }
         finally
@@ -126,11 +126,11 @@ public sealed class CacheKeyTests : IDisposable
     public async Task Hit_OfASpanFormattableRequest_AllocatesNothing()
     {
         var request = new FormattableCachedRequest(5);
-        await CacheBehavior.Handle(request, CancellationToken.None, static (r, _) => ValueTask.FromResult(r.Value));
+        await CacheBehavior.Handle(request, (IServiceProvider?)null, CancellationToken.None, static (r, _, _) => ValueTask.FromResult(r.Value));
 
         AllocationGate.AssertBudgetValueTask(0, 1000,
-            () => CacheBehavior.Handle<FormattableCachedRequest, int>(request, CancellationToken.None,
-                static (_, _) => throw new InvalidOperationException("Expected a hit.")),
+            () => CacheBehavior.Handle<FormattableCachedRequest, int, IServiceProvider?>(request, null, CancellationToken.None,
+                static (_, _, _) => throw new InvalidOperationException("Expected a hit.")),
             "CacheBehavior.Handle (hit, ISpanFormattable request)");
     }
 
@@ -140,12 +140,12 @@ public sealed class CacheKeyTests : IDisposable
     public async Task Hit_OfARecordRequest_AllocatesNoMoreThanItsToString()
     {
         var request = new CachedRequest(9);
-        await CacheBehavior.Handle<CachedRequest, int>(request, CancellationToken.None, static (r, _) => ValueTask.FromResult(r.Value));
+        await CacheBehavior.Handle<CachedRequest, int, IServiceProvider?>(request, null, CancellationToken.None, static (r, _, _) => ValueTask.FromResult(r.Value));
 
         AllocationGate.AssertNoMoreThanValueTask(1000,
             () => ValueTask.FromResult(request.ToString().Length),
-            () => CacheBehavior.Handle<CachedRequest, int>(request, CancellationToken.None,
-                static (_, _) => throw new InvalidOperationException("Expected a hit.")),
+            () => CacheBehavior.Handle<CachedRequest, int, IServiceProvider?>(request, null, CancellationToken.None,
+                static (_, _, _) => throw new InvalidOperationException("Expected a hit.")),
             "CacheBehavior.Handle (hit, record request) against request.ToString()");
     }
 }
