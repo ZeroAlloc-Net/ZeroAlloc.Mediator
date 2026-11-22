@@ -67,8 +67,9 @@
 
     <!-- ZeroAlloc.Pipeline.Generators version. 2.0.0 adds PipelineShape.State, which threads the
          service provider through next so every emitted lambda is static, and it no longer
-         depends on ZeroAlloc.Pipeline. -->
-    <ZeroAllocPipelineGeneratorsVersion>2.0.0</ZeroAllocPipelineGeneratorsVersion>
+         depends on ZeroAlloc.Pipeline. 2.0.1 references Roslyn 5.0, so every .NET 10 SDK loads
+         the generator that bundles it; 2.0.0 referenced 5.12. -->
+    <ZeroAllocPipelineGeneratorsVersion>2.0.1</ZeroAllocPipelineGeneratorsVersion>
 
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>
