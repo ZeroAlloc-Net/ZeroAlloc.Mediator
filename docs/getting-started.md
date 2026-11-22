@@ -25,6 +25,8 @@ dotnet add package ZeroAlloc.Mediator.Generator
 
 `PrivateAssets="all"` matters in multi-project solutions: without it the analyzer flows transitively across a `ProjectReference`, so a downstream project runs the generator a second time and gets **CS0436** on the duplicate generated types, a hard failure under `TreatWarningsAsErrors`.
 
+The generator needs the .NET 10 SDK 10.0.100 or later, or Visual Studio 2026 or later. It is built against Roslyn 5.0, and an older compiler skips it with warning CS9057, after which the generated `Mediator` class is missing. Generator 7.0.0 was built against Roslyn 5.12 and loads only in the .NET 11 SDK; on .NET 10, use 7.0.1 or later.
+
 Nothing else needs configuring. The generator runs as part of your normal `dotnet build` and emits all dispatch code into your project.
 
 ## Your First Request

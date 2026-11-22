@@ -65,8 +65,28 @@ dotnet pack src/ZeroAlloc.Mediator.Generator/ZeroAlloc.Mediator.Generator.csproj
 bash scripts/verify-generator-pack-layout.sh ./artifacts
 ```
 
+CI job `sdk10-consumer` needs a 10.0.1xx SDK; `tests/ZeroAlloc.Mediator.Sdk10Smoke/global.json` pins
+10.0.100 with `rollForward: latestPatch`, so a newer band cannot stand in for it. It builds and runs a
+consumer of the packed packages with Roslyn 5.0:
+
+```bash
+v=9.9.9-local.sha$(git rev-parse --short HEAD).$(date +%s)
+dotnet pack src/ZeroAlloc.Mediator -c Release -o artifacts -p:Version="$v"
+dotnet pack src/ZeroAlloc.Mediator.Generator -c Release -o artifacts -p:Version="$v"
+cd tests/ZeroAlloc.Mediator.Sdk10Smoke/Consumer
+dotnet run -c Release -p:ZeroAllocMediatorVersion="$v"
+```
+
+CI job `roslyn-floor` calls the shared `roslyn-floor.yml` from ZeroAlloc-Net/.github: it packs the
+solution and fails when a packed DLL references Roslyn above 5.0.0.
+
 ## Conventions and gotchas
 
+- The generator references `Microsoft.CodeAnalysis.CSharp` 5.0.0, the compiler of SDK band 10.0.1xx, the
+  oldest supported SDK, and bundles `ZeroAlloc.Pipeline.Generators` 2.0.1 or later, which does too. A
+  compiler older than the Roslyn either DLL references skips the generator with `CS9057`, and nothing is
+  generated. The shared Renovate preset holds it below 5.1. If a newer Roslyn API is needed, change the
+  code; raise the floor only together with the minimum SDK. Test projects may use a newer Roslyn.
 - Allocation budgets, all asserted with `AllocationGate`:
   - 0 B: static `Mediator.Send` through a pipeline behavior, static and `IMediator` `Publish` to one
     or two handlers, parallel `Publish` that completes synchronously, a successful `Send` with or
