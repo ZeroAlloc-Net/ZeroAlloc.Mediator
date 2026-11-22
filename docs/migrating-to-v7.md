@@ -2,13 +2,66 @@
 id: migrating-to-v7
 title: Migrating to 7.0
 slug: /docs/migrating-to-v7
-description: Upgrade from ZeroAlloc.Mediator 6.x to 7.0 — .NET 10 and 11 only, assembly scanners removed, exception messages out of spans by default, ZAM009 an error.
+description: Upgrade from ZeroAlloc.Mediator 6.x to 7.0 — .NET 10 and 11 only, assembly scanners removed, pipeline behaviors take the service provider as state, exception messages out of spans by default, ZAM009 an error.
 sidebar_position: 11
 ---
 
 # Migrating to 7.0
 
-7.0 does not change how requests are dispatched. Four things can break a build or change what your telemetry shows.
+7.0 does not change how requests are dispatched. Five things can break a build or change what your telemetry shows.
+
+## Pipeline behaviors take the pipeline state
+
+`IMediator.Send` used to allocate one `next` delegate per behavior per call, because its lambdas read the provider it was resolved from. 7.0 threads that provider through `next` as the pipeline state, so every lambda of the generated chain is `static` and the compiler creates each once. A `Send` through two behaviors allocates 248 B less per call. The price is the signature of every behavior you wrote: `Handle` gets the state as its last type parameter and its second argument, and passes it on to `next`.
+
+```csharp
+// 6.x
+public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+    TRequest request, CancellationToken ct,
+    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    where TRequest : IRequest<TResponse>
+    => next(request, ct);
+
+// 7.0
+public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+    TRequest request, TState state, CancellationToken ct,
+    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+    where TRequest : IRequest<TResponse>
+    => next(request, state, ct);
+```
+
+A behavior that does not match is reported as the error [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method), including one in a referenced package that was built for 6.x: update that package to its 7.0 release.
+
+The state is the service provider of the request being dispatched. `IMediator.Send` passes the provider it was resolved from, and the static `Mediator` class passes `null`. This replaces three 6.x ways of reaching it, which are removed:
+
+- The `Handle(request, IServiceProvider services, ct, next)` overload. Take the state instead: add `where TState : IServiceProvider?` and read `state`. One `Handle` now serves both dispatch paths, so a behavior no longer has a second overload for the static class.
+- `PipelineBehaviorServices.Current`. Read `state`. The `AsyncLocal` write behind it, 72 B per `Send`, is gone with it.
+- `[PipelineBehavior(UsesPipelineBehaviorServices = false)]`. Delete the argument: nothing is set for a behavior to opt out of.
+
+```csharp
+// 6.x
+public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+    TRequest request, IServiceProvider services, CancellationToken ct,
+    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    where TRequest : IRequest<TResponse>
+{
+    services.GetService<IAuditLog>()?.Record(request);
+    return next(request, ct);
+}
+
+// 7.0
+public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+    TRequest request, TState state, CancellationToken ct,
+    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+    where TRequest : IRequest<TResponse>
+    where TState : IServiceProvider?
+{
+    state?.GetService<IAuditLog>()?.Record(request);
+    return next(request, state, ct);
+}
+```
+
+A behavior that read `PipelineBehaviorServices.Current` and got `null` for a static dispatch now gets a `null` state.
 
 ## .NET 10 and .NET 11 only
 
@@ -53,10 +106,10 @@ Fix the class: make it non-static and implement `IPipelineBehavior`. Only `Handl
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        => next(request, ct);
+    public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+        => next(request, state, ct);
 }
 ```
 

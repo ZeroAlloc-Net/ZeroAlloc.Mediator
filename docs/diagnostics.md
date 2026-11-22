@@ -18,7 +18,7 @@ ZeroAlloc.Mediator validates your mediator setup at compile time using a Roslyn 
 | ZAM002 | Error | Multiple handlers for request | More than one `IRequestHandler<TRequest, TResponse>` for the same request type |
 | ZAM003 | Warning | Request type is a class | A request type is a `class` instead of `readonly record struct` |
 | ZAM004 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
-| ZAM005 | Error | Pipeline behavior missing Handle method | A `[PipelineBehavior]` class that implements `IPipelineBehavior` has no public static `Handle<TRequest,TResponse>` method |
+| ZAM005 | Error | Pipeline behavior missing Handle method | A `[PipelineBehavior]` class that implements `IPipelineBehavior` has no public static `Handle<TRequest,TResponse,TState>` method |
 | ZAM006 | Warning | Duplicate pipeline behavior Order | Two behaviors have the same `Order` value |
 | ZAM007 | — | *Removed in 6.0* | Never reported; the C# compiler enforces it. See [Removed diagnostics](#removed-diagnostics) |
 | ZAM008 | Warning | Handler has no parameterless constructor | A handler class has only parameterised constructors and would throw on the static dispatch path |
@@ -90,7 +90,7 @@ public readonly record struct PlaceOrderCommand(
 
 ## ZAM005 — Pipeline Behavior Missing Handle Method
 
-**What it means:** A class marked `[PipelineBehavior]` that implements `IPipelineBehavior` has no `public static` `Handle` method with two type parameters, `Handle<TRequest, TResponse>`.
+**What it means:** A class marked `[PipelineBehavior]` that implements `IPipelineBehavior` has no `public static` `Handle` method with three type parameters, `Handle<TRequest, TResponse, TState>`. A behavior built for Mediator 6, whose `Handle` has two type parameters, is reported the same way, whether it is in your code or in a referenced package: update the package, or add the state parameter. The behavior is left out of the generated `Send`.
 
 **Example:**
 ```csharp
@@ -98,13 +98,14 @@ public readonly record struct PlaceOrderCommand(
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         Console.WriteLine($"[START] {typeof(TRequest).Name}");
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 ```
@@ -114,13 +115,14 @@ public sealed class LoggingBehavior : IPipelineBehavior
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         Console.WriteLine($"[START] {typeof(TRequest).Name}");
-        var result = await next(request, ct);
+        var result = await next(request, state, ct);
         Console.WriteLine($"[END] {typeof(TRequest).Name}");
         return result;
     }
@@ -129,11 +131,11 @@ public sealed class LoggingBehavior : IPipelineBehavior
 
 The method must have this shape:
 - Access: `public static`
-- Generic: `Handle<TRequest, TResponse>`
-- Parameters: `(TRequest, CancellationToken, Func<TRequest, CancellationToken, ValueTask<TResponse>>)`
+- Generic: `Handle<TRequest, TResponse, TState>`, with the state as the last type parameter
+- Parameters: `(TRequest, TState, CancellationToken, Func<TRequest, TState, CancellationToken, ValueTask<TResponse>>)`
 - Return: `ValueTask<TResponse>`
 
-ZAM005 checks the first two. A `public static Handle<TRequest, TResponse>` with other parameters is not reported as ZAM005; the generated `Send` fails to compile instead.
+ZAM005 checks the first two. A `public static Handle<TRequest, TResponse, TState>` with other parameters is not reported as ZAM005; the generated `Send` fails to compile instead.
 
 ZAM005 is only reported for a class the generator picked up as a behavior, which requires `IPipelineBehavior`. A `static class`, or a class without `IPipelineBehavior`, is left out of the pipeline and reported as [ZAM009](#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior) instead.
 
@@ -206,13 +208,14 @@ public class GetProductHandler : IRequestHandler<GetProductQuery, ProductDto>
 [PipelineBehavior(Order = 0)]
 public static class LoggingBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         Console.WriteLine($"[START] {typeof(TRequest).Name}");
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 
@@ -228,13 +231,14 @@ public sealed class ValidationBehavior { ... }
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         Console.WriteLine($"[START] {typeof(TRequest).Name}");
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 ```

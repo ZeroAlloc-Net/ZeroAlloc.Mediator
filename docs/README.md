@@ -68,9 +68,9 @@ await foreach (var row in Mediator.CreateStream(new ExportOrdersQuery(...))) { .
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        => await next(request, ct);
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+        => await next(request, state, ct);
 }
 ```

@@ -47,15 +47,16 @@ The recommended pattern for cross-cutting exception handling is a pipeline behav
 [PipelineBehavior(Order = 0)]
 public sealed class ExceptionHandlingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         try
         {
-            return await next(request, ct);
+            return await next(request, state, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -114,7 +115,7 @@ public static ValueTask<TResponse> Send(TRequest request, CancellationToken ct =
 This means:
 - You are responsible for checking `ct` inside your handler.
 - The mediator itself does not call `ct.ThrowIfCancellationRequested()` before dispatch.
-- Cancellation during `await next(request, ct)` inside a pipeline behavior propagates as `OperationCanceledException` to the outer behavior and then to the call site.
+- Cancellation during `await next(request, state, ct)` inside a pipeline behavior propagates as `OperationCanceledException` to the outer behavior and then to the call site.
 
 ### Cancellation in request handlers
 
@@ -247,15 +248,16 @@ public sealed class CurrentUserBehavior : IPipelineBehavior
     // Set once at startup via Mediator.Configure or DI wiring
     internal static IHttpContextAccessor? HttpContextAccessor;
 
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         var user = HttpContextAccessor?.HttpContext?.User;
         // Use user...
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 
@@ -276,10 +278,11 @@ public sealed class TenantBehavior : IPipelineBehavior
 
     public static string? CurrentTenantId => _tenantId.Value;
 
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         // Populate from the request if it carries a tenant ID
@@ -288,7 +291,7 @@ public sealed class TenantBehavior : IPipelineBehavior
 
         try
         {
-            return await next(request, ct);
+            return await next(request, state, ct);
         }
         finally
         {

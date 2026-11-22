@@ -19,17 +19,18 @@ using ZeroAlloc.Mediator;
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         var name = typeof(TRequest).Name;
         var sw = Stopwatch.StartNew();
         Console.WriteLine($"[START] {name}");
         try
         {
-            var response = await next(request, ct);
+            var response = await next(request, state, ct);
             Console.WriteLine($"[END] {name} completed in {sw.ElapsedMilliseconds}ms");
             return response;
         }
@@ -47,7 +48,7 @@ public sealed class LoggingBehavior : IPipelineBehavior
 - `public static Handle` — required; a missing or non-static `Handle` is reported as ZAM005
 - `[PipelineBehavior(Order = 0)]` — a lower Order runs further out: first to run, last to complete. 0 is the default; the bridge packages use negative orders, so they wrap your behaviors (see [Behaviors from Referenced Assemblies](#behaviors-from-referenced-assemblies))
 - `Handle<TRequest, TResponse>` — generic; applies to ALL request types globally
-- `next(request, ct)` — calls the next behavior, or the final handler if this is the innermost behavior
+- `next(request, state, ct)` — calls the next behavior, or the final handler if this is the innermost behavior
 - Must `await next(...)` and return the result — forgetting this silently drops the response
 
 ## Ordering Multiple Behaviors
@@ -93,10 +94,11 @@ Use `AppliesTo` to target a behavior at exactly one request type. Other requests
 [PipelineBehavior(Order = 5, AppliesTo = typeof(PlaceOrderCommand))]
 public sealed class OrderStockValidationBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         if (request is PlaceOrderCommand cmd)
         {
@@ -107,7 +109,7 @@ public sealed class OrderStockValidationBehavior : IPipelineBehavior
             }
         }
 
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 ```
@@ -120,14 +122,15 @@ Note: `AppliesTo` accepts a concrete request type, not an interface. The generat
 [PipelineBehavior(Order = 0)]
 public sealed class ExceptionHandlingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         try
         {
-            return await next(request, ct);
+            return await next(request, state, ct);
         }
         catch (NotFoundException ex)
         {
@@ -153,7 +156,7 @@ public sealed class ExceptionHandlingBehavior : IPipelineBehavior
 
 The generator also inlines behaviors that live in assemblies your project references. That is how the bridge packages plug in: referencing `ZeroAlloc.Mediator.Cache` puts `CacheBehavior` into the pipeline of every request, and `WithCache()` supplies the `IMemoryCache` it needs at run time. A request without `[CacheResponse]` passes straight through it.
 
-A referenced type joins the pipeline when it is a public, non-generic class that implements `ZeroAlloc.Mediator.IPipelineBehavior`, carries `[PipelineBehavior]`, and has a public static `Handle<TRequest, TResponse>`. An `internal` behavior stays private to its own assembly, so make a behavior internal when a library should not export it.
+A referenced type joins the pipeline when it is a public, non-generic class that implements `ZeroAlloc.Mediator.IPipelineBehavior`, carries `[PipelineBehavior]`, and has a public static `Handle<TRequest, TResponse, TState>`. A referenced behavior with another `Handle` shape, such as one built for Mediator 6, is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method) instead of being skipped. An `internal` behavior stays private to its own assembly, so make a behavior internal when a library should not export it.
 
 The bridge behaviors use fixed orders with gaps between them, all below your own behaviors' default of 0:
 
@@ -193,15 +196,16 @@ Instead of building a `List<IPipelineBehavior>` at runtime and iterating it, the
 ```csharp
 // Conceptual — what the generator emits for PlaceOrderCommand with 3 behaviors
 public static ValueTask<OrderId> Send(PlaceOrderCommand request, CancellationToken ct = default)
-    => LoggingBehavior.Handle(request, ct, (req, token) =>
-        ValidationBehavior.Handle(req, token, (req2, token2) =>
-            OrderStockValidationBehavior.Handle(req2, token2, (req3, token3) =>
-                (_placeOrderHandlerFactory?.Invoke() ?? new PlaceOrderHandler()).Handle(req3, token3))));
+    => LoggingBehavior.Handle<PlaceOrderCommand, OrderId, IServiceProvider?>(request, null, ct,
+        static (req, state, token) => ValidationBehavior.Handle<PlaceOrderCommand, OrderId, IServiceProvider?>(req, state, token,
+            static (req2, state2, token2) => OrderStockValidationBehavior.Handle<PlaceOrderCommand, OrderId, IServiceProvider?>(req2, state2, token2,
+                static (req3, _, token3) =>
+                    (_placeOrderHandlerFactory?.Invoke() ?? new PlaceOrderHandler()).Handle(req3, token3))));
 ```
 
-Zero allocation. No list. No delegates stored on the heap. No virtual calls.
+Zero allocation. No list. No delegates stored on the heap. No virtual calls. Every lambda is `static`, so the compiler creates each one once.
 
-That is the static `Mediator` class. The generated `IMediator.Send` resolves the handler from its own provider, so its lambdas capture that provider and are not static: it allocates one `next` delegate per behavior per `Send`. It also hands the behaviors the provider, as a `Handle` argument to a behavior that takes one and through `PipelineBehaviorServices.Current` otherwise, which costs another 72 B per `Send`. A behavior that reads no services avoids that by declaring `[PipelineBehavior(UsesPipelineBehaviorServices = false)]`. See [How a bridge reaches your container](dependency-injection.md#how-a-bridge-reaches-your-container).
+The generated `IMediator.Send` has the same shape. It resolves the handler from the provider it was resolved from, and it threads that provider through `next` as the `state`, so its lambdas capture nothing and are `static` too. The innermost one reads the handler from `state`. A `Send` through behaviors therefore allocates no delegate, whatever the number of behaviors. See [How a bridge reaches your container](dependency-injection.md#how-a-bridge-reaches-your-container).
 
 ## Common Pitfalls
 
@@ -221,18 +225,18 @@ public sealed class LoggingBehavior { ... }
 public sealed class LoggingBehavior : IPipelineBehavior { ... }
 ```
 
-The generated `Send` has no call to either behavior, and each is reported as the error [ZAM009](diagnostics.md#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior). Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
+The generated `Send` has no call to either behavior, and each is reported as the error [ZAM009](diagnostics.md#zam009--pipeline-behavior-does-not-implement-ipipelinebehavior). Only `Handle` is static; the class itself must not be. A behavior that implements `IPipelineBehavior` but has no `public static Handle<TRequest, TResponse, TState>` is reported as [ZAM005](diagnostics.md#zam005--pipeline-behavior-missing-handle-method).
 
 **Pitfall 2 — Forgetting to call `next`**
 
 ```csharp
 // ❌ Response is lost — handler never called
-public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
-    TRequest request, CancellationToken ct,
-    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+    TRequest request, TState state, CancellationToken ct,
+    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
 {
     Console.WriteLine("Before");
-    // forgot: return await next(request, ct);
+    // forgot: return await next(request, state, ct);
     return default!;
 }
 ```
@@ -257,4 +261,4 @@ public sealed class CachingBehavior : IPipelineBehavior { ... }
 
 **Pitfall 4 — Accessing DI services from a behavior**
 
-`Handle` is static and the generator never creates the behavior class, so a behavior has no instance state and no constructor injection. To access services (e.g., `ILogger`, `DbContext`), use an ambient scope pattern. See [Dependency Injection](dependency-injection.md) and the [Transactional Pipeline cookbook](cookbook/04-transactional-pipeline.md).
+`Handle` is static and the generator never creates the behavior class, so a behavior has no instance state and no constructor injection. To access services (e.g., `ILogger`, `DbContext`), read them from the `state`, which is the provider of the request being dispatched (`null` through the static `Mediator`). See [Dependency Injection](dependency-injection.md) and the [Transactional Pipeline cookbook](cookbook/04-transactional-pipeline.md).

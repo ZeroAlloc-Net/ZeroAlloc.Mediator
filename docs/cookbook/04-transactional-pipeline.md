@@ -61,14 +61,15 @@ using ZeroAlloc.Mediator;
 [PipelineBehavior(Order = 5)]   // Run after logging (0) but before validation (10)
 public sealed class TransactionBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         // Skip non-transactional requests (queries)
         if (request is not ITransactionalRequest)
-            return await next(request, ct);
+            return await next(request, state, ct);
 
         var db = AmbientScope.Current?.GetRequiredService<AppDbContext>()
             ?? throw new InvalidOperationException(
@@ -77,7 +78,7 @@ public sealed class TransactionBehavior : IPipelineBehavior
         await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            var response = await next(request, ct);
+            var response = await next(request, state, ct);
             await tx.CommitAsync(ct);
             return response;
         }
@@ -140,9 +141,9 @@ sequenceDiagram
     participant DB as AppDbContext / SQL
 
     App->>LoggingBehavior: Send(PlaceOrderCommand)
-    LoggingBehavior->>TransactionBehavior: next(request, ct)
+    LoggingBehavior->>TransactionBehavior: next(request, state, ct)
     TransactionBehavior->>DB: BeginTransactionAsync
-    TransactionBehavior->>Handler: next(request, ct)
+    TransactionBehavior->>Handler: next(request, state, ct)
     Handler->>DB: SaveChangesAsync (within tx)
     Handler-->>TransactionBehavior: OrderId
     alt Success
@@ -191,13 +192,14 @@ If you publish domain events inside the handler (while still inside the transact
 [PipelineBehavior(Order = 5)]
 public sealed class TransactionBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         if (request is not ITransactionalRequest)
-            return await next(request, ct);
+            return await next(request, state, ct);
 
         var db = AmbientScope.Current?.GetRequiredService<AppDbContext>()
             ?? throw new InvalidOperationException("No ambient DbContext.");
@@ -205,7 +207,7 @@ public sealed class TransactionBehavior : IPipelineBehavior
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            var response = await next(request, ct);
+            var response = await next(request, state, ct);
             await tx.CommitAsync(ct);
 
             // Publish events AFTER commit — side effects only for committed data

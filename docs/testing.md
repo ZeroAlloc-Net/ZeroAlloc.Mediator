@@ -142,22 +142,23 @@ Because `IMediator` contains strongly-typed overloads (one per request/notificat
 
 ## Testing Pipeline Behaviors in Isolation
 
-A pipeline behavior is a class that implements `IPipelineBehavior` and has a static `Handle` method. Test it by calling the method directly, passing a lambda as the `next` delegate:
+A pipeline behavior is a class that implements `IPipelineBehavior` and has a static `Handle` method. Test it by calling the method directly, passing the state, `null` unless the behavior reads services, and a lambda as the `next` delegate. A behavior that reads services, such as the bridges, takes the provider as the state and is tested with the provider of a container you build:
 
 ```csharp
 [PipelineBehavior(Order = 0)]
 public sealed class ValidationBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         if (request is PlaceOrderCommand cmd && cmd.Items.Count == 0)
             throw new ValidationException("Order must have at least one item.");
 
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 
@@ -167,10 +168,11 @@ public async Task ValidationBehavior_ThrowsWhenNoItems()
     var request = new PlaceOrderCommand("cust-1", []);
 
     await Assert.ThrowsAsync<ValidationException>(() =>
-        ValidationBehavior.Handle<PlaceOrderCommand, OrderId>(
+        ValidationBehavior.Handle<PlaceOrderCommand, OrderId, object?>(
             request,
+            null,
             CancellationToken.None,
-            (req, token) => ValueTask.FromResult(new OrderId(Guid.NewGuid()))).AsTask());
+            (req, state, token) => ValueTask.FromResult(new OrderId(Guid.NewGuid()))).AsTask());
 }
 
 [Fact]
@@ -180,10 +182,11 @@ public async Task ValidationBehavior_CallsNext_WhenValid()
     var request = new PlaceOrderCommand("cust-1", [new OrderLineItem("SKU-001", 1, 9.99m)]);
     var nextCalled = false;
 
-    var result = await ValidationBehavior.Handle<PlaceOrderCommand, OrderId>(
+    var result = await ValidationBehavior.Handle<PlaceOrderCommand, OrderId, object?>(
         request,
+        null,
         CancellationToken.None,
-        (req, token) =>
+        (req, state, token) =>
         {
             nextCalled = true;
             return ValueTask.FromResult(expectedId);
