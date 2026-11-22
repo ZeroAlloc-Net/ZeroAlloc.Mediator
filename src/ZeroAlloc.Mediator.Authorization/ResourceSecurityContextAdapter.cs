@@ -9,7 +9,7 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// <see cref="ISecurityContext"/> members to the inner caller-identity context.
 /// </summary>
 /// <remarks>
-/// <para>Constructed inside <see cref="AuthorizationBehavior.Handle{TRequest, TResponse}"/>
+/// <para>Constructed inside <see cref="AuthorizationBehavior.Handle{TRequest, TResponse, TState}"/>
 /// once per dispatch. Cost is one class allocation: the 16 B object header and method table,
 /// 8 B for the inner context, and the request stored in <see cref="Resource"/>, rounded up to
 /// 8 B. That is 32 B for a reference-type request or a value-type request of up to 8 B, and

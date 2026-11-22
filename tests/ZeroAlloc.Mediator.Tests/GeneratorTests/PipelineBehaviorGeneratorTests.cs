@@ -27,24 +27,24 @@ public class PipelineBehaviorGeneratorTests
             [PipelineBehavior(Order = 0)]
             public class LoggingBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
                 {
-                    return next(request, ct);
+                    return next(request, state, ct);
                 }
             }
 
             [PipelineBehavior(Order = 1)]
             public class ValidationBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
                 {
-                    return next(request, ct);
+                    return next(request, state, ct);
                 }
             }
             """;
@@ -88,12 +88,12 @@ public class PipelineBehaviorGeneratorTests
             [PipelineBehavior(Order = 0, AppliesTo = typeof(Ping))]
             public class PingOnlyBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
                 {
-                    return next(request, ct);
+                    return next(request, state, ct);
                 }
             }
             """;
@@ -139,11 +139,11 @@ public class PipelineBehaviorGeneratorTests
             [PipelineBehavior(Order = 0)]
             public class LoggingBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 
@@ -152,8 +152,8 @@ public class PipelineBehaviorGeneratorTests
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         // Should have the behavior wrapping the handler with static lambda
-        Assert.Contains("LoggingBehavior.Handle<global::TestApp.Ping, string>", output);
-        Assert.Contains("static (r1, c1)", output);
+        Assert.Contains("LoggingBehavior.Handle<global::TestApp.Ping, string, global::System.IServiceProvider", output);
+        Assert.Contains("static (r1, s1, c1)", output);
     }
 
     [Fact]
@@ -178,31 +178,31 @@ public class PipelineBehaviorGeneratorTests
             [PipelineBehavior(Order = 0)]
             public class First : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
 
             [PipelineBehavior(Order = 1)]
             public class Second : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
 
             [PipelineBehavior(Order = 2)]
             public class Third : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 
@@ -218,7 +218,7 @@ public class PipelineBehaviorGeneratorTests
         Assert.True(secondIdx < thirdIdx, "Second should come before Third");
 
         // Should have unique lambda params for each nesting level
-        Assert.Contains("static (r3, c3)", output);
+        Assert.Contains("static (r3, s3, c3)", output);
     }
 
     [Fact]
@@ -243,21 +243,21 @@ public class PipelineBehaviorGeneratorTests
             [PipelineBehavior(Order = 0)]
             public class GlobalLogging : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
 
             [PipelineBehavior(Order = 1, AppliesTo = typeof(CreateUser))]
             public class CreateUserValidation : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
-                    => next(request, ct);
+                    => next(request, state, ct);
             }
             """;
 

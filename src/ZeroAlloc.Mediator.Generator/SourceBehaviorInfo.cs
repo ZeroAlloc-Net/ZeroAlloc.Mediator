@@ -36,7 +36,7 @@ namespace ZeroAlloc.Mediator.Generator
         /// </summary>
         public PipelineBehaviorInfo? Info { get; }
 
-        /// <summary>How the behavior reaches the request's services; null when <see cref="Info"/> is.</summary>
+        /// <summary>Whether the behavior has a CheckStream; null when <see cref="Info"/> is.</summary>
         public BehaviorServicesInfo? Services { get; }
 
         /// <summary>The class identifier, for ZAM005 and ZAM009.</summary>
@@ -60,7 +60,7 @@ namespace ZeroAlloc.Mediator.Generator
                 ? LocationInfo.From(context.Attributes[0].ApplicationSyntaxReference)
                 : null;
             var services = info != null && context.TargetSymbol is INamedTypeSymbol type
-                ? BehaviorServicesInfo.From(type, context.Attributes.Length > 0 ? context.Attributes[0] : null)
+                ? BehaviorServicesInfo.From(type)
                 : null;
             return new SourceBehaviorInfo(candidate, info, services, typeLocation, attributeLocation);
         }

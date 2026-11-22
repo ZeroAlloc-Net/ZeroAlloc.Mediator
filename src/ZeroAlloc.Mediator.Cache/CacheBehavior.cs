@@ -17,47 +17,35 @@ namespace ZeroAlloc.Mediator.Cache;
 [PipelineBehavior(Order = -500)]
 public sealed class CacheBehavior : IPipelineBehavior
 {
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request,
-        CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
-        => HandleAsync(PipelineBehaviorServices.Current, request, ct, next);
-
     /// <summary>
     /// Answers <paramref name="request"/> from the cache of the container dispatching it. The
-    /// generated <c>IMediator.Send</c> calls this overload with the provider it was resolved
-    /// from, so the pipeline needs no <see cref="PipelineBehaviorServices.Current"/>.
+    /// generated <c>IMediator.Send</c> passes the provider it was resolved from as
+    /// <paramref name="state"/>, so the pipeline needs no ambient state and allocates no delegate.
     /// </summary>
+    /// <typeparam name="TRequest">The request type.</typeparam>
+    /// <typeparam name="TResponse">The response type.</typeparam>
+    /// <typeparam name="TState">The pipeline state, the provider of the request being dispatched.</typeparam>
     /// <param name="request">The request to answer.</param>
-    /// <param name="services">
+    /// <param name="state">
     /// The provider of the request being dispatched. The cache is resolved from it.
+    /// <see langword="null"/> for a request dispatched through the static <c>Mediator</c> class,
+    /// which then uses the cache of the container <c>WithCache</c> was wired to.
     /// </param>
     /// <param name="ct">The cancellation token of the request.</param>
     /// <param name="next">The rest of the pipeline.</param>
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
-        IServiceProvider services,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        return HandleAsync(services, request, ct, next);
-    }
-
-    private static async ValueTask<TResponse> HandleAsync<TRequest, TResponse>(
-        IServiceProvider? services,
-        TRequest request,
-        CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
+        where TState : IServiceProvider?
     {
         var attr = CacheAttributeCache<TRequest>.Attribute;
         if (attr is null)
-            return await next(request, ct).ConfigureAwait(false);
+            return await next(request, state, ct).ConfigureAwait(false);
 
-        var cache = ResolveCache(services)
+        var cache = ResolveCache(state)
             ?? throw new InvalidOperationException(
                 "CacheBehavior requires IMemoryCache. Call services.AddMediator().WithCache() at startup on the " +
                 "container IMediator is resolved from. An app that dispatches only through the static Mediator class " +
@@ -70,7 +58,7 @@ public sealed class CacheBehavior : IPipelineBehavior
         // Built before next runs, as the lookup was, so a handler that changes a class request
         // does not change the key its response is stored under.
         key ??= BuildKey(request);
-        var result = await next(request, ct).ConfigureAwait(false);
+        var result = await next(request, state, ct).ConfigureAwait(false);
 
         if (attr.Sliding)
             cache.Set(key, result, new MemoryCacheEntryOptions

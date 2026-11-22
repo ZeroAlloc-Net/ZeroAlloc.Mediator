@@ -5,13 +5,14 @@ namespace ZeroAlloc.Mediator.Resilience;
 
 // Order -250: the innermost bridge behavior, so a retry repeats only the handler and the app's
 // own behaviors, which default to Order 0.
-[PipelineBehavior(Order = -250, UsesPipelineBehaviorServices = false)]
+[PipelineBehavior(Order = -250)]
 public sealed class ResilienceBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         var retry    = ResilienceAttributeCache<TRequest>.Retry;
@@ -20,7 +21,7 @@ public sealed class ResilienceBehavior : IPipelineBehavior
 
         // Fast path: no policies on this request type.
         if (retry is null && cb is null && timeout is null)
-            return await next(request, ct).ConfigureAwait(false);
+            return await next(request, state, ct).ConfigureAwait(false);
 
         // Circuit breaker fast-reject (no attempt even started).
         if (cb is not null && !cb.CanExecute())
@@ -45,11 +46,11 @@ public sealed class ResilienceBehavior : IPipelineBehavior
             var effectiveCt = totalCts?.Token ?? ct;
 
             if (retry is not null)
-                return await ExecuteWithRetry<TRequest, TResponse>(request, next, retry, cb, effectiveCt)
+                return await ExecuteWithRetry<TRequest, TResponse, TState>(request, state, next, retry, cb, effectiveCt)
                     .ConfigureAwait(false);
 
             // No retry — single attempt with optional circuit breaker.
-            return await ExecuteSingle<TRequest, TResponse>(request, next, cb, effectiveCt)
+            return await ExecuteSingle<TRequest, TResponse, TState>(request, state, next, cb, effectiveCt)
                 .ConfigureAwait(false);
         }
         finally
@@ -60,16 +61,17 @@ public sealed class ResilienceBehavior : IPipelineBehavior
 
     // ── Single-attempt (no retry) ─────────────────────────────────────────────
 
-    private static async ValueTask<TResponse> ExecuteSingle<TRequest, TResponse>(
+    private static async ValueTask<TResponse> ExecuteSingle<TRequest, TResponse, TState>(
         TRequest request,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next,
+        TState state,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next,
         CircuitBreakerPolicy? cb,
         CancellationToken ct)
         where TRequest : IRequest<TResponse>
     {
         try
         {
-            var result = await next(request, ct).ConfigureAwait(false);
+            var result = await next(request, state, ct).ConfigureAwait(false);
             cb?.OnSuccess();
             return result;
         }
@@ -82,9 +84,10 @@ public sealed class ResilienceBehavior : IPipelineBehavior
 
     // ── Retry loop ────────────────────────────────────────────────────────────
 
-    private static async ValueTask<TResponse> ExecuteWithRetry<TRequest, TResponse>(
+    private static async ValueTask<TResponse> ExecuteWithRetry<TRequest, TResponse, TState>(
         TRequest request,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next,
+        TState state,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next,
         RetryPolicy retry,
         CircuitBreakerPolicy? cb,
         CancellationToken totalCt)
@@ -112,7 +115,7 @@ public sealed class ResilienceBehavior : IPipelineBehavior
 
             try
             {
-                var result = await next(request, attemptCt).ConfigureAwait(false);
+                var result = await next(request, state, attemptCt).ConfigureAwait(false);
                 cb?.OnSuccess();
                 return result;
             }

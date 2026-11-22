@@ -34,7 +34,7 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Mediator.Generator\ZeroAlloc.Mediator.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
-    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineGeneratorsVersion)" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="ZeroAlloc.Pipeline" Version="$(ZeroAllocPipelineVersion)" />
     <PackageReference Include="ZeroAlloc.TestHelpers" Version="1.10.0">
       <PrivateAssets>all</PrivateAssets>

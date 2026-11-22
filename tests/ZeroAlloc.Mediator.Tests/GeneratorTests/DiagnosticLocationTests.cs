@@ -23,11 +23,11 @@ public class DiagnosticLocationTests
         """;
 
     private const string HandleMethod = """
-            public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                TRequest request, CancellationToken ct,
-                Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+            public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                TRequest request, TState state, CancellationToken ct,
+                Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                 where TRequest : IRequest<TResponse>
-                => next(request, ct);
+                => next(request, state, ct);
         """;
 
     [Theory]

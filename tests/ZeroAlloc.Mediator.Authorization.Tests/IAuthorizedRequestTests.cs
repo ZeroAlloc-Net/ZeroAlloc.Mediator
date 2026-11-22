@@ -41,9 +41,9 @@ public sealed class IAuthorizedRequestTests
         using var scope = sp.CreateScope();
         AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
 
-        var result = await AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
-            new GetThingResultDeny(5), CancellationToken.None,
-            static (r, _) => new(Result<int, AuthorizationFailure>.Success(r.Id)));
+        var result = await AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>, IServiceProvider?>(
+            new GetThingResultDeny(5), null, CancellationToken.None,
+            static (r, _, _) => new(Result<int, AuthorizationFailure>.Success(r.Id)));
 
         Assert.False(result.IsSuccess);
     }
@@ -55,9 +55,9 @@ public sealed class IAuthorizedRequestTests
         using var scope = sp.CreateScope();
         AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
 
-        var result = await AuthorizationBehavior.Handle<GetThingResultAllow, Result<int, AuthorizationFailure>>(
-            new GetThingResultAllow(7), CancellationToken.None,
-            static (r, _) => new(Result<int, AuthorizationFailure>.Success(r.Id * 3)));
+        var result = await AuthorizationBehavior.Handle<GetThingResultAllow, Result<int, AuthorizationFailure>, IServiceProvider?>(
+            new GetThingResultAllow(7), null, CancellationToken.None,
+            static (r, _, _) => new(Result<int, AuthorizationFailure>.Success(r.Id * 3)));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(21, result.Value);
@@ -70,9 +70,9 @@ public sealed class IAuthorizedRequestTests
         using var scope = sp.CreateScope();
         AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
 
-        var result = await AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>>(
-            new GetThingResultDeny(1), CancellationToken.None,
-            static (r, _) => new(Result<int, AuthorizationFailure>.Success(r.Id)));
+        var result = await AuthorizationBehavior.Handle<GetThingResultDeny, Result<int, AuthorizationFailure>, IServiceProvider?>(
+            new GetThingResultDeny(1), null, CancellationToken.None,
+            static (r, _, _) => new(Result<int, AuthorizationFailure>.Success(r.Id)));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(AuthorizationFailure.DefaultDenyCode, result.Error.Code);

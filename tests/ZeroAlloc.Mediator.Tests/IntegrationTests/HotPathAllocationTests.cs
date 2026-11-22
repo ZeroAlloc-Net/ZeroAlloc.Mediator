@@ -16,6 +16,8 @@ public readonly record struct HotPathMultiEvent(int Id) : INotification;
 
 public readonly record struct HotPathPipelined(int Value) : IRequest<int>;
 
+public readonly record struct HotPathDiPipelined(int Value) : IRequest<int>;
+
 [HandlerLifetime(ServiceLifetime.Singleton)]
 public sealed class HotPathEventHandler : INotificationHandler<HotPathEvent>
 {
@@ -40,6 +42,37 @@ public sealed class HotPathPipelinedHandler : IRequestHandler<HotPathPipelined, 
     public ValueTask<int> Handle(HotPathPipelined request, CancellationToken ct) => ValueTask.FromResult(request.Value + 1);
 }
 
+[HandlerLifetime(ServiceLifetime.Singleton)]
+public sealed class HotPathDiPipelinedHandler : IRequestHandler<HotPathDiPipelined, int>
+{
+    public ValueTask<int> Handle(HotPathDiPipelined request, CancellationToken ct) => ValueTask.FromResult(request.Value + 1);
+}
+
+// Two behaviors that await next and are not inlined, so the JIT cannot keep a delegate on the
+// stack the way it does for HotPathForwardingBehavior. This is the case #308 measured at 248 B
+// per IMediator.Send: before the provider was threaded through next, each behavior cost a delegate.
+[PipelineBehavior(Order = 5, AppliesTo = typeof(HotPathDiPipelined))]
+public sealed class HotPathAwaitingBehaviorA : IPipelineBehavior
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => await next(request, state, ct).ConfigureAwait(false);
+}
+
+[PipelineBehavior(Order = 6, AppliesTo = typeof(HotPathDiPipelined))]
+public sealed class HotPathAwaitingBehaviorB : IPipelineBehavior
+{
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
+        where TRequest : IRequest<TResponse>
+        => await next(request, state, ct).ConfigureAwait(false);
+}
+
 // No SetFactory for these: they pin the generated fallback for a stateless handler. Handle is not
 // inlinable, so the handler instance escapes into the call and the JIT cannot stack-allocate it;
 // a per-call `new` would show at every tier, with or without DOTNET_TieredCompilation.
@@ -60,14 +93,14 @@ public sealed class HotPathStatelessRequestHandler : IRequestHandler<HotPathStat
 }
 
 // Forwards to next, like the benchmark's behavior, and reads no services.
-[PipelineBehavior(Order = 4, AppliesTo = typeof(HotPathPipelined), UsesPipelineBehaviorServices = false)]
+[PipelineBehavior(Order = 4, AppliesTo = typeof(HotPathPipelined))]
 public sealed class HotPathForwardingBehavior : IPipelineBehavior
 {
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
-        => next(request, ct);
+        => next(request, state, ct);
 }
 
 // Runs alone: a span-capturing test attaching an ActivityListener to the mediator's
@@ -87,8 +120,8 @@ public sealed class HotPathAllocationCollection
 // the static path allocates nothing without any configuration. A handler that holds state is
 // still created per call; see StaticHandlerCacheTests.
 //
-// IMediator.Send + pipeline is not gated: its next delegates read the resolving provider, so
-// they allocate unless the JIT inlines them, tracked in ZeroAlloc.Pipeline#121.
+// IMediator.Send + pipeline is gated at 0 B too: the provider is the state threaded through
+// next, so every lambda of the chain is static and no delegate is allocated per call.
 [Collection(HotPathAllocationCollection.Name)]
 public sealed class HotPathAllocationTests : IDisposable
 {
@@ -151,6 +184,17 @@ public sealed class HotPathAllocationTests : IDisposable
         => AllocationGate.AssertBudgetValueTask(0, Iterations,
             static () => Mediator.Send(new HotPathPipelined(41), CancellationToken.None),
             "Mediator.Send + pipeline");
+
+    // Two awaiting behaviors, bridges included, through the generated IMediator.Send. Before the
+    // provider was the pipeline state this allocated one delegate per behavior per call.
+    [Fact]
+    public void IMediatorSend_ThroughTwoAwaitingBehaviors_AllocatesNothing()
+    {
+        var mediator = _mediator;
+        AllocationGate.AssertBudgetValueTask(0, Iterations,
+            () => mediator.Send(new HotPathDiPipelined(41), CancellationToken.None),
+            "IMediator.Send + two awaiting behaviors");
+    }
 
     [Fact]
     public void StaticPublish_StatelessHandlerWithoutFactory_AllocatesNothing()

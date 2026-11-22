@@ -246,58 +246,32 @@ services.AddMediator()
 
 A pipeline behavior's `Handle` is static, so the generated dispatcher can call it without allocating. The behavior has no instance to inject into, so the generated `IMediator` hands it the provider it was resolved from. `IMediator` is transient, so in an ASP.NET Core request, or any other scope, that provider is the scope's. The authorization bridge resolves the caller's `ISecurityContext` and the policies from it, the validation bridge its validators, and the cache bridge the container's `IMemoryCache`. Scoped services therefore come from the request being dispatched, and several containers in one process, for example one per integration test, never see each other's services.
 
-A behavior receives the provider in one of two ways.
-
-**As a `Handle` argument.** Declare a second `Handle` overload that takes an `IServiceProvider` after the request. The generated `IMediator.Send` calls it with its provider; the static `Mediator` class, which has none, calls the overload without one. The bridges do this, and it costs nothing per call:
+A behavior receives the provider as the **state** of `Handle`: its second argument, which it passes on to `next`. The generated `IMediator.Send` passes the provider it was resolved from. The static `Mediator` class has none and passes `null`. The state costs nothing per call, because it travels through `next` and so every lambda of the chain is `static`: the compiler creates each one once.
 
 ```csharp
 [PipelineBehavior(Order = 10)]
 public sealed class AuditBehavior : IPipelineBehavior
 {
-    // Static Mediator.Send: no request scope.
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+    public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+        TRequest request, TState state, CancellationToken ct,
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
-        => next(request, ct);
-
-    // IMediator.Send: the services of the request being dispatched.
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, IServiceProvider services, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
+        where TState : IServiceProvider?
     {
-        services.GetService<IAuditLog>()?.Record(request);
-        return next(request, ct);
+        // state is the services of the request being dispatched, or null for the static Mediator.
+        state?.GetService<IAuditLog>()?.Record(request);
+        return next(request, state, ct);
     }
 }
 ```
 
-**Through `PipelineBehaviorServices.Current`.** A behavior with only the classic `Handle` can read the provider from `PipelineBehaviorServices.Current`. The value flows with the async call and reverts when `Send` returns. Setting it is an `AsyncLocal` write, which allocates 72 B per `Send`, so the generated `IMediator.Send` sets it only when a behavior in the request's pipeline may read it: one that has no `IServiceProvider` overload and does not declare `UsesPipelineBehaviorServices = false`. Declare that on every behavior that reads no services, so a pipeline made only of such behaviors and the bridges skips the write:
-
-```csharp
-[PipelineBehavior(Order = 20, UsesPipelineBehaviorServices = false)]
-public sealed class TimingBehavior : IPipelineBehavior
-{
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request, CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
-    {
-        var started = Stopwatch.GetTimestamp();
-        try { return await next(request, ct); }
-        finally { Metrics.Record(Stopwatch.GetElapsedTime(started)); }
-    }
-}
-```
-
-`UsesPipelineBehaviorServices` is a property of `ZeroAlloc.Mediator.PipelineBehaviorAttribute`; a behavior marked with the base `ZeroAlloc.Pipeline.PipelineBehaviorAttribute` is always treated as one that may read `Current`. `Current` is meant for behaviors: a handler is resolved from the request's scope and injects what it needs, and it should not read `Current`, which is `null` when no behavior in its pipeline needs it.
+`TState` is the last type parameter and the second argument. A behavior that reads no services leaves it unconstrained and passes it on. One that reads services adds `where TState : IServiceProvider?`, which the provider type `IMediator.Send` passes satisfies, and checks for `null`. The pipeline has no ambient provider: nothing sets an `AsyncLocal`, so a `Send` through behaviors allocates nothing of its own. A handler is resolved from the request's scope and injects what it needs.
 
 Resolve `IMediator` from the scope of the work it does. An `IMediator` resolved from the root provider, for example injected into a singleton, hands the pipeline the root provider, and scoped services resolved from the root provider are shared by every request. Enable `ValidateScopes` to have the container reject that.
 
 #### Dispatch through the static `Mediator` class
 
-A request sent through the static `Mediator` class has no request scope, and `PipelineBehaviorServices.Current` is `null`. For these requests each `WithXxx()` registers an `IPipelineBehaviorStateInitializer` that hands the bridge the container, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton. An app that dispatches only through the static class resolves the activation once after building the container:
+A request sent through the static `Mediator` class has no request scope, and the state its behaviors receive is `null`. For these requests each `WithXxx()` registers an `IPipelineBehaviorStateInitializer` that hands the bridge the container, and `AddMediator()` registers a `PipelineBehaviorStateActivation` singleton that runs them. The first `IMediator` resolved from a container resolves that singleton. An app that dispatches only through the static class resolves the activation once after building the container:
 
 ```csharp
 var provider = services.BuildServiceProvider();

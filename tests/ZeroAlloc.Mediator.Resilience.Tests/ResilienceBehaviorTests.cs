@@ -86,13 +86,13 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_PlainRequest_PassesThroughWithNoOverhead()
     {
         var callCount = 0;
-        ValueTask<int> Next(PlainRequest r, CancellationToken c)
+        ValueTask<int> Next(PlainRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             return ValueTask.FromResult(r.Value * 2);
         }
 
-        var result = await ResilienceBehavior.Handle(new PlainRequest(5), CancellationToken.None, Next);
+        var result = await ResilienceBehavior.Handle(new PlainRequest(5), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(10, result);
         Assert.Equal(1, callCount);
@@ -104,13 +104,13 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_RetryRequest_ReturnsOnFirstSuccess()
     {
         var callCount = 0;
-        ValueTask<int> Next(RetryRequest r, CancellationToken c)
+        ValueTask<int> Next(RetryRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             return ValueTask.FromResult(r.Value);
         }
 
-        var result = await ResilienceBehavior.Handle(new RetryRequest(42), CancellationToken.None, Next);
+        var result = await ResilienceBehavior.Handle(new RetryRequest(42), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(42, result);
         Assert.Equal(1, callCount);
@@ -120,7 +120,7 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_RetryRequest_RetriesOnFailureAndSucceeds()
     {
         var callCount = 0;
-        ValueTask<int> Next(RetryRequest r, CancellationToken c)
+        ValueTask<int> Next(RetryRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             if (callCount < 3)
@@ -128,7 +128,7 @@ public sealed class ResilienceBehaviorTests
             return ValueTask.FromResult(99);
         }
 
-        var result = await ResilienceBehavior.Handle(new RetryRequest(0), CancellationToken.None, Next);
+        var result = await ResilienceBehavior.Handle(new RetryRequest(0), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(99, result);
         Assert.Equal(3, callCount);
@@ -138,14 +138,14 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_RetryRequest_ThrowsAfterAllAttemptsExhausted()
     {
         var callCount = 0;
-        ValueTask<int> Next(RetryRequest r, CancellationToken c)
+        ValueTask<int> Next(RetryRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             throw new InvalidOperationException("always fails");
         }
 
         var ex = await Assert.ThrowsAsync<ResilienceException>(
-            () => ResilienceBehavior.Handle(new RetryRequest(0), CancellationToken.None, Next).AsTask());
+            () => ResilienceBehavior.Handle(new RetryRequest(0), (IServiceProvider?)null, CancellationToken.None, Next).AsTask());
 
         Assert.Equal(ResiliencePolicy.Retry, ex.Policy);
         Assert.Equal(3, callCount); // MaxAttempts = 3
@@ -158,13 +158,13 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_TimeoutRequest_SucceedsWhenWithinTimeout()
     {
         var callCount = 0;
-        ValueTask<int> Next(TimeoutRequest r, CancellationToken c)
+        ValueTask<int> Next(TimeoutRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             return ValueTask.FromResult(r.Value);
         }
 
-        var result = await ResilienceBehavior.Handle(new TimeoutRequest(7), CancellationToken.None, Next);
+        var result = await ResilienceBehavior.Handle(new TimeoutRequest(7), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(7, result);
         Assert.Equal(1, callCount);
@@ -175,14 +175,14 @@ public sealed class ResilienceBehaviorTests
     {
         // ShortTimeoutRequest carries [MediatorTimeout(Ms = 50)].
         // The next delegate awaits forever, so the behavior's totalCts.CancelAfter(50) fires first.
-        static async ValueTask<int> Next(ShortTimeoutRequest r, CancellationToken ct)
+        static async ValueTask<int> Next(ShortTimeoutRequest r, IServiceProvider? _, CancellationToken ct)
         {
             await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             return 0;
         }
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => ResilienceBehavior.Handle(new ShortTimeoutRequest(0), CancellationToken.None, Next).AsTask());
+            () => ResilienceBehavior.Handle(new ShortTimeoutRequest(0), (IServiceProvider?)null, CancellationToken.None, Next).AsTask());
     }
 
     // ── Circuit Breaker ───────────────────────────────────────────────────────
@@ -191,13 +191,13 @@ public sealed class ResilienceBehaviorTests
     public async Task Handle_CbRequest_SucceedsWhenCircuitClosed()
     {
         var callCount = 0;
-        ValueTask<int> Next(CbRequest r, CancellationToken c)
+        ValueTask<int> Next(CbRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             return ValueTask.FromResult(r.Value);
         }
 
-        var result = await ResilienceBehavior.Handle(new CbRequest(3), CancellationToken.None, Next);
+        var result = await ResilienceBehavior.Handle(new CbRequest(3), (IServiceProvider?)null, CancellationToken.None, Next);
 
         Assert.Equal(3, result);
         Assert.Equal(1, callCount);
@@ -215,7 +215,7 @@ public sealed class ResilienceBehaviorTests
         cb.OnFailure(new InvalidOperationException("f2"));
 
         var callCount = 0;
-        ValueTask<int> Next(CbTripRequest r, CancellationToken c)
+        ValueTask<int> Next(CbTripRequest r, IServiceProvider? _, CancellationToken c)
         {
             callCount++;
             return ValueTask.FromResult(0);
@@ -223,7 +223,7 @@ public sealed class ResilienceBehaviorTests
 
         // Circuit should now be open — behavior throws immediately.
         var ex = await Assert.ThrowsAsync<ResilienceException>(
-            () => ResilienceBehavior.Handle(new CbTripRequest(0), CancellationToken.None, Next).AsTask());
+            () => ResilienceBehavior.Handle(new CbTripRequest(0), (IServiceProvider?)null, CancellationToken.None, Next).AsTask());
 
         Assert.Equal(ResiliencePolicy.CircuitBreaker, ex.Policy);
         Assert.Equal(0, callCount); // next was never called

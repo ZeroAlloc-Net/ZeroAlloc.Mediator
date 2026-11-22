@@ -29,7 +29,7 @@ public sealed class AuthorizationBehaviorTests
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
         using var scope = sp.CreateScope();
         var nextCalled = false;
-        ValueTask<int> Next(GetThingThrowAllow r, CancellationToken c)
+        ValueTask<int> Next(GetThingThrowAllow r, IServiceProvider? _, CancellationToken c)
         { nextCalled = true; return new(r.Id * 2); }
 
         var result = await Invoke<GetThingThrowAllow, int>(scope, new GetThingThrowAllow(7), Next);
@@ -43,7 +43,7 @@ public sealed class AuthorizationBehaviorTests
     {
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
-        ValueTask<int> Next(GetThingThrowDeny r, CancellationToken c) => new(r.Id);
+        ValueTask<int> Next(GetThingThrowDeny r, IServiceProvider? _, CancellationToken c) => new(r.Id);
 
         var ex = await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
             await Invoke<GetThingThrowDeny, int>(scope, new GetThingThrowDeny(7), Next));
@@ -56,7 +56,7 @@ public sealed class AuthorizationBehaviorTests
     {
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
-        ValueTask<Result<int, AuthorizationFailure>> Next(GetThingResultDeny r, CancellationToken c)
+        ValueTask<Result<int, AuthorizationFailure>> Next(GetThingResultDeny r, IServiceProvider? _, CancellationToken c)
             => new(Result<int, AuthorizationFailure>.Success(r.Id));
 
         var result = await Invoke<GetThingResultDeny, Result<int, AuthorizationFailure>>(
@@ -72,7 +72,7 @@ public sealed class AuthorizationBehaviorTests
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
         var nextCalled = false;
-        ValueTask<UnitResult<AuthorizationFailure>> Next(GetThingUnitDeny r, CancellationToken c)
+        ValueTask<UnitResult<AuthorizationFailure>> Next(GetThingUnitDeny r, IServiceProvider? _, CancellationToken c)
         { nextCalled = true; return new(UnitResult<AuthorizationFailure>.Success()); }
 
         var result = await Invoke<GetThingUnitDeny, UnitResult<AuthorizationFailure>>(
@@ -88,7 +88,7 @@ public sealed class AuthorizationBehaviorTests
     {
         using var sp = BuildProvider(TestSecurityContexts.With("Admin"));
         using var scope = sp.CreateScope();
-        ValueTask<Result<int, AuthorizationFailure>> Next(GetThingResultAllow r, CancellationToken c)
+        ValueTask<Result<int, AuthorizationFailure>> Next(GetThingResultAllow r, IServiceProvider? _, CancellationToken c)
             => new(Result<int, AuthorizationFailure>.Success(r.Id * 2));
 
         var result = await Invoke<GetThingResultAllow, Result<int, AuthorizationFailure>>(
@@ -103,7 +103,7 @@ public sealed class AuthorizationBehaviorTests
     {
         using var sp = BuildProvider(TestSecurityContexts.With("Admin", "Premium"));
         using var scope = sp.CreateScope();
-        ValueTask<int> Next(GetThingAdminPremium r, CancellationToken c) => new(r.Id);
+        ValueTask<int> Next(GetThingAdminPremium r, IServiceProvider? _, CancellationToken c) => new(r.Id);
 
         var result = await Invoke<GetThingAdminPremium, int>(
             scope, new GetThingAdminPremium(99), Next);
@@ -120,7 +120,7 @@ public sealed class AuthorizationBehaviorTests
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
         var nextCalled = false;
-        ValueTask<int> Next(GetThingAdminPremium r, CancellationToken c)
+        ValueTask<int> Next(GetThingAdminPremium r, IServiceProvider? _, CancellationToken c)
         { nextCalled = true; return new(r.Id); }
 
         await Assert.ThrowsAsync<AuthorizationDeniedException>(async () =>
@@ -137,7 +137,7 @@ public sealed class AuthorizationBehaviorTests
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
         var nextCalled = false;
-        ValueTask<int> Next(GetThingUnauthorized r, CancellationToken c)
+        ValueTask<int> Next(GetThingUnauthorized r, IServiceProvider? _, CancellationToken c)
         { nextCalled = true; return new(r.Id); }
 
         var result = await Invoke<GetThingUnauthorized, int>(
@@ -159,7 +159,7 @@ public sealed class AuthorizationBehaviorTests
         {
             var r1 = await Invoke<GetThingThrowAllow, int>(
                 scope1, new GetThingThrowAllow(1),
-                static (r, _) => new(r.Id * 2));
+                static (r, _, _) => new(r.Id * 2));
             Assert.Equal(2, r1);
         }
 
@@ -167,7 +167,7 @@ public sealed class AuthorizationBehaviorTests
         {
             var r2 = await Invoke<GetThingThrowAllow, int>(
                 scope2, new GetThingThrowAllow(2),
-                static (r, _) => new(r.Id * 2));
+                static (r, _, _) => new(r.Id * 2));
             Assert.Equal(4, r2);
         }
     }
@@ -177,7 +177,7 @@ public sealed class AuthorizationBehaviorTests
     {
         using var sp = BuildProvider(TestSecurityContexts.With());
         using var scope = sp.CreateScope();
-        ValueTask<int> Next(GetThingCancellable r, CancellationToken c) => new(r.Id);
+        ValueTask<int> Next(GetThingCancellable r, IServiceProvider? _, CancellationToken c) => new(r.Id);
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -189,7 +189,7 @@ public sealed class AuthorizationBehaviorTests
     private static ValueTask<TResponse> Invoke<TRequest, TResponse>(
         IServiceScope scope,
         TRequest request,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next,
+        Func<TRequest, IServiceProvider?, CancellationToken, ValueTask<TResponse>> next,
         CancellationToken ct = default)
         where TRequest : IRequest<TResponse>
     {
@@ -198,7 +198,7 @@ public sealed class AuthorizationBehaviorTests
         // to the scope provider so AuthorizerFor<TRequest> + ISecurityContext resolve against
         // the scope's services.
         AuthorizationBehaviorState.ServiceProvider = scope.ServiceProvider;
-        return AuthorizationBehavior.Handle<TRequest, TResponse>(request, ct, next);
+        return AuthorizationBehavior.Handle<TRequest, TResponse, IServiceProvider?>(request, null, ct, next);
     }
 
     private static ServiceProvider BuildProvider(ISecurityContext ctx)

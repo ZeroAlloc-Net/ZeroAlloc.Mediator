@@ -70,12 +70,12 @@ public class CombinedGeneratorTests
             [PipelineBehavior(Order = 0)]
             public class LoggingBehavior : IPipelineBehavior
             {
-                public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-                    TRequest request, CancellationToken ct,
-                    Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+                public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
+                    TRequest request, TState state, CancellationToken ct,
+                    Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
                     where TRequest : IRequest<TResponse>
                 {
-                    return next(request, ct);
+                    return next(request, state, ct);
                 }
             }
             """;

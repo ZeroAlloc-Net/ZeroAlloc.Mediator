@@ -11,7 +11,8 @@ and Telemetry, add pipeline behaviors. All seven `src/` projects ship to NuGet f
 - `src/ZeroAlloc.Mediator.Generator/MediatorGenerator.cs` holds the generator and the ZAM
   diagnostics; `DiagnosticDescriptors.cs` defines them. ZAM004 and ZAM007 were removed in 6.0:
   do not reuse those ids.
-- The generator packs `ZeroAlloc.Pipeline.Generators.dll` and `ZeroAlloc.Pipeline.dll` next to itself
+- The generator packs `ZeroAlloc.Pipeline.Generators.dll` next to itself (it loads that helper;
+  Pipeline.Generators 2.x no longer needs `ZeroAlloc.Pipeline.dll`)
   under `analyzers/dotnet/cs`, never under `lib/`. `scripts/verify-generator-pack-layout.sh` checks
   that in CI and in the release publish.
 - `samples/ZeroAlloc.Mediator.AotSmoke` is the NativeAOT smoke: one folder per bridge, all run from
@@ -74,20 +75,22 @@ bash scripts/verify-generator-pack-layout.sh ./artifacts
     only its `ToString`.
   - 32 B: `AuthorizationBehavior.Handle`, allow and `IAuthorizedRequest` deny path, for the
     `ResourceSecurityContextAdapter`.
-  - 184 B: `IMediator.Send` through the authorization pipeline: 128 B of `next` delegates, 24 B
-    transient handler, 32 B adapter. The delegates go away with ZeroAlloc.Pipeline#121; until then
-    `IMediator.Send` with a pipeline has no 0 B gate. Do not claim one.
+  - 56 B: `IMediator.Send` through the authorization pipeline: 24 B transient handler, 32 B
+    adapter. It was 184 B before the provider became the pipeline state, which removed 128 B of
+    `next` delegates.
+  - 0 B: `IMediator.Send` through two awaiting behaviors with the singleton handler.
 - Test projects with gates set `<Optimize>true</Optimize>`: a Debug async state machine allocates
   248 to 344 B and fails the gates. `Cache.Tests` also sets `TieredCompilation=false`, because tier-0
   code boxes struct requests. Add both when you add a gate to another test project.
-- `Mediator.Configure`, `SetFactory`, `PipelineBehaviorServices` and the mediator's `ActivitySource`
+- `Mediator.Configure`, `SetFactory` and the mediator's `ActivitySource`
   are process-wide, so tests that touch them run in a `DisableParallelization` collection. An
   `ActivityListener` attached by a parallel test makes every dispatch allocate an `Activity` and
   breaks the 0 B gates.
 - Every project that references the generator as a `ProjectReference` also needs
-  `ZeroAlloc.Pipeline.Generators` as an analyzer and `ZeroAlloc.Pipeline`, both at
-  `$(ZeroAllocPipelineVersion)`. That property in `Directory.Build.props` is the single version for
-  ZeroAlloc.Pipeline; do not lower it below 1.4.0, which ZeroAlloc.Validation requires.
+  `ZeroAlloc.Pipeline.Generators` as an analyzer, at `$(ZeroAllocPipelineGeneratorsVersion)`, and
+  `ZeroAlloc.Pipeline`, at `$(ZeroAllocPipelineVersion)`. Those properties in `Directory.Build.props`
+  are the single versions; do not lower `ZeroAllocPipelineVersion` below 1.4.0, which
+  ZeroAlloc.Validation requires.
 - Public API is tracked per package in `PublicAPI.Unshipped.txt`; RS0016 and RS0017 are errors. A
   new or changed ZAM rule goes in `AnalyzerReleases.Unshipped.md`. The release PR moves both to
   Shipped; do not edit the Shipped files by hand. New ZAM rules are also documented in

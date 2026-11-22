@@ -248,16 +248,17 @@ using System.Diagnostics;
 [PipelineBehavior(Order = 0)]
 public sealed class LoggingBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         var name = typeof(TRequest).Name;
         var sw = Stopwatch.StartNew();
         try
         {
-            var result = await next(request, ct);
+            var result = await next(request, state, ct);
             Console.WriteLine($"[OK] {name} in {sw.ElapsedMilliseconds}ms");
             return result;
         }

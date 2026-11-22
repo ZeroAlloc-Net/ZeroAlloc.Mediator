@@ -59,10 +59,11 @@ The validation behavior:
 [PipelineBehavior(Order = 10)]
 public sealed class ValidationBehavior : IPipelineBehavior
 {
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         if (request is IValidatable validatable)
         {
@@ -71,7 +72,7 @@ public sealed class ValidationBehavior : IPipelineBehavior
                 throw new ValidationException(errors);
         }
 
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 }
 
@@ -151,10 +152,11 @@ public sealed class FluentValidationBehavior : IPipelineBehavior
     // Cache validator instances to avoid repeated service resolution overhead
     private static readonly ConcurrentDictionary<Type, object?> _validatorCache = new();
 
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
     {
         var validator = GetValidator<TRequest>();
         if (validator is not null)
@@ -165,7 +167,7 @@ public sealed class FluentValidationBehavior : IPipelineBehavior
                 throw new FluentValidation.ValidationException(result.Errors);
         }
 
-        return await next(request, ct);
+        return await next(request, state, ct);
     }
 
     private static IValidator<TRequest>? GetValidator<TRequest>()
@@ -205,12 +207,12 @@ sequenceDiagram
     participant Handler
 
     App->>LoggingBehavior: Send(CreateProductCommand)
-    LoggingBehavior->>ValidationBehavior: next(request, ct)
+    LoggingBehavior->>ValidationBehavior: next(request, state, ct)
     ValidationBehavior->>ValidationBehavior: request.Validate() / validator.ValidateAsync()
     alt Validation fails
         ValidationBehavior-->>App: throw ValidationException
     else Validation passes
-        ValidationBehavior->>Handler: next(request, ct)
+        ValidationBehavior->>Handler: next(request, state, ct)
         Handler-->>ValidationBehavior: ProductId
         ValidationBehavior-->>LoggingBehavior: ProductId
         LoggingBehavior-->>App: ProductId

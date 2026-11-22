@@ -131,9 +131,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int>(
+            var allowResult = AuthorizationBehavior.Handle<AotThrowAllow, int, IServiceProvider>(
                 new AotThrowAllow(7), scope.ServiceProvider, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
+                static (r, _, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
             if (allowResult != 14) throw new InvalidOperationException("throw-allow regressed");
         }
 
@@ -143,9 +143,9 @@ internal static class AuthorizedScenario
         {
             try
             {
-                _ = AuthorizationBehavior.Handle<AotThrowDeny, int>(
+                _ = AuthorizationBehavior.Handle<AotThrowDeny, int, IServiceProvider>(
                     new AotThrowDeny(7), scope.ServiceProvider, CancellationToken.None,
-                    static (r, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
+                    static (r, _, _) => ValueTask.FromResult(r.Id * 2)).GetAwaiter().GetResult();
                 throw new InvalidOperationException("throw-deny did not throw");
             }
             catch (AuthorizationDeniedException) { /* expected */ }
@@ -158,9 +158,9 @@ internal static class AuthorizedScenario
         using (var sp = BuildProvider(adminCtx))
         using (var scope = sp.CreateScope())
         {
-            var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>>(
+            var resultAllow = AuthorizationBehavior.Handle<AotResultAllow, Result<int, AuthorizationFailure>, IServiceProvider>(
                 new AotResultAllow(5), scope.ServiceProvider, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
+                static (r, _, _) => ValueTask.FromResult<Result<int, AuthorizationFailure>>(r.Id * 2))
                 .GetAwaiter().GetResult();
             if (!resultAllow.IsSuccess || resultAllow.Value != 10)
                 throw new InvalidOperationException("result-allow regressed");
@@ -183,9 +183,9 @@ internal static class AuthorizedScenario
     {
         using var sp = BuildProvider(anonCtx);
         using var scope = sp.CreateScope();
-        var response = AuthorizationBehavior.Handle<TRequest, TResponse>(
+        var response = AuthorizationBehavior.Handle<TRequest, TResponse, IServiceProvider>(
             request, scope.ServiceProvider, CancellationToken.None,
-            static (_, _) => throw new InvalidOperationException("next must not run"))
+            static (_, _, _) => throw new InvalidOperationException("next must not run"))
             .GetAwaiter().GetResult();
         var (isSuccess, code) = inspect(response);
         if (isSuccess)
@@ -205,8 +205,8 @@ internal static class AuthorizedScenario
         var req = new AotThrowAllow(7);
 
         AllocationGate.AssertBudgetValueTask(32, 1000,
-            () => AuthorizationBehavior.Handle<AotThrowAllow, int>(req, services, CancellationToken.None,
-                static (r, _) => ValueTask.FromResult(r.Id * 2)),
+            () => AuthorizationBehavior.Handle<AotThrowAllow, int, IServiceProvider>(req, services, CancellationToken.None,
+                static (r, _, _) => ValueTask.FromResult(r.Id * 2)),
             "AuthorizationBehavior.Handle (AOT smoke allow happy path)");
     }
 

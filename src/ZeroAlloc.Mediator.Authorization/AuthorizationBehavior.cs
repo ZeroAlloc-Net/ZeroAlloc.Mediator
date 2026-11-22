@@ -17,10 +17,9 @@ namespace ZeroAlloc.Mediator.Authorization;
 /// <para><b>Services come from the request being dispatched.</b> The dispatcher and the security
 /// context are scoped, so they are resolved from the provider of the <c>IMediator</c> dispatching
 /// the request, which is the request's scope when <c>IMediator</c> was resolved from one. The
-/// generated <c>IMediator.Send</c> passes that provider to the <c>Handle</c> overload that takes
-/// one; the other overload, called by older generators, reads it from
-/// <see cref="PipelineBehaviorServices.Current"/>. Each request is authorized with its own
-/// caller's identity, and two containers in one process never see each other's services.</para>
+/// generated <c>IMediator.Send</c> passes that provider to <c>Handle</c> as its state. Each
+/// request is authorized with its own caller's identity, and two containers in one process never
+/// see each other's services.</para>
 /// <para>A request dispatched without <c>IMediator</c>, through the static <c>Mediator</c> class or
 /// a direct call, has no request scope. The behavior then opens a scope of its own on the
 /// container <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/> was
@@ -50,40 +49,33 @@ namespace ZeroAlloc.Mediator.Authorization;
 [PipelineBehavior(Order = -1000)]
 public sealed class AuthorizationBehavior : IPipelineBehavior
 {
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
-        TRequest request,
-        CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
-        where TRequest : IRequest<TResponse>
-    {
-        var services = PipelineBehaviorServices.Current;
-        return services is not null
-            ? AuthorizeAsync(services, request, ct, next)
-            : AuthorizeInOwnScopeAsync(request, ct, next);
-    }
-
     /// <summary>
     /// Authorizes <paramref name="request"/> with the services of the request being dispatched.
-    /// The generated <c>IMediator.Send</c> calls this overload with the provider it was resolved
-    /// from, so the pipeline needs no <see cref="PipelineBehaviorServices.Current"/>.
+    /// The generated <c>IMediator.Send</c> passes the provider it was resolved from as
+    /// <paramref name="state"/>, so the pipeline needs no ambient state and allocates no delegate.
     /// </summary>
+    /// <typeparam name="TRequest">The request type.</typeparam>
+    /// <typeparam name="TResponse">The response type.</typeparam>
+    /// <typeparam name="TState">The pipeline state, the provider of the request being dispatched.</typeparam>
     /// <param name="request">The request to authorize.</param>
-    /// <param name="services">
+    /// <param name="state">
     /// The provider of the request being dispatched. The dispatcher and the security context are
-    /// resolved from it.
+    /// resolved from it. <see langword="null"/> for a request dispatched through the static
+    /// <c>Mediator</c> class, which has no request scope: the behavior then opens a scope of its
+    /// own.
     /// </param>
     /// <param name="ct">The cancellation token of the request.</param>
     /// <param name="next">The rest of the pipeline.</param>
-    public static ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
-        IServiceProvider services,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        return AuthorizeAsync(services, request, ct, next);
-    }
+        where TState : IServiceProvider?
+        => state is null
+            ? AuthorizeInOwnScopeAsync(request, state, ct, next)
+            : AuthorizeAsync(state, request, state, ct, next);
 
     /// <summary>
     /// Authorizes a stream request before its handler runs. The generated <c>CreateStream</c>
@@ -96,16 +88,14 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
     /// <param name="request">The stream request to authorize.</param>
     /// <param name="services">
     /// The provider of the request being dispatched, which the generated <c>IMediator</c> passes.
-    /// When <see langword="null"/>, as from the static <c>Mediator</c> class, the provider in
-    /// <see cref="PipelineBehaviorServices.Current"/> is used, and without one the check runs in
-    /// a scope of its own, as for <c>Send</c>.
+    /// When <see langword="null"/>, as from the static <c>Mediator</c> class, the check runs in a
+    /// scope of its own, as for <c>Send</c>.
     /// </param>
     /// <param name="ct">The cancellation token of the enumeration.</param>
     /// <returns>A task that completes when the request is allowed.</returns>
     /// <exception cref="AuthorizationDeniedException">A policy denied the request.</exception>
     public static ValueTask CheckStream<TRequest>(TRequest request, IServiceProvider? services, CancellationToken ct)
     {
-        services ??= PipelineBehaviorServices.Current;
         return services is not null
             ? AuthorizeStreamAsync(services, request, ct)
             : AuthorizeStreamInOwnScopeAsync(request, ct);
@@ -114,38 +104,40 @@ public sealed class AuthorizationBehavior : IPipelineBehavior
     // No IMediator dispatch, so no request scope to read. The container WithAuthorization was
     // wired to is the root provider, and scoped services resolved from it are cached for the
     // container's lifetime, so the request gets a scope of its own instead.
-    private static async ValueTask<TResponse> AuthorizeInOwnScopeAsync<TRequest, TResponse>(
+    private static async ValueTask<TResponse> AuthorizeInOwnScopeAsync<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         var root = AuthorizationBehaviorState.ServiceProvider;
         if (root is null)
-            return await next(request, ct).ConfigureAwait(false);
+            return await next(request, state, ct).ConfigureAwait(false);
 
         // A request type without a dispatcher has no policies: skip opening a scope for it.
         // IServiceProviderIsService answers from the registrations without creating anything.
         if (root.GetService<IServiceProviderIsService>() is { } isService
             && !isService.IsService(typeof(AuthorizerFor<TRequest>)))
-            return await next(request, ct).ConfigureAwait(false);
+            return await next(request, state, ct).ConfigureAwait(false);
 
         var scope = root.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            return await AuthorizeAsync(scope.ServiceProvider, request, ct, next).ConfigureAwait(false);
+            return await AuthorizeAsync(scope.ServiceProvider, request, state, ct, next).ConfigureAwait(false);
         }
     }
 
-    private static async ValueTask<TResponse> AuthorizeAsync<TRequest, TResponse>(
+    private static async ValueTask<TResponse> AuthorizeAsync<TRequest, TResponse, TState>(
         IServiceProvider services,
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         if (await EvaluateAsync(services, request, ct).ConfigureAwait(false) is not { } failure)
-            return await next(request, ct).ConfigureAwait(false);
+            return await next(request, state, ct).ConfigureAwait(false);
 
         var factory = AuthorizationFailureFactory<TResponse>.Create;
         if (factory is not null)

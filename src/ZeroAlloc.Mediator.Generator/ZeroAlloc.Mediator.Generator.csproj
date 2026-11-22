@@ -27,7 +27,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.12.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" PrivateAssets="all" />
-    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineVersion)" PrivateAssets="all" />
+    <PackageReference Include="ZeroAlloc.Pipeline.Generators" Version="$(ZeroAllocPipelineGeneratorsVersion)" PrivateAssets="all" />
   </ItemGroup>
 
   <!--
@@ -42,8 +42,7 @@
   <Target Name="CopyGeneratorHelperDlls" AfterTargets="Build">
     <ItemGroup>
       <_GeneratorHelperDll Include="@(ReferencePath)"
-                           Condition="'%(Filename)' == 'ZeroAlloc.Pipeline.Generators'
-                                   or '%(Filename)' == 'ZeroAlloc.Pipeline'" />
+                           Condition="'%(Filename)' == 'ZeroAlloc.Pipeline.Generators'" />
     </ItemGroup>
     <Copy SourceFiles="@(_GeneratorHelperDll)"
           DestinationFolder="$(OutputPath)"
@@ -66,10 +65,6 @@
           Visible="false"
           Condition="Exists('$(OutputPath)\$(AssemblyName).pdb')" />
     <None Include="$(OutputPath)\ZeroAlloc.Pipeline.Generators.dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs"
-          Visible="false" />
-    <None Include="$(OutputPath)\ZeroAlloc.Pipeline.dll"
           Pack="true"
           PackagePath="analyzers/dotnet/cs"
           Visible="false" />

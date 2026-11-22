@@ -32,7 +32,7 @@ namespace ZeroAlloc.Mediator.Generator
         public static readonly DiagnosticDescriptor MissingBehaviorHandleMethod = new DiagnosticDescriptor(
             "ZAM005",
             "Missing behavior Handle method",
-            "Pipeline behavior '{0}' is missing a public static Handle<TRequest, TResponse> method",
+            "Pipeline behavior '{0}' is missing a public static Handle<TRequest, TResponse, TState> method",
             "ZeroAlloc.Mediator",
             DiagnosticSeverity.Error,
             isEnabledByDefault: true);
