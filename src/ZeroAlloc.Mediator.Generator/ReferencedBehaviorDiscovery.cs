@@ -19,8 +19,9 @@ namespace ZeroAlloc.Mediator.Generator
     /// registered.</para>
     /// <para>A referenced type joins the pipeline when it is a public, non-generic class that
     /// implements <c>ZeroAlloc.Mediator.IPipelineBehavior</c>, carries a
-    /// <c>PipelineBehaviorAttribute</c>, and has a public static two-type-parameter
-    /// <c>Handle</c>. Requiring Mediator's own marker interface keeps out behaviors other
+    /// <c>PipelineBehaviorAttribute</c>. It runs only if it has a public static
+    /// three-type-parameter <c>Handle</c>, TRequest, TResponse and the state; any other
+    /// behavior is reported as ZAM005. Requiring Mediator's own marker interface keeps out behaviors other
     /// ZeroAlloc libraries build on <c>ZeroAlloc.Pipeline</c> for their own pipelines. Only
     /// assemblies that reference <c>ZeroAlloc.Mediator</c> are walked.</para>
     /// </remarks>
@@ -29,7 +30,6 @@ namespace ZeroAlloc.Mediator.Generator
         private const string MediatorAssemblyName = "ZeroAlloc.Mediator";
         private const string MediatorBehaviorInterface = "ZeroAlloc.Mediator.IPipelineBehavior";
         private const string PipelineBehaviorAttribute = "ZeroAlloc.Pipeline.PipelineBehaviorAttribute";
-        private const int SendHandleTypeParameterCount = 2;
 
         public static BehaviorList Discover(Compilation compilation, CancellationToken ct)
         {
@@ -99,7 +99,7 @@ namespace ZeroAlloc.Mediator.Generator
 
             var info = TryCreateInfo(type, marker, attributeBase, out var attribute);
             if (info != null)
-                found.Add((info, BehaviorServicesInfo.From(type, attribute)));
+                found.Add((info, BehaviorServicesInfo.From(type)));
 
             foreach (var nested in type.GetTypeMembers())
                 CollectFromType(nested, marker, attributeBase, found);
@@ -128,14 +128,16 @@ namespace ZeroAlloc.Mediator.Generator
             if (attribute == null)
                 return null;
 
-            if (GetHandleTypeParameterCount(type) != SendHandleTypeParameterCount)
-                return null;
-
+            // A behavior whose Handle has another shape is kept, with the count it has, rather
+            // than skipped: a package built for an older Mediator, whose Handle has no state
+            // parameter, would otherwise drop out of the pipeline without a word. Authorization
+            // would silently stop running. The behavior is reported as ZAM005 and left out of
+            // the generated Send.
             return new PipelineBehaviorInfo(
                 type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 ReadOrder(attribute),
                 ReadAppliesTo(attribute),
-                SendHandleTypeParameterCount);
+                Math.Max(GetHandleTypeParameterCount(type), 0));
         }
 
         private static bool InheritsFrom(INamedTypeSymbol? type, INamedTypeSymbol baseType)
@@ -209,7 +211,7 @@ namespace ZeroAlloc.Mediator.Generator
 
         public ImmutableArray<PipelineBehaviorInfo> Items { get; }
 
-        /// <summary>How each of <see cref="Items"/> reaches the request's services.</summary>
+        /// <summary>What the generator reads from each of <see cref="Items"/> beyond its Handle.</summary>
         public ImmutableArray<BehaviorServicesInfo> Services { get; }
 
         public bool Equals(BehaviorList? other)

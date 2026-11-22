@@ -1,1 +1,2 @@
 #nullable enable
+static ZeroAlloc.Mediator.Resilience.ResilienceBehavior.Handle<TRequest, TResponse, TState>(TRequest request, TState state, System.Threading.CancellationToken ct, System.Func<TRequest, TState, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>

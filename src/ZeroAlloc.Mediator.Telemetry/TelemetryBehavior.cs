@@ -40,7 +40,7 @@ namespace ZeroAlloc.Mediator.Telemetry;
 /// <c>mediator.publish</c> and <c>mediator.stream</c> spans but no metrics from this behavior.
 /// </para>
 /// </remarks>
-[PipelineBehavior(Order = -3000, UsesPipelineBehaviorServices = false)]
+[PipelineBehavior(Order = -3000)]
 public sealed class TelemetryBehavior : IPipelineBehavior
 {
     private static readonly Meter _meter = new("ZeroAlloc.Mediator");
@@ -52,17 +52,18 @@ public sealed class TelemetryBehavior : IPipelineBehavior
     // OTel's fallback value for error.type when no more specific value is available.
     private const string OtherErrorType = "_OTHER";
 
-    public static async ValueTask<TResponse> Handle<TRequest, TResponse>(
+    public static async ValueTask<TResponse> Handle<TRequest, TResponse, TState>(
         TRequest request,
+        TState state,
         CancellationToken ct,
-        Func<TRequest, CancellationToken, ValueTask<TResponse>> next)
+        Func<TRequest, TState, CancellationToken, ValueTask<TResponse>> next)
         where TRequest : IRequest<TResponse>
     {
         var sw = Stopwatch.GetTimestamp();
 
         try
         {
-            var result = await next(request, ct).ConfigureAwait(false);
+            var result = await next(request, state, ct).ConfigureAwait(false);
             _requestsTotal.Add(1);
             _requestDurationMs.Record(Stopwatch.GetElapsedTime(sw).TotalMilliseconds);
             return result;

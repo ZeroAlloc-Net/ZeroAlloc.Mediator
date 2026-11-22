@@ -1,6 +1,5 @@
 #nullable enable
 static ZeroAlloc.Mediator.Resilience.MediatorResilienceServiceCollectionExtensions.WithResilience(this ZeroAlloc.Mediator.IMediatorBuilder! builder) -> ZeroAlloc.Mediator.IMediatorBuilder!
-static ZeroAlloc.Mediator.Resilience.ResilienceBehavior.Handle<TRequest, TResponse>(TRequest request, System.Threading.CancellationToken ct, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TResponse>>! next) -> System.Threading.Tasks.ValueTask<TResponse>
 ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute
 ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.HalfOpenProbes.get -> int
 ZeroAlloc.Mediator.Resilience.MediatorCircuitBreakerAttribute.HalfOpenProbes.init -> void

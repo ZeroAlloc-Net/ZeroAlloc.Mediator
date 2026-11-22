@@ -1,8 +1,6 @@
 #nullable enable
 override ZeroAlloc.Mediator.Unit.GetHashCode() -> int
 static readonly ZeroAlloc.Mediator.Unit.Value -> ZeroAlloc.Mediator.Unit
-static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.get -> System.IServiceProvider?
-static ZeroAlloc.Mediator.PipelineBehaviorServices.Current.set -> void
 static ZeroAlloc.Mediator.Unit.operator !=(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 static ZeroAlloc.Mediator.Unit.operator ==(ZeroAlloc.Mediator.Unit left, ZeroAlloc.Mediator.Unit right) -> bool
 ZeroAlloc.Mediator.HandlerLifetimeAttribute
@@ -34,9 +32,6 @@ ZeroAlloc.Mediator.ParallelNotificationAttribute
 ZeroAlloc.Mediator.ParallelNotificationAttribute.ParallelNotificationAttribute() -> void
 ZeroAlloc.Mediator.PipelineBehaviorAttribute
 ZeroAlloc.Mediator.PipelineBehaviorAttribute.PipelineBehaviorAttribute(int order = 0) -> void
-ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.get -> bool
-ZeroAlloc.Mediator.PipelineBehaviorAttribute.UsesPipelineBehaviorServices.set -> void
-ZeroAlloc.Mediator.PipelineBehaviorServices
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation
 ZeroAlloc.Mediator.PipelineBehaviorStateActivation.PipelineBehaviorStateActivation(System.Collections.Generic.IEnumerable<ZeroAlloc.Mediator.IPipelineBehaviorStateInitializer!>! initializers) -> void
 ZeroAlloc.Mediator.Unit

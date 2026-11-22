@@ -44,7 +44,18 @@ if ! grep -qE '^analyzers/dotnet/cs/ZeroAlloc\.Mediator\.Generator\.dll$' <<<"$E
   exit 1
 fi
 
-# 2. Must NOT contain any DLL under lib/ — that signals the bug returned.
+# 2. Must contain the helper the generator loads at compile time, ZeroAlloc.Pipeline.Generators.dll,
+#    and not ZeroAlloc.Pipeline.dll, which Pipeline.Generators 2.x no longer depends on.
+if ! grep -qE '^analyzers/dotnet/cs/ZeroAlloc\.Pipeline\.Generators\.dll$' <<<"$ENTRIES"; then
+  echo "FAIL: ZeroAlloc.Pipeline.Generators.dll missing from analyzers/dotnet/cs/" >&2
+  exit 1
+fi
+if grep -qE '^analyzers/dotnet/cs/ZeroAlloc\.Pipeline\.dll$' <<<"$ENTRIES"; then
+  echo "FAIL: ZeroAlloc.Pipeline.dll is packed under analyzers/dotnet/cs/; the generator does not use it" >&2
+  exit 1
+fi
+
+# 3. Must NOT contain any DLL under lib/ — that signals the bug returned.
 if grep -qE '^lib/.*\.dll$' <<<"$ENTRIES"; then
   echo "FAIL: nupkg contains DLLs under lib/ — generator is being shipped as a regular library reference" >&2
   echo "Offending entries:" >&2

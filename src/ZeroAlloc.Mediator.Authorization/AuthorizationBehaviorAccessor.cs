@@ -4,14 +4,14 @@ namespace ZeroAlloc.Mediator.Authorization;
 
 #pragma warning disable MA0048 // file groups behavior-public accessor + state
 /// <summary>
-/// Static carrier for the container <see cref="AuthorizationBehavior.Handle{TRequest, TResponse}"/>
+/// Static carrier for the container <see cref="AuthorizationBehavior.Handle{TRequest, TResponse, TState}"/>
 /// falls back to when a request is not dispatched through <c>IMediator</c>, such as through the
 /// static <c>Mediator</c> class. Set via <see cref="AuthorizationBehaviorAccessor"/>'s constructor
 /// on first DI resolution after <see cref="MediatorAuthorizationServiceCollectionExtensions.WithAuthorization"/>.
 /// </summary>
 /// <remarks>
 /// <para>A request dispatched through <c>IMediator</c> never reads this field: its services come
-/// from <see cref="PipelineBehaviorServices.Current"/>, the provider of the dispatching
+/// from the state <c>Handle</c> receives, the provider of the dispatching
 /// <c>IMediator</c>. Without one, the behavior opens a scope on this container for each request,
 /// and never resolves the scoped security context from the container itself.</para>
 /// <para>Public so non-Mediator hosts (samples, AOT smoke binaries) can resolve the
