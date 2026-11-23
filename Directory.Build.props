@@ -64,6 +64,11 @@
          ZeroAlloc.Mediator.Validation. -->
     <ZeroAllocPipelineVersion>1.4.0</ZeroAllocPipelineVersion>
 
+    <!-- ZeroAlloc.Pipeline.Generators version, the DLL the Mediator generator bundles. 1.5.2
+         references Roslyn 5.0, so every .NET 10 SDK loads the generator that bundles it; 1.4.0
+         referenced 5.9. 1.5 adds only .NET 11 support, so the runtime floor above stays. -->
+    <ZeroAllocPipelineGeneratorsVersion>1.5.2</ZeroAllocPipelineGeneratorsVersion>
+
     <!-- NuGet package metadata -->
     <Authors>Marcel Roozekrans</Authors>
     <Company>Marcel Roozekrans</Company>
