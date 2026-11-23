@@ -1,4 +1,9 @@
 <Project>
   <!-- Stops the import chain: this project stands in for a consumer, so the repository's
-       build settings, analyzers and pack checks must not apply to it. -->
+       build settings, analyzers, pack checks and targets must not apply to it. The root
+       Directory.Build.targets promotes ZeroAlloc.Pipeline and ZeroAlloc.Pipeline.Generators
+       to analyzers, which a consumer of the packages does not get. -->
+  <PropertyGroup>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+  </PropertyGroup>
 </Project>
