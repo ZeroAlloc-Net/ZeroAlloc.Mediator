@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.7.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.2...v6.7.3) (2026-11-23)
+
+
+### Bug Fixes
+
+* build the generator against Roslyn 5.0 so every .NET 10 SDK loads it ([#472](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/issues/472)) ([850d981](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/commit/850d981ab4246ce102c3fc1325efbafb59903719))
+
 ## [6.7.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Mediator/compare/v6.7.1...v6.7.2) (2026-11-16)
 
 
